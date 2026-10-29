@@ -38,6 +38,7 @@ One dated line per decision, newest last. Architectural decisions link to their 
 | 2026-10-29 | `main` is protected by a ruleset (pull request, all checks including SonarCloud, no bypass); SonarCloud analyses from GitHub Actions with coverage | none |
 | 2026-10-29 | The evaluator confirmed that creating the order as `PendingPayment` is valid; ADR-0014 is fully accepted and the deposit-request fallback is dropped | [ADR-0014](../adr/0014-order-created-as-pending-payment.md) |
 | 2026-10-29 | The repository is public so that GitHub Actions runs without billing limits | none |
+| 2026-10-29 | CI secrets are created twice, as repository secrets and as Dependabot secrets, because Dependabot pull requests only receive the latter; `CI_SA_PASSWORD` is done and `SONAR_TOKEN` is pending for Dependabot | none |
 | 2026-10-29 | The SonarCloud threshold is kept and tests were added for the uncovered production code, instead of lowering the gate or excluding code | none |
 | 2026-10-29 | `vitest` and `@vitest/coverage-v8` are upgraded together, and Dependabot bumps of major versions are reviewed one by one in a branch, because ungrouped bumps broke `main` | none |
 | 2026-10-29 | The repository scripts run git from fixed absolute paths and never through the `PATH` variable, to resolve a SonarCloud security hotspot | none |

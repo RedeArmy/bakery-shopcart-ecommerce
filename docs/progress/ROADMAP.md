@@ -36,6 +36,7 @@ Stages 2 to 6 now have to fit in the four days before Delivery Phase 1; see the 
 - [x] Evaluator question about `PendingPayment` answered affirmatively (open question 4).
 - [ ] Dependabot: ignore major versions and group minor and patch updates (before Stage 2).
 - [ ] Enable "Automatically delete head branches" in the repository settings (before Stage 2).
-- [ ] Create the `CI_SA_PASSWORD` secret for the `sql-tests` job (Stage 2).
+- [x] Create the `CI_SA_PASSWORD` secret for the `sql-tests` job, as a repository and a Dependabot secret.
+- [ ] Add `SONAR_TOKEN` as a Dependabot secret so the required `sonarcloud` check can pass on Dependabot pull requests (before Stage 2).
 - [ ] Add `sql-tests` and `integration` to the required checks of the ruleset once they are enabled (Stage 2).
 - [ ] Plan the first Stage 2 task as the tSQLt spike; choose plan B if it cannot install (Stage 2).

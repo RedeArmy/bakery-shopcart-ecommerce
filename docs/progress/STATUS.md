@@ -16,12 +16,13 @@ _Last updated: Thursday 29 October 2026 (end of the repository hardening session
 - **Dependencies:** `vitest` and `@vitest/coverage-v8` were upgraded together to 5.0.5; `@eslint/js` stays on 9.x to match `eslint` 9; the Dependabot bumps of `pino`, `commitlint` and the GitHub Actions were merged.
 - **Fixes found by the first CI runs:** a gitleaks false positive on a documented configuration key, backtracking regular expressions in the spelling check, health checks that used `localhost` (IPv6) instead of `127.0.0.1`, husky hooks that called `npx` (a bash script that resolves to WSL bash on some Windows setups), and a commitlint line-length rule that GUI clients cannot satisfy.
 - **The repository is public**, so GitHub Actions runs without billing limits. Only `main` exists as a branch.
+- **The `CI_SA_PASSWORD` secret exists** as a repository secret and as a Dependabot secret (created on 29 Oct). The `sql-tests` job will use it as the password of the throwaway SQL Server in CI. Its value cannot be read back, so it is only proven when the job is enabled in Stage 2.
 
 ## Next
 
 1. **Housekeeping:** enable "Automatically delete head branches" in GitHub; update the primary checkout (`git pull --ff-only`) and run `npm ci` with Node 26; restart the terminals and tools that still hold the old `PATH`.
 2. **Dependabot configuration** in a pull request: ignore major versions and group minor and patch updates, because ungrouped major bumps broke `main` twice (the vitest pair and `@eslint/js`).
-3. **Create the `CI_SA_PASSWORD` secret** that the `sql-tests` job needs.
+3. **Add `SONAR_TOKEN` as a Dependabot secret.** Dependabot pull requests do not receive repository secrets, so without it the required `sonarcloud` check fails on them. Run `gh secret set SONAR_TOKEN --app dependabot` (it prompts for the value) or use Settings, Secrets and variables, Dependabot.
 4. **Stage 2, starting with the tSQLt spike** (the first risk in the [risk register](risk-register.md)), then the migration runner, tables V0001 to V0009 and the seeds. Use one small pull request per block. When `sql-tests` and `integration` are enabled, add them to the required checks of the ruleset.
 
 ## Decisions confirmed
