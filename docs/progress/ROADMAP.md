@@ -16,6 +16,17 @@
 | [ ] 9 | Method switching, refunds, SonarQube, Schemathesis, Playwright, extras, defence rehearsal | Sun 8 Nov | Phase 2 | 7, 8 | End-to-end scenarios green; quality profile runs |
 | [ ] 10 | Final polish and push | Mon 9 Nov | **Phase 2, Mon 9 Nov 23:59** | 9 | Clean-machine run from the README only; tag `release: phase 2` |
 
+## Repository hardening (between Stage 1 and Stage 2, done on 29 Oct)
+
+- [x] GitHub Actions pipeline passing on `main` with nine required jobs.
+- [x] Ruleset that protects `main`: pull request, all checks, linear history, no bypass.
+- [x] SonarCloud analysis with a passing quality gate and coverage above 80 % on production code.
+- [x] Node 26 LTS as the runtime in `.nvmrc`, `engines`, CI and Docker.
+- [x] Controlled dependency upgrades (`vitest` pair, `@eslint/js` kept on 9.x).
+- [x] Branches cleaned up: only `main` remains.
+
+Stages 2 to 6 now have to fit in the four days before Delivery Phase 1; see the calendar risk in [STATUS](STATUS.md).
+
 ## Tracked follow-ups
 
 - [ ] `formatMoney` in `frontend/src/shared/lib/money` and its skipped test (Stage 7).
@@ -23,3 +34,8 @@
 - [ ] Enable the `sql-tests` and `integration` CI jobs (Stage 2).
 - [ ] Add the `windows-smoke` CRLF checksum test (Stage 2).
 - [ ] Send the evaluator question about `PendingPayment` (open question 4).
+- [ ] Dependabot: ignore major versions and group minor and patch updates (before Stage 2).
+- [ ] Enable "Automatically delete head branches" in the repository settings (before Stage 2).
+- [ ] Create the `CI_SA_PASSWORD` secret for the `sql-tests` job (Stage 2).
+- [ ] Add `sql-tests` and `integration` to the required checks of the ruleset once they are enabled (Stage 2).
+- [ ] Plan the first Stage 2 task as the tSQLt spike; choose plan B if it cannot install (Stage 2).

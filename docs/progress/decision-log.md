@@ -36,4 +36,12 @@ One dated line per decision, newest last. Architectural decisions link to their 
 | 2026-10-29 | The runtime is Node 26 LTS (`.nvmrc`, `engines`, CI, Docker images and `@types/node`), verified on `node:26-slim` and with the full compose stack; Node 25 was discarded because it is not an LTS release | [ADR-0022](../adr/0022-windows-linux-environment-and-npm-run.md) |
 | 2026-10-29 | `@eslint/js` stays on 9.x to match `eslint` 9; the merged major bump made `npm install` fail with ERESOLVE | none |
 | 2026-10-29 | `main` is protected by a ruleset (pull request, all checks including SonarCloud, no bypass); SonarCloud analyses from GitHub Actions with coverage | none |
+| 2026-10-29 | The repository is public so that GitHub Actions runs without billing limits | none |
+| 2026-10-29 | The SonarCloud threshold is kept and tests were added for the uncovered production code, instead of lowering the gate or excluding code | none |
+| 2026-10-29 | `vitest` and `@vitest/coverage-v8` are upgraded together, and Dependabot bumps of major versions are reviewed one by one in a branch, because ungrouped bumps broke `main` | none |
+| 2026-10-29 | The repository scripts run git from fixed absolute paths and never through the `PATH` variable, to resolve a SonarCloud security hotspot | none |
+| 2026-10-29 | The gitleaks configuration allow-lists the documented `IdempotencyKeyHours` setting, which the generic API key rule mistook for a secret | none |
+| 2026-10-29 | The husky hooks call `node` directly instead of `npx`, because `npx` is a bash script that resolves to WSL bash on some Windows setups | none |
+| 2026-10-29 | The commitlint body line-length rule is switched off, because GUI Git clients do not wrap long lines | none |
+| 2026-10-29 | Health checks use `127.0.0.1` instead of `localhost`, because Alpine resolves `localhost` to IPv6 while nginx listens on IPv4 | none |
 | 2026-10-28 | Demo coupon codes are `WELCOME10` and `CAKES25` (the prompt wins over the design's Spanish codes) | none |
