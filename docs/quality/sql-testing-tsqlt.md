@@ -71,9 +71,44 @@ GO
 
 Trigger and procedure tests follow the same pattern (`SetUp` → execute → `tSQLt.ExpectException` / `AssertEqualsTable`).
 
+## Spike result (29 October 2026)
+
+**tSQLt installs and runs on the Linux SQL Server image, so plan B is not needed.** It was checked on Docker Desktop for Windows (WSL2 backend), with the same image that CI uses.
+
+| Item | Result |
+|---|---|
+| Image | `mcr.microsoft.com/mssql/server:2022-latest`, SQL Server 2022 CU27 (16.0.4305.5), Ubuntu 22.04, x64 |
+| Starting point | `clr enabled = 0` and `clr strict security = 1`, the most demanding case |
+| Version to pin | **tSQLt 1.0.8083.3529** (Apache 2.0). The release notes of 1.0.8043 state that tSQLt is certified for SQL Server on Linux |
+| Installation | `PrepareServer.sql` (as `sa`) enables CLR and installs the assembly key; then `tSQLt.class.sql` in the database. No errors |
+| Result | Assembly `tSQLtCLR` with permission set `SAFE_ACCESS`; the database is **not** `TRUSTWORTHY` |
+| Tests | 8 cases: 7 passed and the deliberate failure was reported as `Failure`. Five consecutive runs gave 7/7 |
+| CI gate | `sqlcmd -b` returns exit code 1 when a test fails and 0 when all pass |
+| Report | `tSQLt.SetTestResultFormatter 'tSQLt.XmlResultFormatter'` followed by `RunAll` writes JUnit-style XML (`testsuites`, one `testsuite` per class) |
+| Money | `FU_Money_HalfEvenDivision` passed the golden values: ties `2454,5 → 2454` and `2455,5 → 2456`, VAT of Q112.00 is Q12.00, refunds 3333 + 3333 + 3334 |
+
+Checksums of the files to vendor in `db/tests/tsqlt/install` (SHA-256):
+
+| File | SHA-256 |
+|---|---|
+| `tSQLt.class.sql` | `f77453e00490491128b2bc0abbfa63c7b833c5207b31106f5cb8dc1ae741d401` |
+| `PrepareServer.sql` | `440fc3a5b67ccbe901f225ffe0ff2350834ba82121a8caa54032f300fa255958` |
+| `License.txt` | `1977f3ee406e85088b107e97bcceface66fb3e137704457acf441a262dfd9c88` | <!-- spelling-ignore -->
+| Downloaded `tSQLt_V1.0.8083.3529.zip` | `af841f357dd9189f8b197c34c5014fe0dbabd3be34b024ed46967dafe13d4f50` |
+
+The official download is `https://tsqlt.org/download/tsqlt/`; the GitHub repository publishes no release assets.
+
+### Lessons for writing the tests
+
+1. **`IDENTITY` values are not rolled back.** The transaction that tSQLt rolls back after each test does not reset identity counters, so a test must never assume `IDVariant = 1`. Read the key it just inserted or operate without filtering by it. This broke a spike test as soon as another test inserted a row first.
+2. **Test order is not fixed.** The same suite ran in different orders, which is why isolation problems like the one above show up intermittently.
+3. **Parameters cannot be expressions.** `tSQLt.AssertEquals @Actual = (SELECT …)` is a syntax error; assign the value to a variable first.
+4. **`sqlcmd -h` and `-y` are mutually exclusive.** To capture the XML use `-y 0 -o <file>` without `-h`.
+5. **Tests that exercise a `CHECK`, `UNIQUE` or trigger use the real tables.** `FakeTable` removes constraints, as designed above, and the spike confirmed it ignores a `CHECK` that the real table enforces.
+
 ## Risks and mitigation
 
-- **tSQLt requires CLR.** A spike on day one (migrate, install, run one test) validates it on the Linux SQL Server image and Docker Desktop (WSL2). **Plan B:** write the same assertions as Vitest tests calling the procedures through `executeProcedure` (layer B covers them); the case catalogue does not change.
+- **tSQLt requires CLR.** The spike validated it on the Linux SQL Server image and Docker Desktop (WSL2), so it is no longer a risk. **Plan B,** kept only as a reference: write the same assertions as Vitest tests calling the procedures through `executeProcedure` (layer B covers them); the case catalogue does not change.
 - **Time.** The framework base takes three to four hours; the rest is added per module with each procedure (rule: a critical procedure is not done without its test).
 - **Test data in the CI database.** It is destroyed at the end of the job and never reused.
 
