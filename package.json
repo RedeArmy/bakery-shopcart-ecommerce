@@ -32,7 +32,7 @@
     "arch:check": "depcruise --config .dependency-cruiser.cjs backend/src && tsx tools/scripts/arch-self-test.ts",
     "db:migrate": "tsx tools/scripts/not-implemented.ts db:migrate 2",
     "db:verify": "tsx tools/scripts/not-implemented.ts db:verify 2",
-    "sql:lint": "tsx db/lint/lint-file-names.ts",
+    "sql:lint": "tsx db/lint/lint-file-names.ts && tsx tools/scripts/verify-vendored.ts",
     "sql:test": "tsx tools/scripts/not-implemented.ts sql:test 2",
     "sql:coverage": "tsx tools/scripts/not-implemented.ts sql:coverage 2",
     "seed": "tsx tools/scripts/not-implemented.ts seed 2",
