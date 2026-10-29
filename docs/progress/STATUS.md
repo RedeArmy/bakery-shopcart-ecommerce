@@ -21,9 +21,12 @@ _Last updated: Thursday 29 October 2026 (end of the repository hardening session
 
 1. **Housekeeping:** enable "Automatically delete head branches" in GitHub; update the primary checkout (`git pull --ff-only`) and run `npm ci` with Node 26; restart the terminals and tools that still hold the old `PATH`.
 2. **Dependabot configuration** in a pull request: ignore major versions and group minor and patch updates, because ungrouped major bumps broke `main` twice (the vitest pair and `@eslint/js`).
-3. **Send the evaluator the `PendingPayment` question** ([open question 4](open-questions.md)) before `SP_Orders_CreateOrder` is written.
-4. **Create the `CI_SA_PASSWORD` secret** that the `sql-tests` job needs.
-5. **Stage 2, starting with the tSQLt spike** (the first risk in the [risk register](risk-register.md)), then the migration runner, tables V0001 to V0009 and the seeds. Use one small pull request per block. When `sql-tests` and `integration` are enabled, add them to the required checks of the ruleset.
+3. **Create the `CI_SA_PASSWORD` secret** that the `sql-tests` job needs.
+4. **Stage 2, starting with the tSQLt spike** (the first risk in the [risk register](risk-register.md)), then the migration runner, tables V0001 to V0009 and the seeds. Use one small pull request per block. When `sql-tests` and `integration` are enabled, add them to the required checks of the ruleset.
+
+## Decisions confirmed
+
+- The evaluator answered affirmatively to the `PendingPayment` question, so orders are created before they are paid ([ADR-0014](../adr/0014-order-created-as-pending-payment.md)). `SP_Orders_CreateOrder` is written as designed.
 
 ## Blockers
 

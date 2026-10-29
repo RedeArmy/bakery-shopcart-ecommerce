@@ -17,7 +17,7 @@ One dated line per decision, newest last. Architectural decisions link to their 
 | 2026-10-28 | OpenAPI is written first and the client is generated | [ADR-0011](../adr/0011-contract-first-openapi.md) |
 | 2026-10-28 | Versioned SQL objects, drift detection, expand/contract | [ADR-0012](../adr/0012-versioning-of-sql-objects-and-expand-contract.md) |
 | 2026-10-28 | Cart uses absolute quantities | [ADR-0013](../adr/0013-cart-with-absolute-quantities.md) |
-| 2026-10-28 | Order is created as `PendingPayment` (evaluator question pending) | [ADR-0014](../adr/0014-order-created-as-pending-payment.md) |
+| 2026-10-28 | Order is created as `PendingPayment` | [ADR-0014](../adr/0014-order-created-as-pending-payment.md) |
 | 2026-10-28 | Payment state machine separate from the order's | [ADR-0015](../adr/0015-payment-state-separated-from-order-state.md) |
 | 2026-10-28 | Deposit window is `MIN(24 h, delivery − lead time)` | [ADR-0016](../adr/0016-deposit-window-capped-by-delivery-date.md) |
 | 2026-10-28 | Own Recurrente adapter and Svix verifier | [ADR-0017](../adr/0017-own-recurrente-adapter.md) |
@@ -36,6 +36,7 @@ One dated line per decision, newest last. Architectural decisions link to their 
 | 2026-10-29 | The runtime is Node 26 LTS (`.nvmrc`, `engines`, CI, Docker images and `@types/node`), verified on `node:26-slim` and with the full compose stack; Node 25 was discarded because it is not an LTS release | [ADR-0022](../adr/0022-windows-linux-environment-and-npm-run.md) |
 | 2026-10-29 | `@eslint/js` stays on 9.x to match `eslint` 9; the merged major bump made `npm install` fail with ERESOLVE | none |
 | 2026-10-29 | `main` is protected by a ruleset (pull request, all checks including SonarCloud, no bypass); SonarCloud analyses from GitHub Actions with coverage | none |
+| 2026-10-29 | The evaluator confirmed that creating the order as `PendingPayment` is valid; ADR-0014 is fully accepted and the deposit-request fallback is dropped | [ADR-0014](../adr/0014-order-created-as-pending-payment.md) |
 | 2026-10-29 | The repository is public so that GitHub Actions runs without billing limits | none |
 | 2026-10-29 | The SonarCloud threshold is kept and tests were added for the uncovered production code, instead of lowering the gate or excluding code | none |
 | 2026-10-29 | `vitest` and `@vitest/coverage-v8` are upgraded together, and Dependabot bumps of major versions are reviewed one by one in a branch, because ungrouped bumps broke `main` | none |
