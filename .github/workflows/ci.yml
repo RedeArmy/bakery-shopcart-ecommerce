@@ -1,0 +1,149 @@
+# Pipeline de integración continua (Linux, más un job de humo en Windows).
+# Los jobs que dependen de SQL Server están declarados pero apagados con "if: false"
+# hasta que la etapa indicada los habilite.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '24'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      # --ignore-scripts: en CI no se instalan los hooks de husky
+      - run: npm ci --ignore-scripts
+      # Incluye ESLint, Prettier, cspell (en-GB), ortografía británica y sincronía de los README
+      - run: npm run lint
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run test:unit
+
+  architecture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --ignore-scripts
+      # Incluye la autoprueba: un fixture viola la regla a propósito y debe ser detectado
+      - run: npm run arch:check
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sql-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run sql:lint
+
+  compose-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # .env.example tiene los secretos vacíos: basta para validar la sintaxis de compose
+      - run: docker compose --env-file .env.example config --quiet
+      - run: docker compose --env-file .env.example --profile payments-sandbox --profile quality --profile observability config --quiet
+
+  # Etapa 2: se habilita cuando existan el runner de migraciones y las migraciones V0001-V0009
+  sql-tests:
+    if: false
+    runs-on: ubuntu-latest
+    needs: [sql-lint]
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        ports: ['1433:1433']
+        env:
+          ACCEPT_EULA: 'Y'
+          MSSQL_SA_PASSWORD: ${{ secrets.CI_SA_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run db:migrate
+      # db:verify va ANTES de instalar tSQLt, que nunca viaja en la base de datos entregada (ADR-0023)
+      - run: npm run db:verify
+      - run: npm run sql:test
+      - run: npm run sql:coverage
+
+  # Etapa 2 en adelante: pruebas de integración y concurrencia con Testcontainers (SQL Server real)
+  integration:
+    if: false
+    runs-on: ubuntu-latest
+    needs: [unit]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run test:integration
+
+  # Humo en Windows: dependencias nativas (argon2) y checksum con fin de línea CRLF
+  windows-smoke:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run test:unit
+      # Marcador de la Etapa 2: aquí se verifica que el checksum del runner no cambia con CRLF
+      - run: npm run test --workspace=@shopcart/db-runner
