@@ -11,3 +11,7 @@
 *.pdf binary
 *.woff binary
 *.woff2 binary
+
+# tSQLt vendorizado: se conserva byte a byte (con CRLF) para que los checksums sean iguales en Windows y Linux
+db/tests/tsqlt/install/*.sql -text
+db/tests/tsqlt/install/*.txt -text
