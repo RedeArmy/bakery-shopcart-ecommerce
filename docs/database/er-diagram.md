@@ -108,7 +108,7 @@ CREATE UNIQUE INDEX UX_Payments_OneApproved ON dbo.Payments (IDOrder) WHERE IDPa
 CREATE UNIQUE INDEX UX_Payments_ExternalReference ON dbo.Payments (ExternalReference) WHERE ExternalReference IS NOT NULL;
 ```
 
-The complete DDL is built in Stage 2 following the design (§7.2); each table above is listed there with all its columns and constraints. Seed configuration keys: `ReservationMinutes=15`, `DepositReservationHours=24`, `MinDepositHours=2`, `RejectionGraceHours=12`, `MaxDepositAttempts=3`, `AbandonedCartHours=24`, `ShippingCost=25.00`, `FreeShippingFrom=300.00`, `VatRate=12`, `IdempotencyKeyHours=24`.
+The complete DDL is built in Stage 2 following the design (§7.2); each table above is listed there with all its columns and constraints. Seed configuration settings: `ReservationMinutes=15`, `DepositReservationHours=24`, `MinDepositHours=2`, `RejectionGraceHours=12`, `MaxDepositAttempts=3`, `AbandonedCartHours=24`, `ShippingCost=25.00`, `FreeShippingFrom=300.00`, `VatRate=12`, `IdempotencyKeyHours=24`.
 
 ## Immutability and permissions
 
