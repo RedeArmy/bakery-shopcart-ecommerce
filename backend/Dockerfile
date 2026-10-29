@@ -2,7 +2,7 @@
 # El contexto de construcción es la raíz del repositorio: el lockfile y los workspaces viven allí.
 
 # --- Etapa 1: compilación (incluye dependencias de desarrollo) -------------------------------
-FROM node:24-slim AS build
+FROM node:25-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY backend/package.json backend/
@@ -17,7 +17,7 @@ COPY backend backend
 RUN npm run build --workspace=backend
 
 # --- Etapa 2: ejecución (solo dependencias de producción, usuario no root) -------------------
-FROM node:24-slim AS runtime
+FROM node:25-slim AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 COPY package.json package-lock.json ./
