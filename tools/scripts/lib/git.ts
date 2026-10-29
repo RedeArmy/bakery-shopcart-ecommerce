@@ -7,8 +7,8 @@ const GIT_LOCATIONS: readonly string[] = [
   '/usr/bin/git',
   '/usr/local/bin/git',
   '/opt/homebrew/bin/git',
-  'C:\\Program Files\\Git\\cmd\\git.exe',
-  'C:\\Program Files (x86)\\Git\\cmd\\git.exe',
+  String.raw`C:\Program Files\Git\cmd\git.exe`,
+  String.raw`C:\Program Files (x86)\Git\cmd\git.exe`,
 ];
 
 /** Devuelve la ruta absoluta del ejecutable de git; falla con un mensaje claro si no está instalado. */
