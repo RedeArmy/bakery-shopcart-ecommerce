@@ -10,7 +10,13 @@ export default defineConfig({
     proxy: { '/api': 'http://localhost:3000' },
   },
   test: {
-    include: ['tests/unit/**/*.test.ts'],
-    environment: 'node',
+    include: ['tests/unit/**/*.test.{ts,tsx}'],
+    // jsdom permite montar componentes y el router del navegador en las pruebas unitarias
+    environment: 'jsdom',
+    coverage: {
+      provider: 'v8',
+      // Se mide solo el código de producción, no las pruebas ni la configuración
+      include: ['src/**/*.{ts,tsx}'],
+    },
   },
 });
