@@ -1,0 +1,36 @@
+# Decision log
+
+One dated line per decision, newest last. Architectural decisions link to their ADR.
+
+| Date | Decision | Link |
+|---|---|---|
+| 2026-10-28 | Modular monolith with vertical slices and hexagonal modules | [ADR-0001](../adr/0001-modular-monolith-with-vertical-slices.md) |
+| 2026-10-28 | Critical rules live in stored procedures and `CHECK` constraints | [ADR-0002](../adr/0002-critical-rules-in-stored-procedures-and-checks.md) |
+| 2026-10-28 | Own forward-only migration runner in Node | [ADR-0003](../adr/0003-own-forward-only-migration-runner-in-node.md) |
+| 2026-10-28 | Idempotency at two levels (middleware and unique indexes) | [ADR-0004](../adr/0004-idempotency-at-two-levels.md) |
+| 2026-10-28 | The server never takes cards; deposit is our own, card is hosted | [ADR-0005](../adr/0005-server-never-takes-cards.md) |
+| 2026-10-28 | Eight order states with transitions stored as data | [ADR-0006](../adr/0006-order-lifecycle.md) |
+| 2026-10-28 | Stock reservation as an expiring counter | [ADR-0007](../adr/0007-stock-reservation-as-expiring-counter.md) |
+| 2026-10-28 | VAT included; base computed by subtraction | [ADR-0008](../adr/0008-vat-included-and-how-it-is-calculated.md) |
+| 2026-10-28 | "Completed order" means paid and not cancelled, net of returns | [ADR-0009](../adr/0009-definition-of-completed-order-for-reports.md) |
+| 2026-10-28 | Layered rate limiting (nginx, Express, database lockout) | [ADR-0010](../adr/0010-layered-rate-limiting.md) |
+| 2026-10-28 | OpenAPI is written first and the client is generated | [ADR-0011](../adr/0011-contract-first-openapi.md) |
+| 2026-10-28 | Versioned SQL objects, drift detection, expand/contract | [ADR-0012](../adr/0012-versioning-of-sql-objects-and-expand-contract.md) |
+| 2026-10-28 | Cart uses absolute quantities | [ADR-0013](../adr/0013-cart-with-absolute-quantities.md) |
+| 2026-10-28 | Order is created as `PendingPayment` (evaluator question pending) | [ADR-0014](../adr/0014-order-created-as-pending-payment.md) |
+| 2026-10-28 | Payment state machine separate from the order's | [ADR-0015](../adr/0015-payment-state-separated-from-order-state.md) |
+| 2026-10-28 | Deposit window is `MIN(24 h, delivery − lead time)` | [ADR-0016](../adr/0016-deposit-window-capped-by-delivery-date.md) |
+| 2026-10-28 | Own Recurrente adapter and Svix verifier | [ADR-0017](../adr/0017-own-recurrente-adapter.md) |
+| 2026-10-28 | Payment proofs in a private volume behind a port | [ADR-0018](../adr/0018-storage-of-payment-proofs.md) |
+| 2026-10-28 | Half-even rounding and integer arithmetic | [ADR-0019](../adr/0019-half-even-rounding-and-integer-arithmetic.md) |
+| 2026-10-28 | Amounts are decimal strings in the API | [ADR-0020](../adr/0020-amounts-as-decimal-strings-in-the-api.md) |
+| 2026-10-28 | Append-only financial movements ledger | [ADR-0021](../adr/0021-financial-movements-ledger.md) |
+| 2026-10-28 | `npm run` entry point, LF endings, Windows and Linux support | [ADR-0022](../adr/0022-windows-linux-environment-and-npm-run.md) |
+| 2026-10-28 | tSQLt in CI only, never in the delivered database | [ADR-0023](../adr/0023-sql-tests-with-tsqlt-in-ci-only.md) |
+| 2026-10-28 | British English everywhere, Spanish comments, Spanish UI copy | [ADR-0024](../adr/0024-language-and-spelling-conventions.md) |
+| 2026-10-28 | Backend uses Express 5, zod 3.25, pino 9 and the `mssql` driver; frontend uses React 18, Vite, Tailwind 4 | none |
+| 2026-10-28 | Connectivity check in `/health/ready` uses the driver connection, not inline SQL; Stage 2 swaps it for `SP_System_GetSchemaVersion` | none |
+| 2026-10-28 | `npm run up` generates `.env` secrets locally so a clean machine needs no manual step | [ADR-0022](../adr/0022-windows-linux-environment-and-npm-run.md) |
+| 2026-10-28 | `db-migrate` is a placeholder that creates the database and login with `sqlcmd` until the Stage 2 runner exists | none |
+| 2026-10-28 | The spelling check ignores a line carrying the marker `spelling-ignore`, and cspell ignores comments per file type | [ADR-0024](../adr/0024-language-and-spelling-conventions.md) |
+| 2026-10-28 | Demo coupon codes are `WELCOME10` and `CAKES25` (the prompt wins over the design's Spanish codes) | none |
