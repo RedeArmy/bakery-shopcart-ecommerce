@@ -96,7 +96,7 @@ Checksums of the files to vendor in `db/tests/tsqlt/install` (SHA-256):
 | `License.txt` | `1977f3ee406e85088b107e97bcceface66fb3e137704457acf441a262dfd9c88` | <!-- spelling-ignore -->
 | Downloaded `tSQLt_V1.0.8083.3529.zip` | `af841f357dd9189f8b197c34c5014fe0dbabd3be34b024ed46967dafe13d4f50` |
 
-The official download is `https://tsqlt.org/download/tsqlt/`; the GitHub repository publishes no release assets.
+The official download is `https://tsqlt.org/download/tsqlt/`; the GitHub repository publishes no release assets. The three files are vendored in `db/tests/tsqlt/install` (see its [README](../../db/tests/tsqlt/install/README.md)) and checked by `npm run sql:lint`.
 
 ### Lessons for writing the tests
 
