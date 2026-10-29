@@ -8,7 +8,7 @@ The official SQL Server image runs natively on x64 without emulation ([ADR-0022]
 | **Line endings and checksums** | With `core.autocrlf` on Windows the same script changes bytes. `.gitattributes` (`* text=auto eol=lf`) **and** the runner normalising `CRLF → LF` before hashing (with a test) solve it |
 | Command entry point | **`npm run` at the root**: `up`, `down`, `test`, `lint`, `db:migrate`, `db:verify`, `sql:test`, `sql:coverage`, `seed`, `sonar`. `make` does not ship with Windows; a Makefile may exist only as an optional shortcut on Linux |
 | Migration runner | **Node and TypeScript with the `mssql` package**, without `sqlcmd` or bash |
-| Node base image | `node:24-slim` (glibc) instead of Alpine, to avoid problems with native binaries |
+| Node base image | `node:26-slim` (glibc) instead of Alpine, to avoid problems with native binaries |
 | Password hashing | `@node-rs/argon2` (prebuilt binaries, no compiler on Windows). Fallback: `bcryptjs`. Verified by an install test in CI |
 | SQL Server data | **Named** Docker volume, not a bind mount, to avoid permission and performance problems on Windows |
 | Paths | Always `/`, no absolute Windows paths in scripts or `docker-compose.yml` |
@@ -16,7 +16,7 @@ The official SQL Server image runs natively on x64 without emulation ([ADR-0022]
 
 ## Prerequisites
 
-- Node.js 24 LTS (`.nvmrc` pins it) and npm.
+- Node.js 26 (`.nvmrc` pins it) and npm.
 - Docker Desktop (Windows, with WSL2) or Docker Engine with the compose plugin (Linux).
 - Git, with no special `core.autocrlf` requirements.
 

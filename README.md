@@ -4,7 +4,7 @@
 
 Plataforma de comercio electrónico de nivel productivo para una pastelería, construida para el **Tech Challenge 360 · Reto ShopCart (Grupo Pentandra)**. Incluye catálogo, carrito, cupones, checkout con reserva de existencias, pagos por **depósito bancario** (comprobante y revisión) y por **tarjeta con Recurrente**, pedidos y devoluciones, tablero de ventas y bitácora.
 
-Stack obligatorio: **SQL Server 2019+ (solo procedimientos almacenados) · Node 24 + TypeScript `strict` + Express · React 18 + TypeScript**. Fechas de entrega: **Fase 1 (base de datos y backend) lunes 2 de noviembre de 2026, 23:59** y **Fase 2 (frontend y proyecto completo) lunes 9 de noviembre de 2026, 23:59**.
+Stack obligatorio: **SQL Server 2019+ (solo procedimientos almacenados) · Node 26 + TypeScript `strict` + Express · React 18 + TypeScript**. Fechas de entrega: **Fase 1 (base de datos y backend) lunes 2 de noviembre de 2026, 23:59** y **Fase 2 (frontend y proyecto completo) lunes 9 de noviembre de 2026, 23:59**.
 
 ## 1. El escenario
 
@@ -104,7 +104,7 @@ stateDiagram-v2
 
 ## 6. Inicio rápido
 
-Requisitos: Node.js 24, Docker Desktop (Windows con WSL2) o Docker Engine con el plugin compose (Linux), y Git.
+Requisitos: Node.js 26, Docker Desktop (Windows con WSL2) o Docker Engine con el plugin compose (Linux), y Git.
 
 ```bash
 git clone <repository-url>

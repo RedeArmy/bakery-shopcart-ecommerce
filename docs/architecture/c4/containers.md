@@ -6,7 +6,7 @@ flowchart TB
   subgraph compose["Docker Compose"]
     nginx["nginx edge<br/>limit_req, security headers, routing"]
     frontend["frontend<br/>static files (nginx-unprivileged)"]
-    backend["backend<br/>Node 24 + Express"]
+    backend["backend<br/>Node 26 + Express"]
     migrate["db-migrate<br/>runner V/R/S"]
     db[("db<br/>SQL Server 2022")]
     proofs[("payment-proofs volume")]
