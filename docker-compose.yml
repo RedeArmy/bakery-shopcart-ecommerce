@@ -124,7 +124,7 @@ services:
   # --- Perfil payments-sandbox: simulador local de Recurrente (se construye en la Etapa 8) -----
   recurrente-simulator:
     profiles: ['payments-sandbox']
-    image: node:24-slim
+    image: node:26-slim
     user: node
     command:
       - node

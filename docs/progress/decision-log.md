@@ -33,5 +33,7 @@ One dated line per decision, newest last. Architectural decisions link to their 
 | 2026-10-28 | `npm run up` generates `.env` secrets locally so a clean machine needs no manual step | [ADR-0022](../adr/0022-windows-linux-environment-and-npm-run.md) |
 | 2026-10-28 | `db-migrate` is a placeholder that creates the database and login with `sqlcmd` until the Stage 2 runner exists | none |
 | 2026-10-28 | The spelling check ignores a line carrying the marker `spelling-ignore`, and cspell ignores comments per file type | [ADR-0024](../adr/0024-language-and-spelling-conventions.md) |
+| 2026-10-29 | The runtime is Node 26 LTS (`.nvmrc`, `engines`, CI, Docker images and `@types/node`), verified on `node:26-slim` and with the full compose stack; Node 25 was discarded because it is not an LTS release | [ADR-0022](../adr/0022-windows-linux-environment-and-npm-run.md) |
+| 2026-10-29 | `@eslint/js` stays on 9.x to match `eslint` 9; the merged major bump made `npm install` fail with ERESOLVE | none |
 | 2026-10-29 | `main` is protected by a ruleset (pull request, all checks including SonarCloud, no bypass); SonarCloud analyses from GitHub Actions with coverage | none |
 | 2026-10-28 | Demo coupon codes are `WELCOME10` and `CAKES25` (the prompt wins over the design's Spanish codes) | none |

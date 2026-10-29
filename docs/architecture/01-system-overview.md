@@ -15,7 +15,7 @@
 
 | Constraint | Implication |
 |---|---|
-| Node 24, TypeScript `strict`, Express | No NestJS or Fastify; manual dependency injection in `composition-root.ts` |
+| Node 26, TypeScript `strict`, Express | No NestJS or Fastify; manual dependency injection in `composition-root.ts` |
 | Data access only through stored procedures, no ORM, no SQL in the backend | Repositories are thin adapters over one executor. All SQL lives in `db/` |
 | Numbered SQL scripts written by the participant | Own migration runner with checksums (ADR-0003) |
 | `SP_`, `VW_`, `FU_`, `ID<Name>` naming | Automatic SQL lint in CI |

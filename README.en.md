@@ -4,7 +4,7 @@
 
 A production-grade e-commerce platform for a bakery, built for the **Tech Challenge 360 · ShopCart challenge (Grupo Pentandra)**. It covers the catalogue, cart, coupons, checkout with stock reservation, payment by **bank deposit** (proof of payment and review) and by **card through Recurrente**, orders and returns, a sales dashboard and an audit log.
 
-Mandatory stack: **SQL Server 2019+ (stored procedures only) · Node 24 + TypeScript `strict` + Express · React 18 + TypeScript**. Delivery dates: **Phase 1 (database and backend) Monday 2 November 2026, 23:59** and **Phase 2 (frontend and complete project) Monday 9 November 2026, 23:59**.
+Mandatory stack: **SQL Server 2019+ (stored procedures only) · Node 26 + TypeScript `strict` + Express · React 18 + TypeScript**. Delivery dates: **Phase 1 (database and backend) Monday 2 November 2026, 23:59** and **Phase 2 (frontend and complete project) Monday 9 November 2026, 23:59**.
 
 ## 1. The scenario
 
@@ -104,7 +104,7 @@ stateDiagram-v2
 
 ## 6. Quick start
 
-Requirements: Node.js 24, Docker Desktop (Windows with WSL2) or Docker Engine with the compose plugin (Linux), and Git.
+Requirements: Node.js 26, Docker Desktop (Windows with WSL2) or Docker Engine with the compose plugin (Linux), and Git.
 
 ```bash
 git clone <repository-url>

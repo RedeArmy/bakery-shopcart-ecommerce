@@ -2,7 +2,7 @@
 # El contexto de construcción es la raíz del repositorio: el lockfile y los workspaces viven allí.
 
 # --- Etapa 1: compilación de la aplicación estática ------------------------------------------
-FROM node:24-slim AS build
+FROM node:26-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY backend/package.json backend/
