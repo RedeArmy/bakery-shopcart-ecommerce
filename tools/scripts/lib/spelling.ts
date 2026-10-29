@@ -18,6 +18,31 @@ export function splitWords(token: string): string[] {
 // Sustituye cada carácter por un espacio, conservando los saltos de línea (los números de línea no cambian)
 const blank = (match: string): string => match.replace(/[^\n]/g, ' ');
 
+type CommentStart = (line: string, index: number) => boolean;
+
+// "//" no inicia un comentario si lo precede ":" (URL) o una comilla (texto dentro de una cadena)
+const startsSlashComment: CommentStart = (line, index) =>
+  line.startsWith('//', index) && (index === 0 || !':"\'`'.includes(line.charAt(index - 1)));
+
+// "#" inicia un comentario solo al principio de línea o tras un espacio
+const startsHashComment: CommentStart = (line, index) =>
+  line.charAt(index) === '#' && (index === 0 || /\s/.test(line.charAt(index - 1)));
+
+// Recorrido lineal de cada línea: evita las expresiones regulares con retroceso (backtracking) costoso
+function blankLineComments(text: string, startsComment: CommentStart): string {
+  return text
+    .split('\n')
+    .map((line) => {
+      for (let index = 0; index < line.length; index += 1) {
+        if (startsComment(line, index)) {
+          return line.slice(0, index) + ' '.repeat(line.length - index);
+        }
+      }
+      return line;
+    })
+    .join('\n');
+}
+
 /** Elimina los comentarios (escritos en español) para analizar solo identificadores y texto. */
 export function stripComments(text: string, extension: string): string {
   switch (extension) {
@@ -25,21 +50,13 @@ export function stripComments(text: string, extension: string): string {
     case '.tsx':
     case '.mjs':
     case '.cjs':
-      return text
-        .replace(/\/\*[\s\S]*?\*\//g, blank)
-        .replace(
-          /(^|[^:"'`])\/\/.*$/gm,
-          (match, prefix: string) => prefix + blank(match.slice(prefix.length)),
-        );
+      return blankLineComments(text.replace(/\/\*[\s\S]*?\*\//g, blank), startsSlashComment);
     case '.sql':
       return text.replace(/\/\*[\s\S]*?\*\//g, blank).replace(/--.*$/gm, blank);
     case '.yml':
     case '.yaml':
     case '.sh':
-      return text.replace(
-        /(^|\s)#.*$/gm,
-        (match, prefix: string) => prefix + blank(match.slice(prefix.length)),
-      );
+      return blankLineComments(text, startsHashComment);
     default:
       return text;
   }

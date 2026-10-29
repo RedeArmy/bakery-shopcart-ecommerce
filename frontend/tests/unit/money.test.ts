@@ -1,8 +1,6 @@
 import { describe, it } from 'vitest';
 
-// Fallo por diseño: se activa en la Etapa 7 (ver docs/progress/ROADMAP.md, tarea "Money formatting")
+// Pendiente declarado, no omitido: se implementa en la Etapa 7 (ver docs/progress/ROADMAP.md, "Money formatting")
 describe('formatMoney', () => {
-  it.skip('TODO(stage-7): formats "145.00" as Q145.00 without converting to number', () => {
-    throw new Error('Pending implementation');
-  });
+  it.todo('formats "145.00" as Q145.00 without converting the amount to a number');
 });

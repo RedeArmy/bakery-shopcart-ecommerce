@@ -1,4 +1,4 @@
-// cspell:ignore botón fila
+// cspell:ignore botón fila comentario
 import { describe, expect, it } from 'vitest';
 import { findPathViolations, findViolations, splitWords, stripComments } from '../lib/spelling.js';
 
@@ -23,6 +23,13 @@ describe('british spelling checker', () => {
     expect(findViolations('-- color de la fila\nSELECT 1;', '.sql')).toEqual([]);
   });
 
+  it('does not treat a URL or a hash inside a word as a comment', () => {
+    expect(stripComments("const url = 'https://a.test'; // nota", '.ts')).toBe(
+      "const url = 'https://a.test';        ",
+    );
+    expect(stripComments('key: a#b # comentario', '.yml')).toBe('key: a#b             ');
+  });
+
   it('keeps the line numbers after stripping comments', () => {
     const text = '/* uno\n dos */\nconst gray = 1;';
     expect(stripComments(text, '.ts').split('\n')).toHaveLength(3);
@@ -36,12 +43,12 @@ describe('british spelling checker', () => {
       findViolations(
         '<!-- spelling-ignore-start -->\ncolor\n<!-- spelling-ignore-end -->\ncolor',
         '.md',
-      ).length,
-    ).toBe(1);
+      ),
+    ).toHaveLength(1);
   });
 
   it('checks file and folder names', () => {
-    expect(findPathViolations('order-canceled.ts').length).toBe(1);
+    expect(findPathViolations('order-canceled.ts')).toHaveLength(1);
     expect(findPathViolations('order-cancelled.ts')).toEqual([]);
   });
 });

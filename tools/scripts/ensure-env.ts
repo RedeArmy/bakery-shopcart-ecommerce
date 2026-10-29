@@ -5,12 +5,12 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
 const EXAMPLE_PATH = '.env.example';
 const ENV_PATH = '.env';
-const GENERATED_KEYS = [
+const GENERATED_KEYS = new Set([
   'MSSQL_SA_PASSWORD',
   'DB_APP_PASSWORD',
   'JWT_ACCESS_SECRET',
   'JWT_REFRESH_PEPPER',
-];
+]);
 
 // Solo alfanuméricos con mayúsculas, minúsculas y dígitos: cumple la complejidad de SQL Server
 // y evita caracteres que compose o sqlcmd interpretarían (por ejemplo "$").
@@ -25,7 +25,7 @@ if (existsSync(ENV_PATH)) {
   const lines = readFileSync(EXAMPLE_PATH, 'utf8').split('\n');
   const filled = lines.map((line) => {
     const [key] = line.split('=');
-    return key !== undefined && GENERATED_KEYS.includes(key) && line === `${key}=`
+    return key !== undefined && GENERATED_KEYS.has(key) && line === `${key}=`
       ? `${key}=${generateSecret()}`
       : line;
   });

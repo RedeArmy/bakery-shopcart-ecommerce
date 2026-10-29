@@ -53,7 +53,7 @@ export function compareReadmes(spanish: string, english: string): string[] {
   } else {
     es.codeBlocks.forEach((block, index) => {
       const other = en.codeBlocks[index];
-      if (other === undefined || block.lang !== other.lang) {
+      if (block.lang !== other?.lang) {
         problems.push(`Code block ${index + 1} has a different language`);
       } else if (block.lang !== 'mermaid' && block.body !== other.body) {
         problems.push(`Code block ${index + 1} (${block.lang}) differs between the two READMEs`);
