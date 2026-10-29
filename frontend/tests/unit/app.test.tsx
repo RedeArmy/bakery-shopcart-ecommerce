@@ -35,6 +35,11 @@ describe('error boundary', () => {
 
   it('shows the Spanish fallback and logs the error when a child throws', () => {
     const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    // jsdom reporta como "Uncaught" el error que este componente lanza a propósito; se marca como atendido
+    const handled = (event: ErrorEvent): void => {
+      event.preventDefault();
+    };
+    window.addEventListener('error', handled);
     render(
       <ErrorBoundary>
         <Boom />
@@ -44,6 +49,7 @@ describe('error boundary', () => {
       'Ocurrió un error inesperado. Intente de nuevo.',
     );
     expect(logged).toHaveBeenCalled();
+    window.removeEventListener('error', handled);
     logged.mockRestore();
   });
 });
