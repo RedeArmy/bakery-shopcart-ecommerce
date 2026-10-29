@@ -37,6 +37,8 @@ One dated line per decision, newest last. Architectural decisions link to their 
 | 2026-10-29 | `@eslint/js` stays on 9.x to match `eslint` 9; the merged major bump made `npm install` fail with ERESOLVE | none |
 | 2026-10-29 | `main` is protected by a ruleset (pull request, all checks including SonarCloud, no bypass); SonarCloud analyses from GitHub Actions with coverage | none |
 | 2026-10-29 | The evaluator confirmed that creating the order as `PendingPayment` is valid; ADR-0014 is fully accepted and the deposit-request fallback is dropped | [ADR-0014](../adr/0014-order-created-as-pending-payment.md) |
+| 2026-10-29 | The audit log actions are `Create`, `Update`, `Deactivate` and `StatusChange` (a `CHECK` constraint) and its modules are `Products`, `Prices`, `Stock`, `Coupons`, `Orders` and `Payments` | [reference values](../database/er-diagram.md#reference-and-seed-values) |
+| 2026-10-29 | The demo coupons are `WELCOME10`, `CAKES25`, `SOLDOUT` and `EXPIRED`, in British English; the last two exist to exercise the exhausted and expired messages | [reference values](../database/er-diagram.md#reference-and-seed-values) |
 | 2026-10-29 | The repository is public so that GitHub Actions runs without billing limits | none |
 | 2026-10-29 | CI secrets are created twice, as repository secrets and as Dependabot secrets, because Dependabot pull requests only receive the latter; `CI_SA_PASSWORD` is done and `SONAR_TOKEN` is pending for Dependabot | none |
 | 2026-10-29 | The SonarCloud threshold is kept and tests were added for the uncovered production code, instead of lowering the gate or excluding code | none |

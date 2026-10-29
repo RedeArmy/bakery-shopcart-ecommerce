@@ -29,6 +29,8 @@ _Last updated: Thursday 29 October 2026 (end of the repository hardening session
 
 - The evaluator answered affirmatively to the `PendingPayment` question, so orders are created before they are paid ([ADR-0014](../adr/0014-order-created-as-pending-payment.md)). `SP_Orders_CreateOrder` is written as designed.
 
+- The audit log actions (`Create`, `Update`, `Deactivate`, `StatusChange`) and the demo coupon codes (`WELCOME10`, `CAKES25`, `SOLDOUT`, `EXPIRED`) are fixed, so the Stage 2 seeds and the `AuditLog` constraint can be written without further questions ([reference values](../database/er-diagram.md#reference-and-seed-values)).
+
 ## Blockers
 
 - None for development.

@@ -9,7 +9,7 @@
 | 5 | Recurrente details still unverified: `expires_at` on checkout creation, refund payload, `PUT` on checkouts, reuse of a failed payment intent | Open | Validate with test keys on the first day of Stage 8 |
 | 6 | tSQLt needs CLR: confirm it installs on the Linux SQL Server image and on Docker Desktop (WSL2) | Open | Stage 2 spike; plan B is Vitest-based SQL tests with identical assertions |
 | 7 | If electronic invoicing (FEL) is ever added, re-check the fiscal rounding rule against half-even | Open | |
-| 8 | The design names coupons `BIENVENIDO10` and `PASTELES25`; the prompt names them `WELCOME10` and `CAKES25` | Open | The prompt wins for naming; the codes are seed data and can be translated in the seed <!-- spelling-ignore --> |
-| 9 | The design's audit table uses Spanish action values (create, modify, deactivate, status change) | Open | Mapped to `AuditLog` with `Create`, `Update`, `Deactivate`, `StatusChange`; confirm the values in Stage 2 |
+| 8 | The design names coupons `BIENVENIDO10` and `PASTELES25`; the prompt names them `WELCOME10` and `CAKES25` | Resolved | Decided on 2026-10-29: the codes are `WELCOME10`, `CAKES25`, `SOLDOUT` and `EXPIRED`. See [reference values](../database/er-diagram.md#reference-and-seed-values) <!-- spelling-ignore --> |
+| 9 | The design's audit table uses Spanish action values (create, modify, deactivate, status change) | Resolved | Decided on 2026-10-29: `Create`, `Update`, `Deactivate` and `StatusChange`, enforced by a `CHECK` constraint. See [reference values](../database/er-diagram.md#reference-and-seed-values) |
 | 10 | Design repository layout puts the OpenAPI at `docs/openapi/openapi.yaml`; this project uses `docs/api/openapi/openapi.yaml` | Resolved | The prompt's layout wins |
 | 11 | `docker compose up` could not be run during Stages 0 and 1 because the Docker daemon was not running | Resolved | Run on 29 Oct: all services healthy; fixed IPv6 `localhost` in health checks |
