@@ -1,0 +1,162 @@
+# ShopCart · orquestación local. El camino por defecto es: db, db-migrate, backend, frontend, nginx.
+# Los perfiles payments-sandbox, quality y observability se activan con "docker compose --profile <nombre> up".
+# Todas las rutas usan "/" y los datos viven en volúmenes nombrados (Windows con WSL2 y Linux se comportan igual).
+name: shopcart
+
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    # La imagen corre como el usuario no root "mssql"
+    environment:
+      ACCEPT_EULA: 'Y'
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+      # Límite de memoria: SQL Server consume toda la RAM disponible si no se acota
+      MSSQL_MEMORY_LIMIT_MB: ${MSSQL_MEMORY_LIMIT_MB:-2048}
+    volumes:
+      - db-data:/var/opt/mssql
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          '/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -Q "SELECT 1" -b -o /dev/null',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  # Marcador de posición de la Etapa 0: crea la base de datos y el login de la aplicación.
+  # La Etapa 2 lo sustituye por el runner de migraciones (db/runner).
+  db-migrate:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+      DB_NAME: ${DB_NAME:-ShopCart}
+      DB_APP_USER: ${DB_APP_USER:-shopcart_app}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD}
+    volumes:
+      - ./docker/sqlserver:/init:ro
+    entrypoint: ['/bin/bash', '-c']
+    command:
+      - >-
+        /opt/mssql-tools18/bin/sqlcmd -C -b -S db -U sa -P "$$MSSQL_SA_PASSWORD"
+        -v DbName="$$DB_NAME" AppUser="$$DB_APP_USER" AppPassword="$$DB_APP_PASSWORD"
+        -i /init/001_create_database_and_login.sql
+    restart: 'no'
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3000
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DB_HOST: db
+      DB_PORT: 1433
+      DB_NAME: ${DB_NAME:-ShopCart}
+      DB_APP_USER: ${DB_APP_USER:-shopcart_app}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_PEPPER: ${JWT_REFRESH_PEPPER}
+      ACCESS_TTL: ${ACCESS_TTL:-15m}
+      REFRESH_TTL: ${REFRESH_TTL:-7d}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:8080}
+      REQUIRED_SCHEMA_VERSION: ${REQUIRED_SCHEMA_VERSION:-}
+      PAYMENT_PROOFS_DIR: /data/payment-proofs
+      PAYMENT_PROOF_MAX_BYTES: ${PAYMENT_PROOF_MAX_BYTES:-5242880}
+      RECURRENTE_PUBLIC_KEY: ${RECURRENTE_PUBLIC_KEY:-}
+      RECURRENTE_SECRET_KEY: ${RECURRENTE_SECRET_KEY:-}
+      RECURRENTE_WEBHOOK_SECRET: ${RECURRENTE_WEBHOOK_SECRET:-}
+      RECURRENTE_BASE_URL: ${RECURRENTE_BASE_URL:-https://app.recurrente.com/api}
+      PAYMENTS_CARD_ENABLED: ${PAYMENTS_CARD_ENABLED:-true}
+    volumes:
+      # Volumen privado para los comprobantes de pago: fuera de cualquier directorio estático
+      - payment-proofs:/data/payment-proofs
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/health/live').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:8080/healthz']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  # Borde: único servicio publicado en el equipo. Aplica limit_req y cabeceras de seguridad (ADR-0010)
+  nginx:
+    image: nginxinc/nginx-unprivileged:1.27-alpine
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    ports:
+      - '${EDGE_PORT:-8080}:8080'
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:8080/nginx-health']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  # --- Perfil payments-sandbox: simulador local de Recurrente (se construye en la Etapa 8) -----
+  recurrente-simulator:
+    profiles: ['payments-sandbox']
+    image: node:24-slim
+    user: node
+    command:
+      - node
+      - -e
+      - "console.log('Recurrente simulator: pending (Stage 8)'); setInterval(() => undefined, 60000)"
+    healthcheck:
+      test: ['CMD', 'true']
+      interval: 30s
+
+  # --- Perfil quality: SonarQube opcional (consume RAM; no bloquea la entrega) ---------------
+  sonarqube:
+    profiles: ['quality']
+    image: sonarqube:10-community
+    environment:
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: 'true'
+    volumes:
+      - sonarqube-data:/opt/sonarqube/data
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://localhost:9000/api/system/status || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 10
+
+  # --- Perfil observability: OpenTelemetry opcional (Nivel 3) --------------------------------
+  otel-collector:
+    profiles: ['observability']
+    image: otel/opentelemetry-collector:0.120.0
+    healthcheck:
+      test: ['CMD', 'true']
+      interval: 30s
+
+volumes:
+  db-data:
+  payment-proofs:
+  sonarqube-data:
