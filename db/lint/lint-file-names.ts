@@ -37,6 +37,12 @@ const RULES: readonly Rule[] = [
     pattern: /^R\d{4}__TR_[A-Z][A-Za-z]+_[A-Z][A-Za-z]+\.sql$/,
     example: 'R0030__TR_Orders_AmountsImmutable.sql',
   },
+  {
+    // El prefijo numérico fija el orden de ejecución de las clases de pruebas tSQLt
+    directory: 'db/tests/tsqlt',
+    pattern: /^\d{3}_Test_[A-Z][A-Za-z]+\.sql$/,
+    example: '010_Test_Money.sql',
+  },
 ];
 
 export function findNamingProblems(directory: string, files: string[], rule: Rule): string[] {

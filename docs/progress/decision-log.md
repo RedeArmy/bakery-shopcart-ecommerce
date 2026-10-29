@@ -41,11 +41,13 @@ One dated line per decision, newest last. Architectural decisions link to their 
 | 2026-10-29 | The demo coupons are `WELCOME10`, `CAKES25`, `SOLDOUT` and `EXPIRED`, in British English; the last two exist to exercise the exhausted and expired messages | [reference values](../database/er-diagram.md#reference-and-seed-values) |
 | 2026-10-29 | The test accounts are one administrator, one operator and two customers on the reserved `.test` domain; their passwords are generated at random into the local `.env`, hashed with argon2id by a Node seed step and never stored in the repository | [test accounts](../operations/test-accounts.md) |
 | 2026-10-29 | tSQLt 1.0.8083.3529 is the pinned version: the spike installed it on the SQL Server 2022 Linux image and Docker Desktop, so plan B (Vitest-based SQL tests) is not adopted | [ADR-0023](../adr/0023-sql-tests-with-tsqlt-in-ci-only.md) |
+| 2026-10-29 | The vendored tSQLt files are stored byte for byte with `-text` and verified against `SHA256SUMS` by `sql:lint`, because the repository forces LF and the files use CRLF; the secret scan still covers them, as gitleaks reports nothing | [vendored files](../../db/tests/tsqlt/install/README.md) |
 | 2026-10-29 | The repository is public so that GitHub Actions runs without billing limits | none |
 | 2026-10-29 | CI secrets are created twice, as repository secrets and as Dependabot secrets, because Dependabot pull requests only receive the latter; `CI_SA_PASSWORD` is done and `SONAR_TOKEN` is pending for Dependabot | none |
 | 2026-10-29 | The SonarCloud threshold is kept and tests were added for the uncovered production code, instead of lowering the gate or excluding code | none |
 | 2026-10-29 | `vitest` and `@vitest/coverage-v8` are upgraded together, and Dependabot bumps of major versions are reviewed one by one in a branch, because ungrouped bumps broke `main` | none |
 | 2026-10-29 | The repository scripts run git from fixed absolute paths and never through the `PATH` variable, to resolve a SonarCloud security hotspot | none |
+| 2026-10-29 | The tSQLt runner recreates the `_CI` test database on every run and refuses non-local hosts, because `tSQLt.class.sql` cannot be reinstalled over an existing installation | none |
 | 2026-10-29 | The gitleaks configuration allow-lists the documented `IdempotencyKeyHours` setting, which the generic API key rule mistook for a secret | none |
 | 2026-10-29 | The husky hooks call `node` directly instead of `npx`, because `npx` is a bash script that resolves to WSL bash on some Windows setups | none |
 | 2026-10-29 | The commitlint body line-length rule is switched off, because GUI Git clients do not wrap long lines | none |

@@ -11,6 +11,7 @@
     "backend",
     "frontend",
     "db/runner",
+    "db/tests/scripts",
     "tools/*"
   ],
   "scripts": {
@@ -32,8 +33,10 @@
     "arch:check": "depcruise --config .dependency-cruiser.cjs backend/src && tsx tools/scripts/arch-self-test.ts",
     "db:migrate": "tsx tools/scripts/not-implemented.ts db:migrate 2",
     "db:verify": "tsx tools/scripts/not-implemented.ts db:verify 2",
-    "sql:lint": "tsx db/lint/lint-file-names.ts",
-    "sql:test": "tsx tools/scripts/not-implemented.ts sql:test 2",
+    "sql:lint": "tsx db/lint/lint-file-names.ts && tsx tools/scripts/verify-vendored.ts",
+    "sql:test": "tsx db/tests/scripts/run-tsqlt.ts",
+    "sql:test:up": "tsx tools/scripts/ensure-env.ts && docker compose -f docker-compose.sql-test.yml up -d --wait",
+    "sql:test:down": "docker compose -f docker-compose.sql-test.yml down --volumes",
     "sql:coverage": "tsx tools/scripts/not-implemented.ts sql:coverage 2",
     "seed": "tsx tools/scripts/not-implemented.ts seed 2",
     "api:generate": "tsx tools/scripts/not-implemented.ts api:generate 7",

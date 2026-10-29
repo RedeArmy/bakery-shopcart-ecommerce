@@ -1,0 +1,17 @@
+{
+  "name": "@shopcart/db-test-scripts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test:coverage": "vitest run --coverage --coverage.reporter=lcov --coverage.reporter=text-summary"
+  },
+  "dependencies": {
+    "mssql": "^11.0.1"
+  },
+  "devDependencies": {
+    "@types/mssql": "^9.1.7"
+  }
+}

@@ -96,7 +96,7 @@ Checksums of the files to vendor in `db/tests/tsqlt/install` (SHA-256):
 | `License.txt` | `1977f3ee406e85088b107e97bcceface66fb3e137704457acf441a262dfd9c88` | <!-- spelling-ignore -->
 | Downloaded `tSQLt_V1.0.8083.3529.zip` | `af841f357dd9189f8b197c34c5014fe0dbabd3be34b024ed46967dafe13d4f50` |
 
-The official download is `https://tsqlt.org/download/tsqlt/`; the GitHub repository publishes no release assets.
+The official download is `https://tsqlt.org/download/tsqlt/`; the GitHub repository publishes no release assets. The three files are vendored in `db/tests/tsqlt/install` (see its [README](../../db/tests/tsqlt/install/README.md)) and checked by `npm run sql:lint`.
 
 ### Lessons for writing the tests
 
@@ -112,4 +112,20 @@ The official download is `https://tsqlt.org/download/tsqlt/`; the GitHub reposit
 - **Time.** The framework base takes three to four hours; the rest is added per module with each procedure (rule: a critical procedure is not done without its test).
 - **Test data in the CI database.** It is destroyed at the end of the job and never reused.
 
-`npm run sql:test` also works locally against the development container (Windows or Linux), so an evaluator can run it without CI.
+## How to run it
+
+```bash
+npm run sql:test:up
+```
+
+```bash
+npm run sql:test
+```
+
+```bash
+npm run sql:test:down
+```
+
+`sql:test:up` starts a throwaway SQL Server from `docker-compose.sql-test.yml` (loopback only, port 14333, separate from the application stack). `sql:test` verifies the vendored files against their checksums, recreates `ShopCart_CI`, installs tSQLt, runs every `db/tests/tsqlt/NNN_Test_<Name>.sql` in order, executes `tSQLt.RunAll` and writes `test-results/tsqlt-junit.xml`. The exit code is 0 when all tests pass, 1 when a test fails or none ran, and 2 when the tool itself fails. `sql:test:down` removes the container and its volume.
+
+The runner refuses a host other than the local one and any database whose name does not end in `_CI`, so tSQLt cannot reach the delivered database. It recreates the database on every run because `tSQLt.class.sql` cannot be reinstalled over an existing installation. This works on Windows and Linux, so an evaluator can run it without CI.

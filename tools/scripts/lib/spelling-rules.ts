@@ -85,6 +85,7 @@ export const EXCLUDED_PATHS: readonly RegExp[] = [
   /^README\.md$/, // única excepción documental: el README principal está en español
   /^docs\/design\/source\//, // insumos originales, de solo lectura
   /^package-lock\.json$/,
+  /^db\/tests\/tsqlt\/install\/.*\.(sql|txt)$/, // tSQLt vendorizado, código de terceros
   /^tools\/scripts\/lib\/spelling-rules\.ts$/,
   /^tools\/scripts\/tests\/spelling\.test\.ts$/,
   /\.(pdf|png|jpe?g|gif|ico|webp|woff2?)$/,
