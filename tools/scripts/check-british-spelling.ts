@@ -1,16 +1,14 @@
 // Verifica que identificadores, nombres de archivo y Markdown usen ortografía británica.
 // Los comentarios de código se escriben en español y se excluyen del análisis.
-import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { extname } from 'node:path';
+import { listRepositoryFiles } from './lib/git.js';
 import { findPathViolations, findViolations } from './lib/spelling.js';
 import { EXCLUDED_PATHS, SCANNED_EXTENSIONS } from './lib/spelling-rules.js';
 
-const files = execFileSync('git', ['ls-files', '-co', '--exclude-standard'], { encoding: 'utf8' })
-  .split('\n')
-  .map((file) => file.trim())
-  .filter((file) => file.length > 0)
-  .filter((file) => !EXCLUDED_PATHS.some((pattern) => pattern.test(file)));
+const files = listRepositoryFiles().filter(
+  (file) => !EXCLUDED_PATHS.some((pattern) => pattern.test(file)),
+);
 
 let failures = 0;
 const report = (file: string, line: number, found: string, suggestion: string): void => {
