@@ -47,6 +47,7 @@ One dated line per decision, newest last. Architectural decisions link to their 
 | 2026-10-29 | The SonarCloud threshold is kept and tests were added for the uncovered production code, instead of lowering the gate or excluding code | none |
 | 2026-10-29 | `vitest` and `@vitest/coverage-v8` are upgraded together, and Dependabot bumps of major versions are reviewed one by one in a branch, because ungrouped bumps broke `main` | none |
 | 2026-10-29 | The repository scripts run git from fixed absolute paths and never through the `PATH` variable, to resolve a SonarCloud security hotspot | none |
+| 2026-10-29 | The tSQLt runner recreates the `_CI` test database on every run and refuses non-local hosts, because `tSQLt.class.sql` cannot be reinstalled over an existing installation | none |
 | 2026-10-29 | The gitleaks configuration allow-lists the documented `IdempotencyKeyHours` setting, which the generic API key rule mistook for a secret | none |
 | 2026-10-29 | The husky hooks call `node` directly instead of `npx`, because `npx` is a bash script that resolves to WSL bash on some Windows setups | none |
 | 2026-10-29 | The commitlint body line-length rule is switched off, because GUI Git clients do not wrap long lines | none |

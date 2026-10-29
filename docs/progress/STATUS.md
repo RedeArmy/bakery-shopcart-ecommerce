@@ -23,12 +23,13 @@ _Last updated: Thursday 29 October 2026 (end of the repository hardening session
 1. **Housekeeping:** enable "Automatically delete head branches" in GitHub; update the primary checkout (`git pull --ff-only`) and run `npm ci` with Node 26; restart the terminals and tools that still hold the old `PATH`.
 2. **Dependabot configuration** in a pull request: ignore major versions and group minor and patch updates, because ungrouped major bumps broke `main` twice (the vitest pair and `@eslint/js`).
 3. **Add `SONAR_TOKEN` as a Dependabot secret.** Dependabot pull requests do not receive repository secrets, so without it the required `sonarcloud` check fails on them. Run `gh secret set SONAR_TOKEN --app dependabot` (it prompts for the value) or use Settings, Secrets and variables, Dependabot.
-4. **Stage 2:** tSQLt is vendored and verified; next `run-tsqlt.ts`, then the migration runner, tables V0001 to V0009 and the seeds. Use one small pull request per block. When `sql-tests` and `integration` are enabled, add them to the required checks of the ruleset.
+4. **Stage 2:** tSQLt is vendored and `npm run sql:test` installs it and exports the JUnit XML; next the migration runner, tables V0001 to V0009 and the seeds. Use one small pull request per block. When `sql-tests` and `integration` are enabled, add them to the required checks of the ruleset.
 
 ## Spike results
 
 - **tSQLt works on the Linux SQL Server image and on Docker Desktop (WSL2)**, so the first risk of the register is closed and plan B is not needed. It was verified with tSQLt 1.0.8083.3529 on SQL Server 2022 CU27, starting from `clr strict security` enabled. A failing test makes `sqlcmd -b` exit with code 1 and the results export as JUnit XML. The lessons for writing the tests (identity values are not rolled back, test order is not fixed) are in [the tSQLt testing document](../quality/sql-testing-tsqlt.md#spike-result-29-october-2026).
 
+- **`npm run sql:test` runs tSQLt end to end.** `db/tests/scripts/run-tsqlt.ts` recreates `ShopCart_CI` on a throwaway server (`npm run sql:test:up`), installs tSQLt, runs the tests in `db/tests/tsqlt` and writes `test-results/tsqlt-junit.xml`. It was verified on SQL Server 2022 with a passing run, a repeated run and a forced failure (exit code 1). The first class, `Test_Environment`, checks the pinned version, the CLR permission set, TRUSTWORTHY and the `_CI` name.
 - **tSQLt is vendored** in `db/tests/tsqlt/install` at version 1.0.8083.3529. The files keep their Windows line endings, so `.gitattributes` marks them `-text`, and `npm run sql:lint` verifies them against `SHA256SUMS`, also in the Windows job. A clone with `core.autocrlf=true` kept all three checksums.
 
 ## Decisions confirmed

@@ -42,4 +42,4 @@ Stages 2 to 6 now have to fit in the four days before Delivery Phase 1; see the 
 - [ ] Generate the `SEED_*_PASSWORD` variables in `ensure-env` and `.env.example`, and create the demo accounts with a Node seed step that calls `SP_Users_Register` (Stage 2, see [test accounts](../operations/test-accounts.md)).
 - [x] tSQLt spike: installs and runs on the SQL Server 2022 Linux image and Docker Desktop; plan B not needed (29 Oct).
 - [x] Vendor tSQLt 1.0.8083.3529 with its checksums, kept byte for byte and verified by `npm run sql:lint` on Linux and Windows (Stage 2, branch `feat/stage-2-vendor-tsqlt`).
-- [ ] Write `db/tests/scripts/run-tsqlt.ts` so that `npm run sql:test` installs tSQLt and exports the JUnit XML (Stage 2).
+- [x] Write `db/tests/scripts/run-tsqlt.ts` so that `npm run sql:test` installs tSQLt and exports the JUnit XML (Stage 2).
