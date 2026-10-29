@@ -1,6 +1,6 @@
 # ADR-0014: Order created as PendingPayment
 
-- **Status:** Accepted (pending confirmation from the evaluator)
+- **Status:** Accepted
 - **Date:** 2026-10-28
 
 ## Context
@@ -14,7 +14,7 @@ At checkout confirmation, `SP_Orders_CreateOrder` atomically creates the order i
 ## Consequences
 
 - Reports must exclude `PendingPayment` (ADR-0009).
-- A written question is sent to the evaluator. Fallback if the answer is negative: a separate "deposit request" entity and creating the order only on payment; the decision is revisited before writing `SP_Orders_CreateOrder`.
+- The evaluator confirmed in writing that modelling a `PendingPayment` state before `Paid` is valid (recorded on 2026-10-29). The fallback of a separate "deposit request" entity is therefore not needed and `SP_Orders_CreateOrder` is written as designed.
 
 ## Alternatives considered
 

@@ -17,7 +17,7 @@ One decision per file, written from [the template](0000-template.md). New decisi
 | [0011](0011-contract-first-openapi.md) | Contract-first OpenAPI | Accepted |
 | [0012](0012-versioning-of-sql-objects-and-expand-contract.md) | Versioning of SQL objects and expand/contract | Accepted |
 | [0013](0013-cart-with-absolute-quantities.md) | Cart with absolute quantities | Accepted |
-| [0014](0014-order-created-as-pending-payment.md) | Order created as PendingPayment | Accepted (pending confirmation from the evaluator) |
+| [0014](0014-order-created-as-pending-payment.md) | Order created as PendingPayment | Accepted |
 | [0015](0015-payment-state-separated-from-order-state.md) | Payment state separated from order state | Accepted |
 | [0016](0016-deposit-window-capped-by-delivery-date.md) | Deposit window capped by the delivery date | Accepted |
 | [0017](0017-own-recurrente-adapter.md) | Own Recurrente adapter | Accepted |

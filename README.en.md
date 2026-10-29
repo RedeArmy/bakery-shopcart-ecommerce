@@ -137,7 +137,15 @@ Optional profiles: `payments-sandbox` (Recurrente simulator), `quality` (SonarQu
 
 ## 8. Test credentials
 
-The sample accounts (an administrator, an operator and customers) are created by the Stage 2 seed and will be listed here. The repository holds no real credentials; local passwords are generated when you run `npm run up`.
+The test accounts are created by the Stage 2 seed. The e-mail addresses use the reserved `.test` domain and are not secrets:
+
+| Role | E-mail |
+|---|---|
+| Administrator | `admin@shopcart.test` |
+| Operator | `operator@shopcart.test` |
+| Customer | `customer1@shopcart.test` and `customer2@shopcart.test` |
+
+The passwords are **not in the repository**: `npm run up` generates them at random in your local `.env` file, in the variables `SEED_ADMIN_PASSWORD`, `SEED_OPERATOR_PASSWORD` and `SEED_CUSTOMER_PASSWORD` (both customers share the last one). To get new passwords, stop the stack with `docker compose down --volumes`, delete `.env` and run `npm run up` again. More detail in [docs/operations/test-accounts.md](docs/operations/test-accounts.md).
 
 ## 9. Card payments
 

@@ -137,7 +137,15 @@ Perfiles opcionales: `payments-sandbox` (simulador de Recurrente), `quality` (So
 
 ## 8. Credenciales de prueba
 
-Las cuentas de ejemplo (un administrador, un operador y clientes) las crea la semilla de la Etapa 2 y se publicarán aquí. El repositorio no contiene credenciales reales; las contraseñas locales se generan al ejecutar `npm run up`.
+Las cuentas de prueba las crea la semilla de la Etapa 2. Los correos usan el dominio reservado `.test` y no son secretos:
+
+| Rol | Correo |
+|---|---|
+| Administrador | `admin@shopcart.test` |
+| Operador | `operator@shopcart.test` |
+| Cliente | `customer1@shopcart.test` y `customer2@shopcart.test` |
+
+Las contraseñas **no están en el repositorio**: `npm run up` las genera al azar en su archivo `.env` local, en las variables `SEED_ADMIN_PASSWORD`, `SEED_OPERATOR_PASSWORD` y `SEED_CUSTOMER_PASSWORD` (los dos clientes comparten la última). Para obtener contraseñas nuevas, detenga el entorno con `docker compose down --volumes`, borre `.env` y ejecute `npm run up` otra vez. Más detalle en [docs/operations/test-accounts.md](docs/operations/test-accounts.md).
 
 ## 9. Pagos con tarjeta
 

@@ -10,6 +10,5 @@ Probability and impact: L low, M medium, H high.
 | 4 | SQL Server consumes too much memory on small laptops | M | M | `MSSQL_MEMORY_LIMIT_MB` defaults to 2048; documented minimum of 4 GB for Docker Desktop | Lead engineer |
 | 5 | Windows line endings change script bytes and break checksums | M | H | `.gitattributes` `eol=lf`, runner normalises CRLF to LF before hashing, Windows smoke job, `git add --renormalize` in the runbook | Lead engineer |
 | 6 | An evaluator may expect Spanish object names, as in the brief's examples | L | M | The brief fixes patterns, not language; ADR-0024 records the decision; the glossary maps every term; renaming would be mechanical | Lead engineer |
-| 7 | The evaluator may reject the `PendingPayment` order model | L | H | Question sent in writing; fallback is a separate deposit request entity decided before writing `SP_Orders_CreateOrder` | Lead engineer |
 | 9 | Half-even rounding surprises customers or conflicts with future fiscal invoicing | L | M | Single function, ADR-0019, documented trade-off; revisit if FEL is added | Lead engineer |
 | 10 | In-memory rate limiting doubles its limit across two replicas | L | L | nginx coarse cap and database lockout compensate; Redis adapter optional | Lead engineer |

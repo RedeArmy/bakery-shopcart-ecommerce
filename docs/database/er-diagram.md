@@ -116,6 +116,28 @@ The complete DDL is built in Stage 2 following the design (§7.2); each table ab
 - `TR_Orders_AmountsImmutable`, `TR_OrderLines_PricesImmutable` and `TR_Payments_AmountImmutable` block changes to amounts; only `ReturnedQuantity` can change on a line.
 - `shopcart_app` has `GRANT EXECUTE` and `DENY SELECT, INSERT, UPDATE, DELETE` on the schema (`R0900__permissions.sql`). Insert-only tables (`AuditLog`, `InventoryMovements`, `FinancialMovements`, `OrderStatusHistory`, `PaymentStatusHistory`, `PaymentProofs`, `ReceivedWebhooks`) accept no update or delete; old webhooks are purged by a dedicated procedure.
 
+## Reference and seed values
+
+### Audit log
+
+| Column | Allowed values | Enforced by |
+|---|---|---|
+| `Action` | `Create`, `Update`, `Deactivate`, `StatusChange` | `CHECK` constraint on `AuditLog` |
+| `Module` | `Products`, `Prices`, `Stock`, `Coupons`, `Orders`, `Payments` | Written only by `SP_Audit_Record` |
+
+`Create` covers the creation of a product, price, stock entry, coupon, order or payment; `Update` a change to an existing one; `Deactivate` a soft deletion (nothing audited is deleted); `StatusChange` a transition of an order or a payment. `PreviousValue` and `NewValue` are JSON.
+
+### Demo coupons (seed `S####`)
+
+| Code | Rule | What it demonstrates |
+|---|---|---|
+| `WELCOME10` | 10 % off the whole cart, minimum purchase Q100.00, one use per customer | Percentage coupon, minimum and per-customer limit |
+| `CAKES25` | Q25.00 off, only for the Pasteles category | Fixed-amount coupon limited to a category |
+| `SOLDOUT` | Valid dates, total usage limit already reached | `COUPON_EXHAUSTED` |
+| `EXPIRED` | End date in the past | `COUPON_EXPIRED` |
+
+The codes are British English and are seed data; the category name stays in Spanish because catalogue content is Spanish data. A coupon that does not reach its minimum answers `COUPON_MINIMUM_NOT_MET`.
+
 ## Performance indexes
 
 `IX_Orders_Status_CreatedAt`, `IX_Orders_User`, `IX_Orders_PaidAt`, `IX_InventoryMovements_Variant_CreatedAt`, `IX_Reservations_Expiry`, `IX_Payments_Status_Expiry`, `IX_FinancialMovements_Order`, `IX_AuditLog_Module_CreatedAt`, `IX_IdempotentRequests_Expiry`, `IX_PaymentProofs_Hash`. Pagination uses `OFFSET … FETCH` with deterministic `ORDER BY`; reports aggregate in SQL. The seed has about 60 products, 5 000 orders and 20 000 movements, and the execution plans of the three main reports are documented.

@@ -70,6 +70,14 @@ The design document (`docs/design/source/DISENO_SHOPCART_v3.md`) is written in S
 | Cobro / Reembolso / Comisión (ledger type) | Charge / Refund / Fee |
 | Total / Parcial (return type) | Full / Partial |
 
+## Reference values
+
+| Spanish | British English |
+|---|---|
+| Crear / Modificar / Desactivar / CambioEstado (audit action) | Create / Update / Deactivate / StatusChange |
+| Productos / Precios / Existencias / Cupones / Pedidos / Pagos (audit module) | Products / Prices / Stock / Coupons / Orders / Payments |
+| BIENVENIDO10 / PASTELES25 / AGOTADO / VENCIDO (demo coupon codes) | WELCOME10 / CAKES25 / SOLDOUT / EXPIRED |
+
 ## Columns and keys
 
 | Spanish | British English |
