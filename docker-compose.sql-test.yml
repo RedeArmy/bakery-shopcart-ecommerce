@@ -1,0 +1,21 @@
+# SQL Server desechable para las pruebas tSQLt. Es independiente de la pila principal: tSQLt nunca
+# debe convivir con la base de datos entregada (ADR-0023). "npm run sql:test:down" borra el volumen.
+name: shopcart-sql-test
+
+services:
+  sql-test:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: 'Y'
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+    ports:
+      # Solo en el bucle local y en un puerto distinto del de la pila principal
+      - '127.0.0.1:${SQL_TEST_PORT:-14333}:1433'
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - /opt/mssql-tools18/bin/sqlcmd -C -S 127.0.0.1 -U sa -P "$$MSSQL_SA_PASSWORD" -Q "SELECT 1" -b
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
