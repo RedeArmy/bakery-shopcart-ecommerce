@@ -1,0 +1,143 @@
+# Contrato de la API de ShopCart (fuente de verdad, ADR-0011).
+# Esqueleto mínimo válido de la Etapa 1: las rutas de negocio se añaden primero aquí (contract first).
+openapi: 3.0.3
+info:
+  title: ShopCart API
+  version: 0.1.0
+  description: >-
+    E-commerce API for the Dulce Aroma bakery. Amounts are decimal strings with two
+    decimals and a currency, never JSON numbers. Errors share a single shape.
+servers:
+  - url: /
+    description: Same origin as the web application (nginx proxies /api and /health)
+tags:
+  - name: Health
+    description: Liveness and readiness probes
+paths:
+  /health/live:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      description: The process is running. It does not touch dependencies.
+      operationId: getLiveness
+      responses:
+        '200':
+          description: The process is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+  /health/ready:
+    get:
+      tags: [Health]
+      summary: Readiness probe
+      description: The database is reachable (and, from Stage 2, the schema version is current).
+      operationId: getReadiness
+      responses:
+        '200':
+          description: Ready to receive traffic
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Readiness'
+        '503':
+          description: A dependency is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Readiness'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Unique key per logical operation. Repeating it replays the stored response.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 64
+  schemas:
+    Money:
+      type: object
+      required: [amount, currency]
+      properties:
+        amount:
+          type: string
+          pattern: '^\d{1,16}\.\d{2}$'
+          example: '145.00'
+        currency:
+          type: string
+          enum: [GTQ]
+    Readiness:
+      type: object
+      required: [status, checks]
+      properties:
+        status:
+          type: string
+          enum: [ok, unavailable]
+        checks:
+          type: object
+          required: [database]
+          properties:
+            database:
+              type: string
+              enum: [up, down]
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, requestId]
+          properties:
+            code:
+              type: string
+              description: Stable SCREAMING_SNAKE_CASE code in British English
+              example: PAYMENT_METHOD_UNAVAILABLE
+            message:
+              type: string
+              description: Short English message for developers
+            details:
+              description: Optional structured details such as validation issues
+            requestId:
+              type: string
+  responses:
+    Unauthorised:
+      description: Missing or expired access token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: The role is not allowed to perform this action
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The resource does not exist or does not belong to the caller
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    TooManyRequests:
+      description: Rate limit exceeded; see the Retry-After header
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
