@@ -1,0 +1,185 @@
+# =============================================================================
+# ShopCart · .gitignore
+# =============================================================================
+
+# --- Dependencias -------------------------------------------------------------
+node_modules/
+.pnpm-store/
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+jspm_packages/
+bower_components/
+
+# --- Artefactos de compilación -------------------------------------------------
+dist/
+build/
+out/
+.output/
+.vite/
+.vite-temp/
+.turbo/
+.parcel-cache/
+.cache/
+.eslintcache
+.stylelintcache
+.prettiercache
+*.tsbuildinfo
+.tsbuildinfo
+*.d.ts.map
+
+# --- Entorno y secretos --------------------------------------------------------
+# Nunca se versionan valores reales: solo .env.example, que tiene los secretos vacíos
+.env
+.env.*
+!.env.example
+*.local
+.envrc
+.direnv/
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.kdbx
+id_rsa*
+id_ed25519*
+secrets/
+credentials.json
+service-account*.json
+
+# --- Registros -------------------------------------------------------------------
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# --- Procesos y temporales -------------------------------------------------------
+pids/
+*.pid
+*.seed
+*.pid.lock
+tmp/
+temp/
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+*.bak
+*.orig
+*.rej
+
+# --- Cobertura y reportes de pruebas ---------------------------------------------
+coverage/
+.nyc_output/
+lcov.info
+junit.xml
+junit*.xml
+test-results/
+playwright-report/
+playwright/.cache/
+blob-report/
+.vitest-cache/
+.scannerwork/
+.sonar/
+allure-results/
+
+# --- Docker y compose --------------------------------------------------------------
+docker-compose.override.yml
+docker-compose.override.yaml
+compose.override.yml
+compose.override.yaml
+*.compose.local.yml
+.docker/
+
+# --- Base de datos local ---------------------------------------------------------
+*.mdf
+*.ndf
+*.ldf
+*.bak.sql
+*.bacpac
+*.dacpac
+*.sqlite
+*.sqlite3
+*.db
+mssql-data/
+
+# --- Archivos subidos en desarrollo (comprobantes de pago) -----------------------
+storage/*
+!storage/.gitkeep
+!storage/README.md
+uploads/
+payment-proofs/
+
+# --- Herramientas de calidad y análisis -------------------------------------------
+.dependency-cruiser-report/
+dependency-graph.*
+*.cpuprofile
+*.heapsnapshot
+*.heapprofile
+
+# --- Editores e IDE ----------------------------------------------------------------
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/tasks.json
+.idea/
+*.iml
+*.ipr
+*.iws
+.fleet/
+.history/
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+.ionide/
+.Rhistory
+
+# --- Sistema operativo -------------------------------------------------------------
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+.directory
+.Trash-*
+.nfs*
+
+# --- Archivos comprimidos y paquetes generados --------------------------------------
+*.tgz
+*.tar
+*.tar.gz
+*.zip
+*.rar
+*.7z
+!docs/**/*.zip
+
+# --- Husky: lo genera "npm install" (los hooks versionados están en .husky/*) -------
+.husky/_

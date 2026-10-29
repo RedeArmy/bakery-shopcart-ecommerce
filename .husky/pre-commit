@@ -1,0 +1,2 @@
+# Se invoca node directamente: "npx" es un script bash y en algunos entornos de Windows resuelve al bash de WSL
+node node_modules/lint-staged/bin/lint-staged.js
