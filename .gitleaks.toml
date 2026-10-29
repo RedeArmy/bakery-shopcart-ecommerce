@@ -1,0 +1,11 @@
+# Configuración de gitleaks: se extiende la de fábrica y se acotan los falsos positivos conocidos.
+title = "ShopCart gitleaks configuration"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documented business configuration keys that the generic API key rule mistakes for secrets"
+regexes = [
+  '''IdempotencyKeyHours=\d+''',
+]
