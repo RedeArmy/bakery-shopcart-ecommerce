@@ -11,7 +11,7 @@ export interface TestConfig {
 const LOCAL_HOSTS: ReadonlySet<string> = new Set(['localhost', '127.0.0.1', '::1']);
 
 // La base de datos de pruebas termina en _CI: tSQLt nunca debe instalarse en la base entregada (ADR-0023)
-const TEST_DATABASE = /^[A-Za-z][A-Za-z0-9_]{0,60}_CI$/;
+const TEST_DATABASE = /^[A-Za-z]\w{0,60}_CI$/;
 
 const DEFAULT_PORT = '14333';
 const DEFAULT_DATABASE = 'ShopCart_CI';

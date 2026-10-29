@@ -38,24 +38,38 @@ function poolFor(config: TestConfig, database: string): sql.ConnectionPool {
   });
 }
 
+// Ejecuta las tareas una tras otra y en orden: el orden de los lotes y de los archivos importa
+async function inSequence<T>(
+  items: readonly T[],
+  task: (item: T) => Promise<unknown>,
+): Promise<void> {
+  await items.reduce<Promise<unknown>>(
+    (previous, item) => previous.then(() => task(item)),
+    Promise.resolve(),
+  );
+}
+
 // SQL Server tarda en aceptar conexiones tras arrancar el contenedor: se reintenta en lugar de fallar
-async function connect(config: TestConfig, database: string): Promise<sql.ConnectionPool> {
-  for (let attempt = 1; ; attempt++) {
-    const pool = poolFor(config, database);
-    try {
-      return await pool.connect();
-    } catch (error) {
-      await pool.close().catch(() => undefined);
-      if (attempt >= CONNECT_ATTEMPTS) throw error;
-      console.log(`Waiting for SQL Server (attempt ${attempt}/${CONNECT_ATTEMPTS})...`);
-      await pause(CONNECT_DELAY_MS);
-    }
+async function connect(
+  config: TestConfig,
+  database: string,
+  attempt = 1,
+): Promise<sql.ConnectionPool> {
+  const pool = poolFor(config, database);
+  try {
+    return await pool.connect();
+  } catch (error) {
+    await pool.close().catch(() => undefined);
+    if (attempt >= CONNECT_ATTEMPTS) throw error;
+    console.log(`Waiting for SQL Server (attempt ${attempt}/${CONNECT_ATTEMPTS})...`);
+    await pause(CONNECT_DELAY_MS);
+    return connect(config, database, attempt + 1);
   }
 }
 
 async function runScript(pool: sql.ConnectionPool, path: string): Promise<void> {
   const batches = splitBatches(readFileSync(path, 'utf8'));
-  for (const batch of batches) await pool.request().batch(batch);
+  await inSequence(batches, (batch) => pool.request().batch(batch));
   console.log(`Ran ${path.slice(ROOT.length + 1)} (${batches.length} batches).`);
 }
 
@@ -95,7 +109,7 @@ async function readResults(pool: sql.ConnectionPool): Promise<TestResultRow[]> {
 function testFiles(): string[] {
   return readdirSync(TEST_DIRECTORY)
     .filter((file) => file.endsWith('.sql'))
-    .sort()
+    .sort((a, b) => a.localeCompare(b))
     .map((file) => join(TEST_DIRECTORY, file));
 }
 
@@ -124,7 +138,7 @@ async function main(): Promise<number> {
   const pool = await connect(config, config.database);
   try {
     await runScript(pool, join(INSTALL_DIRECTORY, 'tSQLt.class.sql'));
-    for (const file of testFiles()) await runScript(pool, file);
+    await inSequence(testFiles(), (file) => runScript(pool, file));
 
     await runAllTests(pool);
     const rows = await readResults(pool);
