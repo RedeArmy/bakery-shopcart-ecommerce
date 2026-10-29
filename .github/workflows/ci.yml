@@ -95,6 +95,27 @@ jobs:
       - run: docker compose --env-file .env.example config --quiet
       - run: docker compose --env-file .env.example --profile payments-sandbox --profile quality --profile observability config --quiet
 
+  # Análisis de calidad en SonarCloud: la puerta de calidad bloquea el job si no se cumple.
+  # Requiere el secreto SONAR_TOKEN y desactivar el "Automatic Analysis" del proyecto en SonarCloud.
+  sonarcloud:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # SonarCloud necesita el historial completo para atribuir correctamente el código nuevo
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run test:coverage
+      - uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: -Dsonar.qualitygate.wait=true
+
   # Etapa 2: se habilita cuando existan el runner de migraciones y las migraciones V0001-V0009
   sql-tests:
     if: false

@@ -36,6 +36,10 @@ Husky installs the Git hooks on `npm install`: `pre-commit` runs Prettier and ES
 - Contract first: change `docs/api/openapi/openapi.yaml` before the code.
 - Applied migrations (`V####`) are immutable; a changed object (`R####`) raises its header version.
 
+## Pull requests
+
+`main` is protected by a ruleset: no direct pushes and no merges without a pull request whose checks, including SonarCloud, all pass. See [docs/operations/branch-protection-and-sonarcloud.md](docs/operations/branch-protection-and-sonarcloud.md).
+
 ## Making a change
 
 1. Read the ADR that governs the area and the README of the folder you are changing.
