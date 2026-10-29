@@ -1,4 +1,4 @@
-// cspell:ignore botón fila comentario
+// cspell:ignore botón fila comentario cuatro tres uno dos cierre
 import { describe, expect, it } from 'vitest';
 import { findPathViolations, findViolations, splitWords, stripComments } from '../lib/spelling.js';
 
@@ -28,6 +28,19 @@ describe('british spelling checker', () => {
       "const url = 'https://a.test';        ",
     );
     expect(stripComments('key: a#b # comentario', '.yml')).toBe('key: a#b             ');
+  });
+
+  it('strips several block comments and SQL line comments in linear time', () => {
+    const sql = ['a /* uno */ b /* dos', ' tres */ c -- cuatro', 'd'].join('\n');
+    const stripped = stripComments(sql, '.sql');
+    expect(stripped).toHaveLength(sql.length);
+    expect(stripped.split('\n').map((line) => line.replaceAll(' ', ''))).toEqual(['ab', 'c', 'd']);
+    const long = `/*${'x'.repeat(200_000)}*/ y`;
+    expect(stripComments(long, '.ts').trim()).toBe('y');
+  });
+
+  it('leaves an unterminated block comment untouched', () => {
+    expect(stripComments('a /* sin cierre', '.sql')).toBe('a /* sin cierre');
   });
 
   it('keeps the line numbers after stripping comments', () => {

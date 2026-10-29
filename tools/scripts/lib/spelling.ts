@@ -28,6 +28,27 @@ const startsSlashComment: CommentStart = (line, index) =>
 const startsHashComment: CommentStart = (line, index) =>
   line.charAt(index) === '#' && (index === 0 || /\s/.test(line.charAt(index - 1)));
 
+// "--" abre un comentario de línea en SQL en cualquier posición
+const startsDashComment: CommentStart = (line, index) => line.startsWith('--', index);
+
+// Sustituye los comentarios de bloque por espacios con indexOf: tiempo lineal y sin backtracking.
+// Un bloque sin cierre se deja intacto, igual que hacía la expresión regular anterior.
+function blankBlockComments(text: string): string {
+  let result = '';
+  let position = 0;
+  while (position < text.length) {
+    const start = text.indexOf('/*', position);
+    const close = start === -1 ? -1 : text.indexOf('*/', start + 2);
+    if (close === -1) {
+      result += text.slice(position);
+      break;
+    }
+    result += text.slice(position, start) + blank(text.slice(start, close + 2));
+    position = close + 2;
+  }
+  return result;
+}
+
 // Recorrido lineal de cada línea: evita las expresiones regulares con retroceso (backtracking) costoso
 function blankLineComments(text: string, startsComment: CommentStart): string {
   return text
@@ -50,9 +71,9 @@ export function stripComments(text: string, extension: string): string {
     case '.tsx':
     case '.mjs':
     case '.cjs':
-      return blankLineComments(text.replace(/\/\*[\s\S]*?\*\//g, blank), startsSlashComment);
+      return blankLineComments(blankBlockComments(text), startsSlashComment);
     case '.sql':
-      return text.replace(/\/\*[\s\S]*?\*\//g, blank).replace(/--.*$/gm, blank);
+      return blankLineComments(blankBlockComments(text), startsDashComment);
     case '.yml':
     case '.yaml':
     case '.sh':

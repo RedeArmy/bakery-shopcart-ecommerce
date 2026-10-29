@@ -3,7 +3,7 @@ import { resolveGit } from '../lib/git.js';
 
 describe('git resolution', () => {
   it('returns the first fixed location that exists', () => {
-    const present = new Set(['/usr/local/bin/git', 'C:\\Program Files\\Git\\cmd\\git.exe']);
+    const present = new Set(['/usr/local/bin/git', String.raw`C:\Program Files\Git\cmd\git.exe`]);
     expect(resolveGit((path) => present.has(path))).toBe('/usr/local/bin/git');
   });
 
