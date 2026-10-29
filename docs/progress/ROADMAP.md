@@ -39,4 +39,5 @@ Stages 2 to 6 now have to fit in the four days before Delivery Phase 1; see the 
 - [x] Create the `CI_SA_PASSWORD` secret for the `sql-tests` job, as a repository and a Dependabot secret.
 - [ ] Add `SONAR_TOKEN` as a Dependabot secret so the required `sonarcloud` check can pass on Dependabot pull requests (before Stage 2).
 - [ ] Add `sql-tests` and `integration` to the required checks of the ruleset once they are enabled (Stage 2).
+- [ ] Generate the `SEED_*_PASSWORD` variables in `ensure-env` and `.env.example`, and create the demo accounts with a Node seed step that calls `SP_Users_Register` (Stage 2, see [test accounts](../operations/test-accounts.md)).
 - [ ] Plan the first Stage 2 task as the tSQLt spike; choose plan B if it cannot install (Stage 2).

@@ -28,6 +28,10 @@ All configuration comes from environment variables, validated with zod at start-
 | `RECURRENTE_WEBHOOK_SECRET` | blank | `whsec_…`; required with live keys |
 | `RECURRENTE_BASE_URL` | `https://app.recurrente.com/api` | Point it at the simulator in the `payments-sandbox` profile |
 | `PAYMENTS_CARD_ENABLED` | `true` | `false` forces deposit only |
+| `SEED_DEMO_DATA` | `true` locally | Creates the demo accounts and data; never set it in production (Stage 2) |
+| `SEED_ADMIN_PASSWORD` | generated | Password of `admin@shopcart.test`, never committed (Stage 2) |
+| `SEED_OPERATOR_PASSWORD` | generated | Password of `operator@shopcart.test`, never committed (Stage 2) |
+| `SEED_CUSTOMER_PASSWORD` | generated | Password of the customer accounts, never committed (Stage 2) |
 | `EDGE_PORT` | `8080` | Port published by nginx on the host |
 | `VITE_API_BASE_URL` | `/api/v1` | Frontend API base (public, build time) |
 

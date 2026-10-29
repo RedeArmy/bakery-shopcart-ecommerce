@@ -31,6 +31,8 @@ _Last updated: Thursday 29 October 2026 (end of the repository hardening session
 
 - The audit log actions (`Create`, `Update`, `Deactivate`, `StatusChange`) and the demo coupon codes (`WELCOME10`, `CAKES25`, `SOLDOUT`, `EXPIRED`) are fixed, so the Stage 2 seeds and the `AuditLog` constraint can be written without further questions ([reference values](../database/er-diagram.md#reference-and-seed-values)).
 
+- The test accounts are fixed (administrator, operator and two customers on the reserved `.test` domain). Their passwords are generated into the local `.env` and never committed; the READMEs publish only the e-mail addresses ([test accounts](../operations/test-accounts.md)).
+
 ## Blockers
 
 - None for development.
