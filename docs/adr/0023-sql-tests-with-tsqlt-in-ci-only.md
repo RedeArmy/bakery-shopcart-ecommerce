@@ -14,7 +14,7 @@ Three complementary layers: tSQLt unit tests for functions, views, triggers, per
 ## Consequences
 
 - Critical procedures are not finished without a test.
-- A spike on day one validates tSQLt on Linux and Docker Desktop (WSL2).
+- A spike on 2026-10-29 validated tSQLt 1.0.8083.3529 on the SQL Server 2022 Linux image and Docker Desktop (WSL2), so plan B is not needed. Details and the checksums to pin are in [the tSQLt testing document](../quality/sql-testing-tsqlt.md#spike-result-29-october-2026).
 
 ## Alternatives considered
 
