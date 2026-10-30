@@ -7,7 +7,7 @@
 | Scope | Everything built from Stage 0 to Stage 2: repository tooling, CI, Docker, database (migrations, seeds, runner, tSQLt), backend and frontend skeletons |
 | Baseline | `main` at commit `6588d97` (pull request #19) |
 | Method | Static review of the code, catalogue queries against a migrated SQL Server 2022, dependency audit, execution of every test suite and of the whole compose stack, review of CI and container configuration |
-| Result | **Approved to continue to Stage 3** after the fixes in section 4. Sixteen items fixed, eight open and registered in section 5; none of them blocks Delivery Phase 1 |
+| Result | **Approved to continue to Stage 3** after the fixes in section 4. Seventeen items fixed, eight open and registered in section 5; none of them blocks Delivery Phase 1 |
 
 ## 1. Summary
 
@@ -63,6 +63,7 @@ The foundation is sound: the database is built only through versioned scripts, t
 | F-14 | Low | Process | The `images` job was not a required check (was D-12). | The three `images` contexts are required by the active ruleset, verified live |
 | F-15 | Low | Backend | The deadlock retry in the procedure executor had no back-off (was D-09). | Full-jitter exponential delay (25 ms base, 200 ms cap) with injectable `sleep` and `random`, covered by unit tests |
 | F-16 | Low | Frontend | `formatMoney` was missing and its test skipped (was D-10). | Implemented from the decimal string without a `number`, rejects anything but two decimals, six tests; frontend branch coverage 75 %, the rest is the entry point `main.tsx` |
+| F-17 | Medium | Reliability | A SQL Server started with `MSSQL_COLLATION` accepts connections while it still rebuilds its system databases; a database created in that window made the server stop (found while testing Stage 3). | The runner waits until `master`, `model`, `msdb` and `tempdb` are online; both compose health checks check `msdb`. Verified twice on a fresh container |
 
 ## 5. Debt register (open)
 

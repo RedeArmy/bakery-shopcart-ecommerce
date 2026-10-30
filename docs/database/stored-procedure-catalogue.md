@@ -6,8 +6,8 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 
 | Module | Procedures |
 |---|---|
-| Auth (RF-01) | `SP_Users_Register`, `SP_Users_GetByEmail`, `SP_Users_SetStatus`, `SP_Users_List`, `SP_Users_RecordFailedAttempt`, `SP_Tokens_Save`, `SP_Tokens_Rotate`, `SP_Tokens_RevokeFamily` |
-| Catalogue (RF-02) | `SP_Categories_Create/Update/Deactivate/List`, `SP_Products_Create/Update/Deactivate/Get/Search`, `SP_Variants_Create/Update`, `SP_Variants_ChangePrice`, `SP_Addresses_List/Save` |
+| Auth (RF-01) | **Built:** `SP_Users_Register`, `SP_Users_GetByEmail`, `SP_Users_SetStatus`, `SP_Users_List`, `SP_Users_RecordFailedAttempt`, `SP_Users_RecordSuccessfulLogin` (added: it resets the lockout counter), `SP_Tokens_Save`, `SP_Tokens_Rotate`, `SP_Tokens_RevokeFamily` |
+| Catalogue (RF-02) | **Built:** `SP_Categories_Create/Update/Deactivate/List`, `SP_Products_Create/Update/Deactivate/Get/Search`, `SP_Variants_Create/Update`, `SP_Variants_ChangePrice`, `SP_Variants_SetAttributes` (internal), `SP_Addresses_List/Save` |
 | Inventory (RF-03) | `SP_Inventory_RegisterEntry`, `SP_Inventory_AdjustStock`, **`SP_Inventory_ReserveStock`**, `SP_Inventory_ReleaseCartReservation`, **`SP_Inventory_ReleaseExpiredReservations`**, `SP_Inventory_GetLedger` |
 | Cart (RF-04) | `SP_Cart_Get`, `SP_Cart_SetItemQuantity`, `SP_Cart_RemoveItem`, `SP_Cart_MergeGuest`, `SP_Cart_ApplyCoupon`, `SP_Cart_RemoveCoupon` |
 | Coupons (RF-05) | `SP_Coupons_Create/Update/Deactivate/List`, `SP_Coupons_Validate` |
@@ -16,7 +16,7 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 | Payments, card (Phase 2) | `SP_Payments_RegisterExternalCheckout`, `SP_Payments_RegisterCreationFailure`, `SP_Payments_RegisterWebhookEvent`, `SP_Payments_ListPendingCardsToReconcile`, `SP_Webhooks_Purge` |
 | Orders (RF-07) | **`SP_Orders_ChangeStatus`**, **`SP_Orders_Cancel`**, `SP_Orders_List`, `SP_Orders_GetDetail`, **`SP_Returns_Register`** |
 | Dashboard (RF-08) | `SP_Dashboard_SalesByPeriod`, `SP_Dashboard_SalesByCategory`, `SP_Dashboard_TopTenProducts`, `SP_Dashboard_AbandonedCarts` |
-| Audit (RF-09) | `SP_Audit_Record` (internal use), `SP_Audit_Query` |
+| Audit (RF-09) | `SP_Audit_Record` (built, internal use), `SP_Audit_Query` |
 | System | `SP_System_GetSchemaVersion` (built, `R0100`), `SP_System_ListObjectVersions` |
 
 ## Views and functions
@@ -35,12 +35,23 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 | `FU_Catalogue_CurrentPrice(@IDVariant)` | Current price |
 | `FU_Coupons_DiscountCalculation(@IDCart, @IDCoupon)` | Discount per line with largest-remainder allocation |
 | `FU_Money_HalfEvenDivision(@N, @D)` | **The only rounding policy** (half-even). `NULL` outside its domain (`@N >= 0`, `@D > 0`) |
+| `FU_Users_ActiveAdministrator(@IDUser)` | One row when the account is an active administrator; the second line of defence behind the role middleware for every catalogue write |
 | `FU_Money_VatIncluded(@TotalCents, @VatRate)` | VAT included in a total (`VatCents`) and the taxable base (`BaseCents` by subtraction, so base + VAT = total) |
 | `FU_Payments_DepositWindow(@DeliveryDate, @LeadTimeDays)` | Deposit deadline: `MIN(24 h, delivery − lead time)` and minutes available |
 | `FU_Dashboard_SalesByPeriod(@From, @To, @Granularity)` | Sales by day, week or month in GTQ and order count, by `PaidAt` |
 | `FU_Orders_RefundableAmount(@IDOrderLine, @Quantity)` | Proportional refund closing exactly on the last unit |
 
 ## Critical procedures in brief
+
+### Authentication and catalogue (built)
+
+Sources: `R0120` (audit), `R0130` to `R0138` (accounts and tokens), `R0140` to `R0143` (categories), `R0150` to `R0154` (products), `R0159` to `R0162` (variants), `R0170` and `R0171` (addresses), `R0052` (administrator check). 112 tSQLt tests in `Test_Audit`, `Test_Auth`, `Test_Catalogue` and `Test_Addresses`.
+
+- **Accounts.** `SP_Users_Register` only creates customers: no role parameter, so a backend bug cannot make a privileged account from a public form. `SP_Users_GetByEmail` returns no rows for an unknown email instead of raising an error, so the login answers the same whether the account exists. The lockout lives in the database (it works with several replicas): from the fifth consecutive failure the account is locked for 1 minute, doubling with each further failure up to 60 minutes, decided by a single `UPDATE`. `SP_Users_SetStatus` needs an active administrator, refuses self-deactivation, revokes every refresh token when it deactivates, and writes an audit entry.
+- **Tokens.** Only the SHA-256 hash is stored. `SP_Tokens_Rotate` is atomic and detects reuse: presenting a token that was already rotated revokes the whole family. The outcome (`Rotated`, `NotFound`, `Expired`, `UserInactive`, `ReuseDetected`) is returned in an output parameter, never raised: under `XACT_ABORT` a `THROW` would roll back the very revocation that must be kept. Two tabs refreshing with the same token at once count as reuse and close the session; that is the price of detecting theft.
+- **Catalogue.** Every write needs an active administrator (`FU_Users_ActiveAdministrator`) and writes `SP_Audit_Record` in the same transaction; saving identical data leaves no entry. Categories cannot form cycles and cannot be deactivated while they hold active products or subcategories. A product update accepts the `RowVer` the panel read and answers 409 if it changed. Deactivating a product deactivates its variants, so `SP_Inventory_ReserveStock` stops reserving them. A variant is created without stock: units only enter through the inventory ledger, so the counter and the ledger never disagree. Prices travel as two-decimal text and are audited as text (module `Prices`).
+- **Reading.** `SP_Products_Get` returns one row with `Images` and `Variants` as JSON arrays. `SP_Products_Search` searches with `CHARINDEX` (a `%` typed by the user is text, not a wildcard), includes subcategories when filtering by category, and chooses the order among four fixed expressions, never a dynamic `ORDER BY`.
+- **Addresses.** The ownership condition is part of the `UPDATE` itself, so another customer's address answers 404 and is never modified, even under a race.
 
 ### `SP_Inventory_ReserveStock`: anti-oversell (built)
 
