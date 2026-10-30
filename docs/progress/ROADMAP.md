@@ -32,14 +32,15 @@ Stages 2 to 6 now have to fit in the four days before Delivery Phase 1; see the 
 - [ ] `formatMoney` in `frontend/src/shared/lib/money` and its skipped test (Stage 7).
 - [x] Write the migration runner in `db/runner` (`npm run db:migrate` and `db:verify`, Stage 2, branch `feat/stage-2-migration-runner`).
 - [ ] Replace the `db-migrate` placeholder with the real runner and a `db/runner/Dockerfile` (Stage 2).
-- [ ] Enable the `sql-tests` and `integration` CI jobs (Stage 2). `run-tsqlt.ts` must first stop dropping `ShopCart_CI` (use `tSQLt.Uninstall` instead), otherwise it erases the migrated schema.
+- [x] Enable the `sql-tests` CI job: `run-tsqlt.ts` now uninstalls tSQLt instead of dropping the database, and the `sql:coverage` step waits for `sp-coverage.ts` (Stage 2).
+- [ ] Enable the `integration` CI job (Stage 2).
 - [x] Add the `windows-smoke` CRLF checksum test: the runner tests run on Windows in CI and cover CRLF, LF and a byte order mark (Stage 2).
 - [x] Evaluator question about `PendingPayment` answered affirmatively (open question 4).
 - [ ] Dependabot: ignore major versions and group minor and patch updates (before Stage 2).
 - [ ] Enable "Automatically delete head branches" in the repository settings (before Stage 2).
 - [x] Create the `CI_SA_PASSWORD` secret for the `sql-tests` job, as a repository and a Dependabot secret.
 - [ ] Add `SONAR_TOKEN` as a Dependabot secret so the required `sonarcloud` check can pass on Dependabot pull requests (before Stage 2).
-- [ ] Add `sql-tests` and `integration` to the required checks of the ruleset once they are enabled (Stage 2).
+- [ ] Add `sql-tests` to the required checks of the ruleset in GitHub once it has passed on a pull request (the JSON in the repository already lists it), and `integration` when it is enabled (Stage 2).
 - [ ] Generate the `SEED_*_PASSWORD` variables in `ensure-env` and `.env.example`, and create the demo accounts with a Node seed step that calls `SP_Users_Register` (Stage 2, see [test accounts](../operations/test-accounts.md)).
 - [x] tSQLt spike: installs and runs on the SQL Server 2022 Linux image and Docker Desktop; plan B not needed (29 Oct).
 - [x] Vendor tSQLt 1.0.8083.3529 with its checksums, kept byte for byte and verified by `npm run sql:lint` on Linux and Windows (Stage 2, branch `feat/stage-2-vendor-tsqlt`).
