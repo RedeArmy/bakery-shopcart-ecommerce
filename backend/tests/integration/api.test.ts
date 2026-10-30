@@ -601,6 +601,80 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
     );
   });
 
+  it('serves the dashboard to an administrator, consistent across its reports', async () => {
+    // Hoy en Guatemala (UTC-6): todas las ventas de esta ejecución se pagaron hace unos segundos
+    const todayLocal = new Date(Date.now() - 6 * 3600 * 1000).toISOString().slice(0, 10);
+    const range = `from=${todayLocal}&to=${todayLocal}`;
+    const toCents = (text: unknown): bigint => BigInt(String(text).replace('.', ''));
+
+    for (const path of [
+      'summary',
+      'sales',
+      'sales-by-category',
+      'top-products',
+      'abandoned-carts',
+    ]) {
+      expect((await get(customerA.token, `/admin/dashboard/${path}`)).status).toBe(403);
+      expect((await get(operator, `/admin/dashboard/${path}`)).status).toBe(403);
+    }
+
+    const summary = await get(administrator, `/admin/dashboard/summary?${range}`);
+    expect(summary.status).toBe(200);
+    expect(num(summary.body, 'orders')).toBeGreaterThanOrEqual(1);
+    // La venta neta es la bruta menos lo devuelto (hubo una devolución de 100.00 en esta ejecución)
+    expect(toCents(str(summary.body, 'gross')) - toCents(str(summary.body, 'returned'))).toBe(
+      toCents(str(summary.body, 'net')),
+    );
+    expect(toCents(str(summary.body, 'returned'))).toBeGreaterThanOrEqual(10000n);
+
+    // La serie diaria de hoy, las categorías y el resumen cuentan la misma venta neta
+    const series = await get(administrator, `/admin/dashboard/sales?${range}&granularity=day`);
+    expect(series.status).toBe(200);
+    expect((series.body as Json[]).map((row) => row['periodStart'])).toEqual([todayLocal]);
+    expect(str((series.body as Json[])[0], 'net')).toBe(str(summary.body, 'net'));
+    const categories = await get(administrator, `/admin/dashboard/sales-by-category?${range}`);
+    const categoryTotal = (categories.body as Json[]).reduce(
+      (sum, row) => sum + toCents(row['net']),
+      0n,
+    );
+    expect(categoryTotal).toBe(toCents(str(summary.body, 'net')));
+    expect(JSON.stringify(categories.body)).toContain(`IT Cakes ${runId}`);
+
+    const top = await get(administrator, `/admin/dashboard/top-products?${range}&limit=5`);
+    expect(top.status).toBe(200);
+    expect((top.body as Json[]).length).toBeLessThanOrEqual(5);
+    expect((top.body as Json[]).map((row) => row['position'])).toEqual(
+      (top.body as Json[]).map((_row, index) => index + 1),
+    );
+    expect(JSON.stringify(top.body)).toContain(`IT Milk cake ${runId}`);
+
+    // Sin fechas: los últimos 30 días, uno por uno aunque no haya ventas
+    const month = await get(administrator, '/admin/dashboard/sales');
+    expect(month.body as Json[]).toHaveLength(30);
+    const weeks = await get(
+      administrator,
+      `/admin/dashboard/sales?from=2030-01-01&to=2030-03-31&granularity=week`,
+    );
+    expect((weeks.body as Json[]).every((row) => num(row, 'orders') === 0)).toBe(true);
+
+    const abandoned = await get(administrator, '/admin/dashboard/abandoned-carts?size=5');
+    expect(abandoned.status).toBe(200);
+    expect(num(abandoned.body, 'size')).toBe(5);
+
+    expect((await get(administrator, '/admin/dashboard/summary?from=yesterday')).status).toBe(400);
+    expect(
+      (await get(administrator, '/admin/dashboard/sales?from=2030-06-05&to=2030-06-01')).status,
+    ).toBe(400);
+    expect(
+      (
+        await get(
+          administrator,
+          '/admin/dashboard/sales?from=2020-01-01&to=2030-01-01&granularity=day',
+        )
+      ).status,
+    ).toBe(400);
+  });
+
   it('keeps the money and the stock reconciled after all the flows', async () => {
     const money = await admin.query('SELECT Total = COUNT(*) FROM dbo.VW_Reconciliation_Amounts');
     expect(money.recordset[0]?.['Total']).toBe(0);
