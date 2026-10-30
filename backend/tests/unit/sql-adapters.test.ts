@@ -3,6 +3,7 @@ import { createSqlAuditRepository } from '../../src/modules/audit/infrastructure
 import { createSqlCartRepository } from '../../src/modules/cart/infrastructure/sql-cart-repository.js';
 import { createSqlCatalogueRepository } from '../../src/modules/catalogue/infrastructure/sql-catalogue-repository.js';
 import { createSqlCheckoutRepository } from '../../src/modules/checkout/infrastructure/sql-checkout-repository.js';
+import { createSqlDashboardRepository } from '../../src/modules/dashboard/infrastructure/sql-dashboard-repository.js';
 import { createSqlCouponsRepository } from '../../src/modules/coupons/infrastructure/sql-coupons-repository.js';
 import { createSqlInventoryRepository } from '../../src/modules/inventory/infrastructure/sql-inventory-repository.js';
 import { createSqlOrdersRepository } from '../../src/modules/orders/infrastructure/sql-orders-repository.js';
@@ -368,6 +369,37 @@ const cases: Case[] = [
     (e) => createSqlAuditRepository(e).reconciliation(100),
     'dbo.SP_Reconciliation_List',
     ['Limit'],
+  ],
+  // Panel de métricas
+  [
+    'dashboard summary',
+    (e) => createSqlDashboardRepository(e).summary({ from: '2030-06-01', to: null }),
+    'dbo.SP_Dashboard_Summary',
+    ['From', 'To'],
+  ],
+  [
+    'dashboard sales',
+    (e) => createSqlDashboardRepository(e).salesByPeriod({ from: null, to: null }, 'week'),
+    'dbo.SP_Dashboard_SalesByPeriod',
+    ['From', 'To', 'Granularity'],
+  ],
+  [
+    'dashboard categories',
+    (e) => createSqlDashboardRepository(e).salesByCategory({ from: null, to: null }),
+    'dbo.SP_Dashboard_SalesByCategory',
+    ['From', 'To'],
+  ],
+  [
+    'dashboard top products',
+    (e) => createSqlDashboardRepository(e).topProducts({ from: null, to: null }, 10),
+    'dbo.SP_Dashboard_TopProducts',
+    ['From', 'To', 'Top'],
+  ],
+  [
+    'dashboard abandoned carts',
+    (e) => createSqlDashboardRepository(e).abandonedCarts(1, 20),
+    'dbo.SP_Dashboard_AbandonedCarts',
+    ['PageNumber', 'PageSize'],
   ],
   // Pedidos
   [

@@ -5,6 +5,7 @@ import { createCartModule } from './modules/cart/index.js';
 import { createCatalogueModule } from './modules/catalogue/index.js';
 import { createCheckoutModule } from './modules/checkout/index.js';
 import { createCouponsModule } from './modules/coupons/index.js';
+import { createDashboardModule } from './modules/dashboard/index.js';
 import { createInventoryModule } from './modules/inventory/index.js';
 import { createOrdersModule } from './modules/orders/index.js';
 import { createPaymentsModule } from './modules/payments/index.js';
@@ -131,6 +132,7 @@ export function buildContainer(env: Env, options: ContainerOptions = {}): Contai
     createPaymentsModule(kit, createLocalDiskStorage(env.PAYMENT_PROOFS_DIR)).router,
     createInventoryModule(kit).router,
     createCouponsModule(kit).router,
+    createDashboardModule(kit).router,
     createAuditModule(kit, process.env['npm_package_version'] ?? 'unknown', () => jobs.status())
       .router,
   ];
