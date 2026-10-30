@@ -9,7 +9,7 @@ All documents are British English. The only Spanish files are the root `README.m
 | [progress/STATUS.md](progress/STATUS.md) | Where the project is right now |
 | [progress/ROADMAP.md](progress/ROADMAP.md) | Every stage with owner, dates and acceptance |
 | [glossary.md](glossary.md) | Spanish design terms ↔ British English code |
-| [adr/README.md](adr/README.md) | The 24 architecture decision records |
+| [adr/README.md](adr/README.md) | The 25 architecture decision records |
 
 ## Architecture
 

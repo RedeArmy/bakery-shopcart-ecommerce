@@ -54,7 +54,7 @@ Más detalle en [docs/architecture](docs/architecture/01-system-overview.md) y e
 
 ## 4. Decisiones técnicas
 
-Las decisiones están registradas como ADR (24 en total). Las que dan forma a todo:
+Las decisiones están registradas como ADR (25 en total). Las que dan forma a todo:
 
 | Decisión | ADR |
 |---|---|

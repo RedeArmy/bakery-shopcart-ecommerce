@@ -41,6 +41,7 @@ This deletes the SQL Server data and the payment proofs volumes.
 |---|---|
 | `db` never becomes healthy | Not enough memory. Give Docker Desktop at least 4 GB and keep `MSSQL_MEMORY_LIMIT_MB` at 2048 or higher |
 | `db-migrate` fails on the password | `MSSQL_SA_PASSWORD` must have at least eight characters with upper case, lower case and digits. Delete `.env` and run `npm run up` again to regenerate it |
+| `db-migrate` or `db:verify` stop with `COLLATION_MISMATCH` | The database was created with another collation (a volume from before ADR-0025, or an instance default). Recreate it: `docker compose down --volumes`, then `npm run up`. The collation of existing data cannot be changed in place |
 | `/health/ready` answers 503 with `schema: outdated` | The database is behind the code. Run `docker compose run --rm db-migrate` (or `npm run db:migrate`); the backend recovers on the next probe without a restart. The log line `Database schema is behind the application` carries the current and required versions |
 | `/health/ready` answers 503 with `schema: unknown` | The version could not be read: the database is down or `SP_System_GetSchemaVersion` does not exist yet. Run the migrations |
 | The backend cannot log in after `.env` was regenerated | Run `docker compose run --rm db-migrate`: the runner sets the application login to the password in `.env` on every run |

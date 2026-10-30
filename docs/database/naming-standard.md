@@ -23,6 +23,14 @@ The prefixes `SP_`, `VW_`, `FU_` and `ID` come from the challenge brief and are 
 - Reference-table identifiers are small integers with fixed meaning (for example `OrderStatuses` 1 to 8).
 - Comments in SQL are Spanish and explain the why.
 
+## Collation and temporary tables
+
+The database collation is `Latin1_General_100_CI_AS_SC` ([ADR-0025](../adr/0025-database-collation.md)): case insensitive, accent sensitive, aware of supplementary characters. The runner creates the database with it and refuses any other.
+
+- A temporary table takes the collation of `tempdb`, not of the database. Declare every text column of a `#temp` table with `COLLATE DATABASE_DEFAULT`, so that comparing it with a table of the database never raises a collation conflict, whatever the server uses. Table variables follow the database and need nothing.
+- To search without accents, add `COLLATE Latin1_General_100_CI_AI_SC` to the comparison in the procedure; never change the column.
+- Do not put a `COLLATE` on a column of a migration: the whole database uses one collation.
+
 ## File names
 
 | Type | Pattern | Example |

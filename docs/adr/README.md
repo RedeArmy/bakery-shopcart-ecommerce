@@ -28,3 +28,4 @@ One decision per file, written from [the template](0000-template.md). New decisi
 | [0022](0022-windows-linux-environment-and-npm-run.md) | Windows/Linux environment and npm run | Accepted |
 | [0023](0023-sql-tests-with-tsqlt-in-ci-only.md) | SQL tests with tSQLt in CI only | Accepted |
 | [0024](0024-language-and-spelling-conventions.md) | Language and spelling conventions | Accepted |
+| [0025](0025-database-collation.md) | Database collation Latin1_General_100_CI_AS_SC | Accepted |
