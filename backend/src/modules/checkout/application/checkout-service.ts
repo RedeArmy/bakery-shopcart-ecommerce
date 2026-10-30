@@ -95,11 +95,9 @@ export class CheckoutService {
 
   async paymentMethods(userId: number, deliveryDate: string): Promise<PaymentMethodsView> {
     const window = await this.repository.depositWindow(userId, deliveryDate);
-    const depositReason = !window.deliveryDateAllowed
-      ? 'DELIVERY_DATE_TOO_SOON'
-      : window.depositAvailable
-        ? null
-        : 'DEPOSIT_UNAVAILABLE_FOR_DATE';
+    let depositReason: string | null = null;
+    if (!window.deliveryDateAllowed) depositReason = 'DELIVERY_DATE_TOO_SOON';
+    else if (!window.depositAvailable) depositReason = 'DEPOSIT_UNAVAILABLE_FOR_DATE';
     return {
       deliveryDate,
       earliestDeliveryDate: window.earliestDeliveryDate,

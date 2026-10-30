@@ -36,7 +36,7 @@ export function camelKey(key: string): string {
 }
 
 /** Solo fecha (yyyy-mm-dd) para las columnas DATE, que mssql entrega como medianoche UTC. */
-const isDateColumn = (key: string): boolean => /Date$/.test(key);
+const isDateColumn = (key: string): boolean => key.endsWith('Date');
 
 function camelValue(key: string, value: unknown): unknown {
   if (value instanceof Date) {

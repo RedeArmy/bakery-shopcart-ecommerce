@@ -406,7 +406,7 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
     expect(download.status).toBe(200);
     expect(download.headers['content-type']).toContain('image/png');
     expect(download.headers['cache-control']).toContain('no-store');
-    expect(Buffer.from(download.body as Buffer).length).toBe(PNG.length);
+    expect(Buffer.from(download.body as Buffer)).toHaveLength(PNG.length);
 
     expect(
       (await get(customerB.token, `/orders/${first.idOrder}/payment/proofs/${idProof}`)).status,
