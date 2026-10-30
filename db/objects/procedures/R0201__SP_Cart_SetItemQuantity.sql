@@ -1,9 +1,11 @@
 /* =====================================================================
    Objeto   : dbo.SP_Cart_SetItemQuantity
-   Version  : 1.0.0
-   Cambio   : Primera versión: fija la cantidad absoluta de una variante en el carrito, creándolo si hace falta (ADR-0013)
+   Version  : 1.1.0
+   Cambio   : Rechaza una cantidad mayor que la existencia disponible (RF-04); antes solo lo detectaba la reserva del checkout
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
-   Compat   : Nueva. Errores: 50400, 50404 variante inexistente, 50409 otra solicitud crea el carrito, 50422 variante no disponible.
+   Compat   : Compatible: las llamadas con cantidad dentro de la existencia siguen igual. Errores: 50400, 50404 variante inexistente,
+              50409 otra solicitud crea el carrito o INSUFFICIENT_STOCK (cantidad sobre la existencia, como en el checkout),
+              50422 variante no disponible.
    ===================================================================== */
 CREATE OR ALTER PROCEDURE dbo.SP_Cart_SetItemQuantity
   @IDUser      INT              = NULL,
@@ -40,6 +42,25 @@ BEGIN
     SELECT TOP (1) IDCart FROM dbo.Carts
     WHERE Status = N'Active' AND ((@IDUser IS NOT NULL AND IDUser = @IDUser) OR (@IDUser IS NULL AND GuestToken = @GuestToken))
   );
+
+  -- La existencia disponible es lo que no está apartado más lo que la reserva vigente de este mismo carrito ya aparta para
+  -- esta variante: sin sumarlo, quien reservó 3 de 3 no podría ni repetir la misma cantidad. Se comprueba antes de crear el
+  -- carrito, para que un rechazo no deje un carrito vacío si quien llama ya abrió una transacción; la reserva del checkout
+  -- sigue siendo la garantía final contra la sobreventa.
+  DECLARE @Available INT = (
+    SELECT v.OnHandStock - v.ReservedStock + ISNULL(
+             (SELECT SUM(rl.Quantity)
+              FROM dbo.Reservations AS r
+              JOIN dbo.ReservationLines AS rl ON rl.IDReservation = r.IDReservation
+              WHERE r.IDCart = @IDCart AND r.Status = N'Active' AND rl.IDVariant = v.IDVariant), 0)
+    FROM dbo.Variants AS v WHERE v.IDVariant = @IDVariant
+  );
+  IF @Quantity > @Available
+  BEGIN
+    -- El código estable viaja en el mensaje para que la API lo exponga tal cual (el frontend lo traduce)
+    DECLARE @Message NVARCHAR(200) = CONCAT(N'INSUFFICIENT_STOCK: Only ', IIF(@Available < 0, 0, @Available), N' units are available.');
+    THROW 50409, @Message, 1;
+  END;
 
   IF @IDCart IS NULL
   BEGIN

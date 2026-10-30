@@ -283,6 +283,21 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
   let first: { idOrder: number; idPayment: number };
   let idOrderLine: number;
 
+  it('refuses to put more units in the cart than the stock available', async () => {
+    const above = await as(customerA.token, api().put(`/api/v1/cart/items/${idVariant}`)).send({
+      quantity: 21,
+    });
+    expect(above.status).toBe(409);
+    const error = above.body as { error: { code: string; message: string } };
+    expect(error.error.code).toBe('INSUFFICIENT_STOCK');
+    expect(error.error.message).toBe('Only 20 units are available.');
+
+    const exact = await as(customerA.token, api().put(`/api/v1/cart/items/${idVariant}`)).send({
+      quantity: 20,
+    });
+    expect(exact.status).toBe(200);
+  });
+
   it('prices the cart in the database and offers the deposit with the bank accounts', async () => {
     const cart = await as(customerA.token, api().put(`/api/v1/cart/items/${idVariant}`)).send({
       quantity: 2,

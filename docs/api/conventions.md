@@ -46,7 +46,7 @@ HTTP codes: 400 validation or missing key, 401 missing or expired token, 403 ins
 | `INVALID_AMOUNT` | 400 | Amount does not match `^\d{1,16}\.\d{2}$` |
 | `NOT_FOUND` | 404 | Does not exist, or belongs to someone else |
 | `ROUTE_NOT_FOUND` | 404 | Unknown route |
-| `INSUFFICIENT_STOCK` | 409 | One or more units are no longer available |
+| `INSUFFICIENT_STOCK` | 409 | The requested quantity exceeds the stock available (cart), or one or more units are no longer available (checkout) |
 | `COUPON_EXHAUSTED` | 409 | Usage limit reached |
 | `RESERVATION_EXPIRED` | 409 | The 15-minute reservation elapsed |
 | `REQUEST_IN_PROGRESS` | 409 | Same idempotency key still being processed (`Retry-After`) |

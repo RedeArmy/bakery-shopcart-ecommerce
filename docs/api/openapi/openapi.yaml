@@ -820,6 +820,7 @@ paths:
       tags:
         - Cart
       summary: Set the quantity of a variant
+      description: 'The quantity cannot exceed the stock available (not reserved by other customers): above it the answer is 409 INSUFFICIENT_STOCK and the cart keeps the previous quantity. The checkout checks the stock again when it reserves it.'
       operationId: setCartItem
       security:
         - {}
