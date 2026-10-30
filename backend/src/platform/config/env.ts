@@ -23,6 +23,12 @@ const envSchema = z.object({
     .default('http://localhost:8080')
     .transform((value) => value.split(',').map((origin) => origin.trim())),
   APP_PUBLIC_URL: z.url(),
+
+  // Los secretos los genera npm run up en el .env local; aquí solo se exige que no estén vacíos ni sean triviales
+  JWT_ACCESS_SECRET: z.string().min(24),
+  JWT_REFRESH_PEPPER: z.string().min(24),
+  ACCESS_TOKEN_MINUTES: z.coerce.number().int().positive().default(15),
+  REFRESH_TOKEN_DAYS: z.coerce.number().int().positive().default(7),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -1,6 +1,6 @@
 import cors from 'cors';
 import express from 'express';
-import type { Express } from 'express';
+import type { Express, RequestHandler, Router } from 'express';
 import helmet from 'helmet';
 import type { Env } from '../config/env.js';
 import type { Logger } from '../logging/logger.js';
@@ -13,9 +13,11 @@ export interface AppDependencies {
   env: Pick<Env, 'CORS_ORIGINS'>;
   logger: Logger;
   health: HealthChecks;
+  /** Rutas de /api/v1 de cada módulo y el límite global que las precede; los health checks quedan fuera */
+  api?: { routers: Router[]; globalLimit: RequestHandler };
 }
 
-export function createApp({ env, logger, health }: AppDependencies): Express {
+export function createApp({ env, logger, health, api }: AppDependencies): Express {
   const app = express();
 
   // nginx es el único proxy de confianza; así X-Forwarded-For no puede falsearse desde fuera
@@ -30,7 +32,7 @@ export function createApp({ env, logger, health }: AppDependencies): Express {
   app.use(express.json({ limit: '100kb' }));
 
   app.use(createHealthRouter(health));
-  // Las rutas de /api/v1 se registran aquí a medida que los módulos se implementan
+  if (api !== undefined) app.use('/api/v1', api.globalLimit, ...api.routers);
 
   app.use(notFoundHandler);
   app.use(createErrorHandler(logger));

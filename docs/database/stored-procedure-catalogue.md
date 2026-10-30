@@ -6,15 +6,15 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 
 | Module | Procedures |
 |---|---|
-| Auth (RF-01) | **Built:** `SP_Users_Register`, `SP_Users_GetByEmail`, `SP_Users_SetStatus`, `SP_Users_List`, `SP_Users_RecordFailedAttempt`, `SP_Users_RecordSuccessfulLogin` (added: it resets the lockout counter), `SP_Tokens_Save`, `SP_Tokens_Rotate`, `SP_Tokens_RevokeFamily` |
+| Auth (RF-01) | **Built:** `SP_Users_Register`, `SP_Users_GetByEmail`, `SP_Users_GetById` (profile without the hash, added for the refresh flow), `SP_Users_SetStatus`, `SP_Users_List`, `SP_Users_RecordFailedAttempt`, `SP_Users_RecordSuccessfulLogin` (added: it resets the lockout counter), `SP_Tokens_Save`, `SP_Tokens_Rotate`, `SP_Tokens_RevokeFamily` |
 | Catalogue (RF-02) | **Built:** `SP_Categories_Create/Update/Deactivate/List`, `SP_Products_Create/Update/Deactivate/Get/Search`, `SP_Variants_Create/Update`, `SP_Variants_ChangePrice`, `SP_Variants_SetAttributes` (internal), `SP_Addresses_List/Save` |
 | Inventory (RF-03) | **Built:** `SP_Inventory_RegisterEntry`, `SP_Inventory_AdjustStock`, **`SP_Inventory_ReserveStock`**, `SP_Inventory_ReleaseCartReservation`, **`SP_Inventory_ReleaseExpiredReservations`**, `SP_Inventory_GetLedger` |
 | Cart (RF-04) | **Built:** `SP_Cart_Get`, `SP_Cart_SetItemQuantity`, `SP_Cart_RemoveItem`, `SP_Cart_MergeGuest`, `SP_Cart_ApplyCoupon`, `SP_Cart_RemoveCoupon` |
 | Coupons (RF-05) | **Built:** `SP_Coupons_Create/Update/Deactivate/List`, `SP_Coupons_Validate` |
 | Checkout (RF-06) | **Built:** `SP_Idempotency_Begin/Complete/Fail/PurgeExpired`, **`SP_Orders_CreateOrder`** (built) |
-| Payments | `SP_BankAccounts_ListActive/Save`, `SP_Payments_GetMethodsAndWindow`, `SP_Payments_GetByOrder`, **`SP_Payments_ConfirmPayment`**, **`SP_Payments_RegisterProof`**, `SP_Payments_GetProof`, `SP_Payments_ListPendingDeposits`, **`SP_Payments_ApproveDeposit`**, **`SP_Payments_RejectDeposit`**, **`SP_Payments_ExpirePending`**, `SP_Payments_RegisterOrphanPayment`, `SP_Refunds_Register/List/Mark` |
+| Payments | `SP_BankAccounts_ListActive/Save`, `SP_Payments_GetMethodsAndWindow`, `SP_Payments_GetByOrder`, **`SP_Payments_ConfirmPayment`**, **`SP_Payments_RegisterProof`**, `SP_Payments_GetProof`, `SP_Payments_ListPendingDeposits`, **`SP_Payments_ApproveDeposit`**, **`SP_Payments_RejectDeposit`**, **`SP_Payments_ExpirePending`**, `SP_Payments_RegisterOrphanPayment`, **Built:** `SP_Refunds_Mark`, `SP_Refunds_List` (refunds are opened by cancellations, returns and late payments, so there is no separate register procedure) |
 | Payments, card (Phase 2) | `SP_Payments_RegisterExternalCheckout`, `SP_Payments_RegisterCreationFailure`, `SP_Payments_RegisterWebhookEvent`, `SP_Payments_ListPendingCardsToReconcile`, `SP_Webhooks_Purge` |
-| Orders (RF-07) | **`SP_Orders_ChangeStatus`**, **`SP_Orders_Cancel`**, `SP_Orders_List`, `SP_Orders_GetDetail`, **`SP_Returns_Register`** |
+| Orders (RF-07) | **Built:** **`SP_Orders_ChangeStatus`**, **`SP_Orders_Cancel`**, **`SP_Returns_Register`**. Pending: `SP_Orders_List`, `SP_Orders_GetDetail` |
 | Dashboard (RF-08) | `SP_Dashboard_SalesByPeriod`, `SP_Dashboard_SalesByCategory`, `SP_Dashboard_TopTenProducts`, `SP_Dashboard_AbandonedCarts` |
 | Audit (RF-09) | `SP_Audit_Record` (built, internal use), `SP_Audit_Query` |
 | System | `SP_System_GetSchemaVersion` (built, `R0100`), `SP_System_ListObjectVersions` |
@@ -28,7 +28,7 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 | `VW_Orders_History` | Order with its status history |
 | `VW_Payments_PendingDeposits` | Review queue with age in hours |
 | `VW_Payments_CardReconciliation` | Open card payments past their nominal expiry (Phase 2) |
-| `VW_Reconciliation_Amounts` | Money checks from [money handling](money-handling.md#conservation-and-reconciliation). Must return zero rows |
+| `VW_Reconciliation_Amounts` | Built. Money checks from [money handling](money-handling.md#conservation-and-reconciliation). Must return zero rows |
 | `VW_Dashboard_SalesByCategory` | Sales per category net of returns |
 | `VW_Dashboard_TopTenProducts` | Best sellers (filtered by period in the procedure) |
 | `VW_Carts_Abandoned` | Active carts with items and activity older than the configured threshold |
@@ -43,7 +43,7 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 | `FU_Money_VatIncluded(@TotalCents, @VatRate)` | VAT included in a total (`VatCents`) and the taxable base (`BaseCents` by subtraction, so base + VAT = total) |
 | `FU_Payments_DepositWindow(@DeliveryDate, @LeadTimeDays, @Now)` | Built. Deposit deadline `MIN(DepositReservationHours, delivery − lead time)` with the delivery read at 00:00 Guatemala time, and the minutes available (negative when it is already too late) |
 | `FU_Dashboard_SalesByPeriod(@From, @To, @Granularity)` | Sales by day, week or month in GTQ and order count, by `PaidAt` |
-| `FU_Orders_RefundableAmount(@IDOrderLine, @Quantity)` | Proportional refund closing exactly on the last unit |
+| `FU_Orders_RefundableAmount(@IDOrderLine, @Quantity)` | Built. Refund in cents for N units of a line, half to even, closing exactly on the last unit; NULL when the quantity is not valid |
 
 ## Critical procedures in brief
 
@@ -74,6 +74,17 @@ Sources: `R0301` (`SP_Orders_CancelPending`) and `R0310` to `R0316` (`SP_Payment
 - **`SP_Payments_ExpirePending`** expires pending payments past their deadline and the orders left with no open payment whose reservation ran out. A payment under review never expires. The job that calls it is still pending (D-06).
 - **`SP_Payments_RegisterOrphanPayment`** registers the refund for a payment that cannot be applied; repeating it changes nothing.
 - **Concurrency, proven with real connections.** Twenty simultaneous confirmations of one payment decrement the stock once and write one charge. An operator approving while another rejects the same deposit ends in exactly one outcome. This race found a real deadlock: the two procedures reached the `Payments` row through different indexes and took their locks in opposite order. Both now enter through the primary key with no join. Reads of "the payments of this order" force `IX_Payments_Order` for the same reason (a tiny table makes the optimiser scan the status index and collide with other orders' uncommitted rows).
+
+### Order lifecycle and returns (built)
+
+Sources: `R0059` (`FU_Orders_RefundableAmount`), `R0062` (`VW_Reconciliation_Amounts`), `R0302` to `R0304` and `R0320`, `R0321`. 43 tSQLt tests in `Test_Lifecycle` (442 in the whole suite), plus two races in `npm run sql:concurrency`.
+
+- **`SP_Orders_ChangeStatus`** is for operators and administrators and only sets `InPreparation`, `Dispatched` and `Delivered`. It locks the order, so two operators asking for the same step get `422 INVALID_STATE_TRANSITION` the second time; the transition must exist in `OrderStatusTransitions`. Payment, cancellation and returns have their own procedures because they move money or stock.
+- **`SP_Orders_Cancel`** is for the customer (own order only; another customer's order answers 404) or staff. A pending order goes through `SP_Orders_CancelPending`. A paid or in-preparation order is cancelled in one transaction: the units go back to the physical stock with a `Return` movement that stores the resulting balance, and a **pending refund for the whole payment** is opened. From `Dispatched` on it answers `422 INVALID_STATE_TRANSITION`. Cancelling twice is a no-op, so a double click opens one refund. The coupon use of a paid order is not voided.
+- **`SP_Returns_Register`** is for operators and administrators, on a `Delivered` or `PartiallyReturned` order. Lines come as a JSON array `[{"idOrderLine":1,"quantity":2}]` and a line cannot repeat. Each line's refund comes from `FU_Orders_RefundableAmount`: a unit is worth `LineTotal / Quantity` rounded half to even, and **the last pending unit refunds what is missing from the line total**, so a line of Q100.00 and 3 units refunds 33.33, 33.33 and 33.34. Asking for more units than are pending answers `422 RETURN_QUANTITY_EXCEEDED` and changes nothing. The return restores the stock through the ledger, opens one pending refund and moves the order to `PartiallyReturned`, or to `Returned` when no unit is left.
+- **`SP_Refunds_Mark`** is for administrators. Marking a refund `Processed` needs the reference of the transfer and writes the money ledger (`Refund`, negative). When the processed refunds equal what was charged, the payment moves to `Refunded`. A late payment that arrived after the order was cancelled never reached the ledger, so its `Charge` is written first and the refund subtracts from it. Repeating the same result is a no-op; a `Failed` refund can be processed later; a processed one cannot change. `SP_Refunds_List` feeds the administrator panel, oldest first, with the amount as text.
+- **`VW_Reconciliation_Amounts`** returns one row per discrepancy and must be empty. It checks the order subtotal and discount against the lines, the approved payment against the order total, the ledger charge and fee against each payment, refunds against what was charged, the ledger refunds against the processed ones, each return against its lines, the returned units against the return lines, a fully returned line against its exact total, and the coupon counters. `npm run sql:concurrency` asserts it is empty after every payment, return and cancellation scenario.
+- **Concurrency, proven with real connections.** Twenty simultaneous returns of one unit from a line of five accept exactly five, refuse fifteen with a 422, leave the stock at its starting level and refund exactly the line total. Ten simultaneous cancellations of one paid order cancel it once, restore the stock once and open one refund. All procedures take the order lock first and then the variants in ascending order.
 
 ### Idempotency (built)
 

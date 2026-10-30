@@ -13,6 +13,9 @@ export interface ProcedureResult<T> {
   output: Record<string, unknown>;
 }
 
+/** Forma del ejecutor: la reciben por constructor los repositorios y adaptadores SQL. */
+export type ProcedureExecutor = ReturnType<typeof createProcedureExecutor>;
+
 const MAX_DEADLOCK_RETRIES = 2;
 const BACKOFF_BASE_MS = 25;
 const BACKOFF_CAP_MS = 200;
