@@ -54,6 +54,8 @@
     "/^.*<!--\\s*spelling-ignore\\s*-->.*$/gm"
   ],
   "words": [
+    "Dockerfiles",
+    "MSAL",
     "stringbool",
     "Eder",
     "Yafeth",
