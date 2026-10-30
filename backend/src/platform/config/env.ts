@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// Un valor vacío en .env significa "no configurado" (por ejemplo, REQUIRED_SCHEMA_VERSION=)
+// Un valor vacío en .env significa "no configurado" (por ejemplo, DB_TRUST_SERVER_CERTIFICATE=)
 const blankToUndefined = (value: unknown): unknown =>
   typeof value === 'string' && value.trim() === '' ? undefined : value;
 
@@ -23,7 +23,6 @@ const envSchema = z.object({
     .default('http://localhost:8080')
     .transform((value) => value.split(',').map((origin) => origin.trim())),
   APP_PUBLIC_URL: z.url(),
-  REQUIRED_SCHEMA_VERSION: z.preprocess(blankToUndefined, z.coerce.number().int().optional()),
 });
 
 export type Env = z.infer<typeof envSchema>;

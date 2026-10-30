@@ -3,10 +3,14 @@ import { loadEnv } from './platform/config/env.js';
 
 // Punto de entrada del proceso: solo arranca el servidor y gestiona el apagado ordenado
 const env = loadEnv();
-const { app, logger, database } = buildContainer(env);
+const { app, logger, database, checkReadiness } = buildContainer(env);
 
 const server = app.listen(env.PORT, () => {
   logger.info({ port: env.PORT }, 'ShopCart API listening');
+  // Deja constancia en el registro de si el esquema está al día; el tráfico lo decide /health/ready
+  checkReadiness().catch((error: unknown) => {
+    logger.error({ err: error }, 'Start-up readiness check failed');
+  });
 });
 
 // Docker espera 10 s tras SIGTERM antes de enviar SIGKILL: el límite propio evita quedar colgado en una conexión abierta
