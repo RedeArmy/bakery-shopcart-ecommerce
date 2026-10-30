@@ -590,3 +590,33 @@ BEGIN
     EXEC dbo.SP_Tokens_RevokeFamily;
 END;
 GO
+
+-- Perfil por identificador ------------------------------------------------------------------
+
+CREATE PROCEDURE Test_Auth.[test the profile lookup returns the role and never the password hash]
+AS
+BEGIN
+    DECLARE @IDUser INT = (SELECT IDUser FROM dbo.Users WHERE Email = N'admin@shopcart.test');
+    CREATE TABLE #Result (IDUser INT, IDRole TINYINT, RoleName NVARCHAR(30), Email NVARCHAR(256), FullName NVARCHAR(120), Phone NVARCHAR(20), IsActive BIT);
+    INSERT INTO #Result EXEC dbo.SP_Users_GetById @IDUser = @IDUser;
+
+    DECLARE @Rows INT = (SELECT COUNT(*) FROM #Result);
+    DECLARE @Role NVARCHAR(30) = (SELECT RoleName FROM #Result);
+    DECLARE @Columns INT = (SELECT COUNT(*) FROM sys.dm_exec_describe_first_result_set_for_object(OBJECT_ID(N'dbo.SP_Users_GetById'), 0) WHERE name = N'PasswordHash');
+
+    EXEC tSQLt.AssertEquals @Expected = 1, @Actual = @Rows;
+    EXEC tSQLt.AssertEqualsString @Expected = N'Administrator', @Actual = @Role;
+    EXEC tSQLt.AssertEquals @Expected = 0, @Actual = @Columns;
+END;
+GO
+
+CREATE PROCEDURE Test_Auth.[test the profile lookup of an unknown account returns no rows and no error]
+AS
+BEGIN
+    CREATE TABLE #Result (IDUser INT, IDRole TINYINT, RoleName NVARCHAR(30), Email NVARCHAR(256), FullName NVARCHAR(120), Phone NVARCHAR(20), IsActive BIT);
+    INSERT INTO #Result EXEC dbo.SP_Users_GetById @IDUser = -1;
+
+    DECLARE @Rows INT = (SELECT COUNT(*) FROM #Result);
+    EXEC tSQLt.AssertEquals @Expected = 0, @Actual = @Rows;
+END;
+GO
