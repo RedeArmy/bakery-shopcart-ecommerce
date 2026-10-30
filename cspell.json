@@ -138,6 +138,7 @@
     "unprivileged",
     "xact",
     "UPDLOCK",
+    "READPAST",
     "ROWLOCK",
     "getapplock",
     "MADR",

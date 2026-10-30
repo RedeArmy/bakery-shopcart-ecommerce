@@ -188,7 +188,9 @@ BEGIN
   UPDATE dbo.Orders SET OrderNumber = @OrderNumber WHERE IDOrder = @IDOrder;
 
   -- Las líneas guardan lo que se vendió (SKU, nombre, atributos, precio) y su parte del descuento, repartido por mayor resto
+  DECLARE @InsertedLines TABLE (LineTotal DECIMAL(18,2) NOT NULL);
   INSERT INTO dbo.OrderLines (IDOrder, IDVariant, IDCategory, SKU, ProductName, Attributes, Quantity, UnitPrice, LineDiscount, LineTotal, Inscription)
+  OUTPUT inserted.LineTotal INTO @InsertedLines (LineTotal)
   SELECT @IDOrder, v.IDVariant, p.IDCategory, v.SKU, p.Name, LEFT(ISNULL(attr.Text, N''), 200), ci.Quantity, v.Price,
          x.LineDiscount, ci.Quantity * v.Price - x.LineDiscount, ci.Inscription
   FROM dbo.CartItems AS ci
@@ -203,8 +205,10 @@ BEGIN
   ) AS attr
   WHERE ci.IDCart = @IDCart;
 
-  -- Guarda contra un error de este procedimiento: las líneas deben sumar exactamente lo que el encabezado dice
-  IF (SELECT SUM(LineTotal) FROM dbo.OrderLines WHERE IDOrder = @IDOrder) <> @Subtotal - @Discount
+  -- Guarda contra un error de este procedimiento: las líneas deben sumar exactamente lo que el encabezado dice. Se suma lo
+  -- que el INSERT acaba de devolver y no se relee OrderLines: con la tabla pequeña el optimizador la recorre entera y choca
+  -- con las filas sin confirmar de otros pedidos simultáneos, lo que producía deadlocks (la prueba de concurrencia lo mostró).
+  IF (SELECT SUM(LineTotal) FROM @InsertedLines) <> @Subtotal - @Discount
     THROW 50422, 'The order lines do not add up to the order total.', 1;
 
   IF @IDCoupon IS NOT NULL
