@@ -44,7 +44,10 @@ function scopeOf(req: Request): string | undefined {
 export function requestHash(req: Request): string {
   const path = req.originalUrl.split('?')[0] ?? '';
   const body = JSON.stringify(req.body ?? {});
-  return createHash('sha256').update(`${req.method}\n${path}\n${body}`).digest('hex');
+  // En una subida multipart la huella cubre los campos de texto y la del archivo (docs/api/conventions.md)
+  const file =
+    req.file === undefined ? '' : createHash('sha256').update(req.file.buffer).digest('hex');
+  return createHash('sha256').update(`${req.method}\n${path}\n${body}\n${file}`).digest('hex');
 }
 
 /**
