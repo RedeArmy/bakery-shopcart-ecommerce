@@ -94,3 +94,8 @@ One dated line per decision, newest last. Architectural decisions link to their 
 | 2026-10-30 | A rejected deposit is terminal: the customer's retry creates a new payment for the same order (`SP_Payments_CreateDepositAttempt`), up to `MaxDepositAttempts`, after which the order is cancelled | none |
 | 2026-10-30 | Procedures that lock a payment enter through `PK_Payments` and queries over the payments of an order force `IX_Payments_Order`, to keep one lock order and avoid the deadlocks found by the concurrency checks | none |
 | 2026-10-30 | Stock leaves the shelf and the inventory ledger only when the payment is approved (`SP_Payments_ConfirmPayment`), never when the order is created | [ADR-0014](../adr/0014-order-created-as-pending-payment.md) |
+| 2026-10-30 | Only operators and administrators register returns, because they come from receiving the goods back; the customer asks and staff registers | none |
+| 2026-10-30 | Cancelling a paid order restores the stock and opens a pending refund for the whole payment, but the payment stays `Approved` and the money ledger is written only when an administrator marks the refund processed | none |
+| 2026-10-30 | Marking a refund processed is an administrator-only action that needs the transfer reference; a late payment gets its `Charge` in the ledger at that moment so the refund has something to subtract from | none |
+| 2026-10-30 | Refunds have no register procedure of their own: cancellations, returns and late payments open them, so `SP_Refunds_Register` from the design was dropped | none |
+| 2026-10-30 | `Returns.Type` is `Full` when the return leaves no unit pending in the order and `Partial` otherwise, so the last return of a split return is the `Full` one | none |
