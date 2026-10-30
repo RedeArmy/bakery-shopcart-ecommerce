@@ -8,6 +8,7 @@ COPY package.json package-lock.json ./
 COPY backend/package.json backend/
 COPY frontend/package.json frontend/
 COPY db/runner/package.json db/runner/
+COPY db/tests/scripts/package.json db/tests/scripts/
 COPY tools/scripts/package.json tools/scripts/
 COPY tools/recurrente-simulator/package.json tools/recurrente-simulator/
 # --ignore-scripts evita ejecutar "husky" (no hay .git dentro de la imagen)
@@ -24,6 +25,7 @@ COPY package.json package-lock.json ./
 COPY backend/package.json backend/
 COPY frontend/package.json frontend/
 COPY db/runner/package.json db/runner/
+COPY db/tests/scripts/package.json db/tests/scripts/
 COPY tools/scripts/package.json tools/scripts/
 COPY tools/recurrente-simulator/package.json tools/recurrente-simulator/
 RUN npm ci --omit=dev --workspace=backend --ignore-scripts && npm cache clean --force

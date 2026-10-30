@@ -1,4 +1,4 @@
-# ShopCart · orquestación local. El camino por defecto es: db, db-migrate, backend, frontend, nginx.
+# ShopCart · orquestación local. El camino por defecto es: db, db-migrate (runner), backend, frontend, nginx.
 # Los perfiles payments-sandbox, quality y observability se activan con "docker compose --profile <nombre> up".
 # Todas las rutas usan "/" y los datos viven en volúmenes nombrados (Windows con WSL2 y Linux se comportan igual).
 name: shopcart
@@ -25,26 +25,23 @@ services:
       retries: 12
       start_period: 20s
 
-  # Marcador de posición de la Etapa 0: crea la base de datos y el login de la aplicación.
-  # La Etapa 2 lo sustituye por el runner de migraciones (db/runner).
+  # Aplica las migraciones, los objetos y las semillas pendientes y alinea el login de la aplicación.
+  # Es idempotente: corre en cada arranque y termina; el backend espera a que acabe (ADR-0003).
   db-migrate:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    build:
+      context: .
+      dockerfile: db/runner/Dockerfile
     depends_on:
       db:
         condition: service_healthy
     environment:
-      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+      DB_HOST: db
+      DB_PORT: 1433
       DB_NAME: ${DB_NAME:-ShopCart}
+      # Las migraciones necesitan permisos de DDL, que la aplicación no tiene
+      MIGRATION_PASSWORD: ${MSSQL_SA_PASSWORD}
       DB_APP_USER: ${DB_APP_USER:-shopcart_app}
       DB_APP_PASSWORD: ${DB_APP_PASSWORD}
-    volumes:
-      - ./docker/sqlserver:/init:ro
-    entrypoint: ['/bin/bash', '-c']
-    command:
-      - >-
-        /opt/mssql-tools18/bin/sqlcmd -C -b -S db -U sa -P "$$MSSQL_SA_PASSWORD"
-        -v DbName="$$DB_NAME" AppUser="$$DB_APP_USER" AppPassword="$$DB_APP_PASSWORD"
-        -i /init/001_create_database_and_login.sql
     restart: 'no'
 
   backend:

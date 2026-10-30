@@ -36,7 +36,7 @@ db/tests/
 3. **One test class per module** (`Test_Money`, `Test_Inventory`, …) with behaviour-describing names: `[test SP_Payments_ConfirmPayment is idempotent]`.
 4. **Controlled clock.** Time-dependent procedures take `@Now` as a parameter (or use `tSQLt.FakeFunction` over the clock function), so reservation expiry and the deposit window are tested without waiting.
 5. **Each test owns its data:** `SetUp` creates product, variant, user and minimal stock; it does not depend on the `S####` seed.
-6. **Procedure coverage:** `sp-coverage.ts` compares `sys.procedures` with the tests. Critical procedures (inventory, checkout, payments, returns, money) **break CI** without a test; the rest only warn.
+6. **Procedure coverage:** `npm run sql:coverage` (`sp-coverage.ts`) compares the procedures in `db/objects/procedures` with the names that appear, outside comments, in the tSQLt scripts. It is a static check because tSQLt is uninstalled when `sql:test` ends. Critical procedures (the ones the [catalogue](../database/stored-procedure-catalogue.md) marks in bold) **break CI** without a test; the rest only warn. Critical procedures that are not built yet are listed and do not fail.
 
 ## Minimum case catalogue
 

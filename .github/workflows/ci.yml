@@ -158,7 +158,7 @@ jobs:
         with:
           name: tsqlt-junit
           path: test-results/tsqlt-junit.xml
-      # sql:coverage se añadirá aquí cuando exista sp-coverage.ts (Etapa 2)
+      - run: npm run sql:coverage
 
   # Etapa 2 en adelante: pruebas de integración y concurrencia con Testcontainers (SQL Server real)
   integration:

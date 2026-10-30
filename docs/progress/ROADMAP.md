@@ -31,8 +31,9 @@ Stages 2 to 6 now have to fit in the four days before Delivery Phase 1; see the 
 
 - [ ] `formatMoney` in `frontend/src/shared/lib/money` and its skipped test (Stage 7).
 - [x] Write the migration runner in `db/runner` (`npm run db:migrate` and `db:verify`, Stage 2, branch `feat/stage-2-migration-runner`).
-- [ ] Replace the `db-migrate` placeholder with the real runner and a `db/runner/Dockerfile` (Stage 2).
+- [x] Replace the `db-migrate` placeholder with the runner image (`db/runner/Dockerfile`); the whole compose stack was built and started with it (Stage 2).
 - [x] Enable the `sql-tests` CI job: `run-tsqlt.ts` now uninstalls tSQLt instead of dropping the database, and the `sql:coverage` step waits for `sp-coverage.ts` (Stage 2).
+- [x] Write `sp-coverage.ts` and put `sql:coverage` back in the `sql-tests` job (Stage 2).
 - [ ] Enable the `integration` CI job (Stage 2).
 - [x] Add the `windows-smoke` CRLF checksum test: the runner tests run on Windows in CI and cover CRLF, LF and a byte order mark (Stage 2).
 - [x] Evaluator question about `PendingPayment` answered affirmatively (open question 4).
@@ -41,6 +42,8 @@ Stages 2 to 6 now have to fit in the four days before Delivery Phase 1; see the 
 - [x] Create the `CI_SA_PASSWORD` secret for the `sql-tests` job, as a repository and a Dependabot secret.
 - [ ] Add `SONAR_TOKEN` as a Dependabot secret so the required `sonarcloud` check can pass on Dependabot pull requests (before Stage 2).
 - [ ] Add `sql-tests` to the required checks of the ruleset in GitHub once it has passed on a pull request (the JSON in the repository already lists it), and `integration` when it is enabled (Stage 2).
+- [x] Write the core schema (`V0001` to `V0009`) and the reference seeds (`S0001` to `S0005`: roles, order and payment states and transitions, payment methods, movement types, configuration) (Stage 2).
+- [ ] Write the demo seeds (postponed to the end of the project at the user's request): catalogue of about 60 products, coupons `WELCOME10`, `CAKES25`, `SOLDOUT` and `EXPIRED`, a bank account, and the performance data (Stage 2).
 - [ ] Generate the `SEED_*_PASSWORD` variables in `ensure-env` and `.env.example`, and create the demo accounts with a Node seed step that calls `SP_Users_Register` (Stage 2, see [test accounts](../operations/test-accounts.md)).
 - [x] tSQLt spike: installs and runs on the SQL Server 2022 Linux image and Docker Desktop; plan B not needed (29 Oct).
 - [x] Vendor tSQLt 1.0.8083.3529 with its checksums, kept byte for byte and verified by `npm run sql:lint` on Linux and Windows (Stage 2, branch `feat/stage-2-vendor-tsqlt`).

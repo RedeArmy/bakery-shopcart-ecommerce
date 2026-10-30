@@ -8,6 +8,7 @@ COPY package.json package-lock.json ./
 COPY backend/package.json backend/
 COPY frontend/package.json frontend/
 COPY db/runner/package.json db/runner/
+COPY db/tests/scripts/package.json db/tests/scripts/
 COPY tools/scripts/package.json tools/scripts/
 COPY tools/recurrente-simulator/package.json tools/recurrente-simulator/
 RUN npm ci --ignore-scripts

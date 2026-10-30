@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "migrate": "tsx src/cli.ts migrate",
     "verify": "tsx src/cli.ts verify",
     "test": "vitest run",

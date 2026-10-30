@@ -11,6 +11,7 @@ import {
   ensureControlTables,
   ensureDatabase,
   loadState,
+  provisionAppLogin,
   readLiveDefinitions,
 } from './database.js';
 import { MigrationError } from './errors.js';
@@ -41,6 +42,16 @@ async function migrate(): Promise<number> {
       await applyScript(pool, script);
       console.log(`Applied ${script.fileName}`);
     });
+    // El login se alinea después de migrar: el GRANT sobre el esquema cubre también lo recién creado
+    if (config.appLogin !== undefined) {
+      const master = await connect(config, 'master');
+      try {
+        await provisionAppLogin(master, pool, config.appLogin);
+      } finally {
+        await master.close();
+      }
+      console.log(`Application login ${config.appLogin.user} is up to date.`);
+    }
     console.log(
       pending.length === 0
         ? `${config.database} is up to date.`

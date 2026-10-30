@@ -78,6 +78,34 @@ describe('loadRunnerConfig', () => {
     expect(() => loadRunnerConfig({ ...base, DB_PORT: '0' })).toThrow(/port/);
   });
 
+  it('has no application login unless DB_APP_PASSWORD is set', () => {
+    expect(loadRunnerConfig(base).appLogin).toBeUndefined();
+    expect(loadRunnerConfig({ ...base, DB_APP_PASSWORD: '' }).appLogin).toBeUndefined();
+  });
+
+  it('reads the application login with its default name', () => {
+    expect(loadRunnerConfig({ ...base, DB_APP_PASSWORD: 'Abcdefg12345' }).appLogin).toEqual({
+      user: 'shopcart_app',
+      password: 'Abcdefg12345',
+    });
+    expect(
+      loadRunnerConfig({ ...base, DB_APP_USER: 'other_app', DB_APP_PASSWORD: 'Abcdefg12345' })
+        .appLogin?.user,
+    ).toBe('other_app');
+  });
+
+  it('rejects an invalid application login name or a password of the wrong length', () => {
+    expect(() =>
+      loadRunnerConfig({ ...base, DB_APP_USER: 'a]; DROP', DB_APP_PASSWORD: 'Abcdefg12345' }),
+    ).toThrow(/DB_APP_USER/);
+    expect(() => loadRunnerConfig({ ...base, DB_APP_PASSWORD: 'short' })).toThrow(
+      /DB_APP_PASSWORD/,
+    );
+    expect(() => loadRunnerConfig({ ...base, DB_APP_PASSWORD: 'x'.repeat(129) })).toThrow(
+      /DB_APP_PASSWORD/,
+    );
+  });
+
   it('lets MIGRATION_HOST and MIGRATION_PORT override DB_HOST and DB_PORT', () => {
     const config = loadRunnerConfig({
       ...base,

@@ -3,7 +3,7 @@
 import sql from 'mssql';
 import { splitBatches } from './batches.js';
 import { checksumOf } from './checksum.js';
-import type { RunnerConfig } from './config.js';
+import type { AppLoginConfig, RunnerConfig } from './config.js';
 import { CONTROL_TABLES_SQL } from './control-tables.js';
 import { MigrationError } from './errors.js';
 import { inSequence } from './sequence.js';
@@ -252,4 +252,40 @@ export async function applyScript(pool: sql.ConnectionPool, script: ScriptFile):
     await recordFailure(pool, script, Date.now() - started).catch(() => undefined);
     throw error;
   }
+}
+
+/**
+ * Crea o actualiza el login de la aplicación y le concede solo EXECUTE (ADR-0002).
+ * Se ejecuta en cada arranque: la contraseña de .env es la fuente de verdad, así que si se regenera
+ * el archivo y se conserva el volumen, la base de datos se vuelve a alinear en lugar de rechazar a la aplicación.
+ * El nombre y la contraseña se incrustan con QUOTENAME porque CREATE LOGIN no admite parámetros.
+ */
+export async function provisionAppLogin(
+  master: sql.ConnectionPool,
+  database: sql.ConnectionPool,
+  login: AppLoginConfig,
+): Promise<void> {
+  await master
+    .request()
+    .input('user', sql.NVarChar(128), login.user)
+    .input('password', sql.NVarChar(128), login.password).query(`
+      DECLARE @quotedUser NVARCHAR(130) = QUOTENAME(@user);
+      DECLARE @quotedPassword NVARCHAR(130) = QUOTENAME(@password, '''');
+      DECLARE @statement NVARCHAR(MAX) = CASE
+        WHEN EXISTS (SELECT 1 FROM sys.server_principals WHERE name = @user)
+          THEN N'ALTER LOGIN ' + @quotedUser + N' WITH PASSWORD = N' + @quotedPassword + N';'
+        ELSE N'CREATE LOGIN ' + @quotedUser + N' WITH PASSWORD = N' + @quotedPassword + N', CHECK_POLICY = OFF;'
+      END;
+      EXEC sp_executesql @statement;
+    `);
+
+  await database.request().input('user', sql.NVarChar(128), login.user).query(`
+    DECLARE @quotedUser NVARCHAR(130) = QUOTENAME(@user);
+    DECLARE @statement NVARCHAR(MAX) = N'';
+    IF DATABASE_PRINCIPAL_ID(@user) IS NULL
+      SET @statement += N'CREATE USER ' + @quotedUser + N' FOR LOGIN ' + @quotedUser + N';';
+    SET @statement += N'GRANT EXECUTE ON SCHEMA::dbo TO ' + @quotedUser + N';';
+    SET @statement += N'DENY SELECT, INSERT, UPDATE, DELETE ON SCHEMA::dbo TO ' + @quotedUser + N';';
+    EXEC sp_executesql @statement;
+  `);
 }

@@ -192,7 +192,7 @@ The backend **does not calculate** totals or discounts: the database does. `Mone
 | Returns | `Returns.RefundAmount = Σ ReturnLines.RefundAmount`; a full return of a line equals its exact `LineTotal` |
 | Fees | `Σ Fee` in the ledger = `Σ Payments.ProviderFee` |
 | Inventory | `OnHandStock = Σ ledger` |
-| Coupons | `Coupons.CurrentUses = COUNT(CouponUsages WHERE IsVoided = 0)` |
+| Coupons | `Coupons.UsageCount = COUNT(CouponUsages WHERE IsVoided = 0)` |
 
 A non-zero result writes an audit entry and raises an alert in the Administrator panel.
 

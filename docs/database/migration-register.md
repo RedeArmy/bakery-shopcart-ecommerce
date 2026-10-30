@@ -16,7 +16,7 @@ This register is the single, controlled record of every structural change applie
 
 It complements, and does not replace, the machine records: the `SchemaVersion` table is the source of truth for what a given database has actually run, and `npm run db:verify` proves it still matches the repository. This document is the source of truth for **intent and approval**.
 
-Programmable objects (`R####`) are versioned by the header of each file and recorded in `ObjectVersions`; seeds (`S####`) are recorded in `SchemaVersion`. Both are out of scope here until they carry a structural change that needs approval; see section 8.
+Programmable objects (`R####`) are versioned by the header of each file and recorded in `ObjectVersions`; seeds (`S####`) are recorded in `SchemaVersion`. Objects are out of scope here until they change a contract; seeds that load reference data are registered in section 5 (see also section 8).
 
 ## 2. Rules of the register
 
@@ -35,7 +35,7 @@ Programmable objects (`R####`) are versioned by the header of each file and reco
 | Draft | Written on a branch, not yet reviewed |
 | In review | Pull request open, checks running |
 | Approved | Reviewed and merged to `main`; immutable from this point |
-| Applied | Run in at least one shared environment, recorded in `SchemaVersion` |
+| Applied | Run by the pipeline or in an environment other than the author's machine, and recorded in `SchemaVersion`. The throwaway database of the CI job counts |
 | Superseded | A later migration has replaced part of its effect (the row stays; the later entry references it) |
 
 Environment states used in the register: **Verified** (run and checked), **Pending** (not run yet), **Not deployed** (no such environment exists yet).
@@ -44,15 +44,15 @@ Environment states used in the register: **Verified** (run and checked), **Pendi
 
 | ID | File | Title | Type | Risk | Status |
 |---|---|---|---|---|---|
-| V0001 | `V0001__create_security_tables.sql` | Security tables | Schema, additive | Low | Draft |
-| V0002 | `V0002__create_catalogue_tables.sql` | Catalogue and addresses | Schema, additive | Low | Draft |
-| V0003 | `V0003__create_inventory_tables.sql` | Inventory ledger | Schema, additive | Low | Draft |
-| V0004 | `V0004__create_cart_and_coupon_tables.sql` | Carts and coupons | Schema, additive | Low | Draft |
-| V0005 | `V0005__create_order_tables.sql` | Orders, statuses and coupon usages | Schema, additive | Medium | Draft |
-| V0006 | `V0006__create_reservation_tables.sql` | Stock reservations | Schema, additive | Low | Draft |
-| V0007 | `V0007__create_payment_tables.sql` | Payments, returns and financial ledger | Schema, additive | High | Draft |
-| V0008 | `V0008__create_platform_tables.sql` | Idempotency, audit, configuration, DDL history | Schema, additive | Low | Draft |
-| V0009 | `V0009__create_triggers_and_permissions.sql` | Triggers and permissions | Schema, behaviour | High | Draft |
+| V0001 | `V0001__create_security_tables.sql` | Security tables | Schema, additive | Low | Applied |
+| V0002 | `V0002__create_catalogue_tables.sql` | Catalogue and addresses | Schema, additive | Low | Applied |
+| V0003 | `V0003__create_inventory_tables.sql` | Inventory ledger | Schema, additive | Low | Applied |
+| V0004 | `V0004__create_cart_and_coupon_tables.sql` | Carts and coupons | Schema, additive | Low | Applied |
+| V0005 | `V0005__create_order_tables.sql` | Orders, statuses and coupon usages | Schema, additive | Medium | Applied |
+| V0006 | `V0006__create_reservation_tables.sql` | Stock reservations | Schema, additive | Low | Applied |
+| V0007 | `V0007__create_payment_tables.sql` | Payments, returns and financial ledger | Schema, additive | High | Applied |
+| V0008 | `V0008__create_platform_tables.sql` | Idempotency, audit, configuration, DDL history | Schema, additive | Low | Applied |
+| V0009 | `V0009__create_triggers_and_permissions.sql` | Triggers and permissions | Schema, behaviour | High | Applied |
 
 Risk is the impact of a defect in the migration, not of running it: all nine run on an empty database, take no meaningful locks and move no data. **High** marks the migrations that protect money (V0007) or that can block legitimate writes if wrong (V0009).
 
@@ -64,13 +64,13 @@ Each entry uses the template in section 7. Common fields for all nine entries:
 |---|---|
 | Author | Eder Yafeth Garcia Quiroa |
 | Created | 30 October 2026 |
-| Branch | `feat/stage-2-core-migrations` |
-| Reviewer | Pending (pull request not opened) |
+| Pull request | [#18](https://github.com/RedeArmy/bakery-shopcart-ecommerce/pull/18), squash-merged to `main` on 30 October 2026 |
+| Reviewer | Repository owner. The ruleset requires no approving review while the project has a single maintainer; the approval is the merge with all required checks green |
 | Execution model | One transaction per script, applied by `npm run db:migrate` |
 | Data migration | None: the database is empty when these run |
 | Online impact | None: no existing data, no application connected yet |
 | Local environment | Verified on 30 October 2026 (SQL Server 2022 container, applied twice, `db:verify` clean) |
-| CI environment | Pending (the `sql-tests` job runs on the pull request) |
+| CI environment | Verified on 30 October 2026 (`sql-tests` job of pull request #18: 9 scripts applied, `db:verify` clean, 52 tests passed) |
 | Production | Not deployed |
 
 ### V0001: Security tables
@@ -204,14 +204,28 @@ Each entry uses the template in section 7. Common fields for all nine entries:
 | Tests | `Test_Triggers` (all triggers), `Test_Schema` (DDL capture) |
 | Related decisions | ADR-0002, ADR-0006, ADR-0021 |
 
+### Reference seeds
+
+Seeds are idempotent `MERGE` scripts applied after the migrations. They are registered because the code, the API and the tests assume exactly these values. The common fields are the same as above, except the pull request, which is the one that adds them (see the revision history), and the rollback, which is to correct the seed and let the runner apply the new version.
+
+| ID | File | SHA-256 | Content | Re-run behaviour |
+|---|---|---|---|---|
+| S0001 | `S0001__seed_roles.sql` | `d5bd6005e962e2cce6652f2412bfa0acc44cc2204570f3bdd3cdd2f27b0d8914` | Roles Customer (1), Operator (2), Administrator (3) | Names are corrected if they differ |
+| S0002 | `S0002__seed_order_statuses.sql` | `580c22e5fa106b5aaa0c7fee092837c10e1960fc4cc4b7fe6ffc69d1e0bb93c2` | Eight order states and the eleven allowed transitions | Transitions are made equal to the declared set (a removed transition is deleted) |
+| S0003 | `S0003__seed_payment_reference_data.sql` | `de3d5b7c00c36e11c0dafe6cab47b93aafa44840679566143b889285cb962148` | Payment methods `CARD` and `BANK_DEPOSIT`, eight payment states and nine transitions | Same as S0002 |
+| S0004 | `S0004__seed_inventory_movement_types.sql` | `c374071314d410942a1d22410f5985f8a722d6abe1bf9e656dd73a8ed197a7e4` | Entry (1), Exit (2), Adjustment (3), Return (4) | Names are corrected if they differ |
+| S0005 | `S0005__seed_configuration.sql` | `430c3a4b144d71ed846491d9dd4066f7b997d7e92fb57a505d91fc7980f805ff` | Ten business settings with their defaults (reservation minutes, deposit hours, shipping cost, VAT rate and others) | Inserts only missing keys and never overwrites a tuned value |
+
+Tests: `Test_Seeds` compares every table with the expected rows and checks that Cancelled and Returned orders have no way out, that a dispatched order cannot be cancelled and that a payment under review cannot expire.
+
 ## 6. Verification evidence
 
 | Check | Command | Result on 30 October 2026 |
 |---|---|---|
-| Apply from scratch | `npm run db:migrate` | 9 scripts applied |
+| Apply from scratch | `npm run db:migrate` | 9 migrations and 5 seeds applied |
 | Idempotent re-run | `npm run db:migrate` | "up to date", nothing applied |
 | Drift check | `npm run db:verify` | Matches the repository |
-| Constraint, trigger and schema tests | `npm run sql:test` | 52 tests, 0 failures |
+| Constraint, trigger, schema and seed tests | `npm run sql:test` | 65 tests, 0 failures |
 | File names and vendored files | `npm run sql:lint` | OK |
 
 ## 7. Template for a new entry
@@ -261,3 +275,4 @@ Programmable objects and seeds: a change to an `R####` object needs only the ver
 | Date | Change | Author |
 |---|---|---|
 | 30 October 2026 | First issue: entries for V0001 to V0009 | Eder Yafeth Garcia Quiroa |
+| 30 October 2026 | V0001 to V0009 set to Applied after pull request #18; reference seeds S0001 to S0005 added | Eder Yafeth Garcia Quiroa |
