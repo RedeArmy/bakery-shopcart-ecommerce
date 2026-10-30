@@ -99,3 +99,8 @@ One dated line per decision, newest last. Architectural decisions link to their 
 | 2026-10-30 | Marking a refund processed is an administrator-only action that needs the transfer reference; a late payment gets its `Charge` in the ledger at that moment so the refund has something to subtract from | none |
 | 2026-10-30 | Refunds have no register procedure of their own: cancellations, returns and late payments open them, so `SP_Refunds_Register` from the design was dropped | none |
 | 2026-10-30 | `Returns.Type` is `Full` when the return leaves no unit pending in the order and `Partial` otherwise, so the last return of a split return is the `Full` one | none |
+| 2026-10-30 | Passwords use `@node-rs/argon2` (argon2id) and access tokens use `jose` (HS256, 15 minutes); refresh tokens are 48 random bytes stored as an HMAC-SHA256 with the pepper, so a table dump cannot sign anyone in | [Security](../architecture/05-security.md) |
+| 2026-10-30 | The idempotency middleware stores the response before sending it, so an immediate client retry already finds it; a 5xx is never stored and frees the key | [ADR-0004](../adr/0004-idempotency-at-two-levels.md) |
+| 2026-10-30 | The rate limiter keeps its counters in memory behind `RateLimitStorePort`: enough for one backend instance, with nginx as the first layer and the lockout in the database as the third; a second instance would need a shared store | [ADR-0010](../adr/0010-layered-rate-limiting.md) |
+| 2026-10-30 | A locked account is not asked for its password, and an unknown email costs the same hashing time as a wrong password, so neither the response nor its latency reveals which emails exist | none |
+
