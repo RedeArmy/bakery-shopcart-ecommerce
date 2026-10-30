@@ -1,9 +1,9 @@
 /* =====================================================================
    Objeto   : dbo.SP_Returns_Register
-   Version  : 1.0.0
-   Cambio   : Primera versión: un operador registra la devolución total o parcial de un pedido entregado
+   Version  : 1.1.0
+   Cambio   : Devuelve también el importe como texto exacto (@RefundAmountText) para la API, que no usa números con coma flotante
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
-   Compat   : Nueva. @Lines es un arreglo JSON [{"idOrderLine":1,"quantity":2}]; una línea no puede repetirse. El reembolso de cada
+   Compat   : Compatible: el parámetro de salida nuevo es opcional. @Lines es un arreglo JSON [{"idOrderLine":1,"quantity":2}]; una línea no puede repetirse. El reembolso de cada
               línea sale de FU_Orders_RefundableAmount, que cierra exacto en la última unidad. Devuelve las unidades al libro de
               inventario y deja un reembolso pendiente. Errores: 50400, 50404 pedido o línea inexistente, 50422 actor sin permiso,
               INVALID_STATE_TRANSITION (el pedido no está entregado) o RETURN_QUANTITY_EXCEEDED.
@@ -16,7 +16,8 @@ CREATE OR ALTER PROCEDURE dbo.SP_Returns_Register
   @Now          DATETIME2(3) = NULL,
   @IDReturn     INT           = NULL OUTPUT,
   @IDRefund     INT           = NULL OUTPUT,
-  @RefundAmount DECIMAL(18,2) = NULL OUTPUT
+  @RefundAmount DECIMAL(18,2) = NULL OUTPUT,
+  @RefundAmountText VARCHAR(25) = NULL OUTPUT
 AS
 BEGIN
   SET NOCOUNT ON;
@@ -37,7 +38,7 @@ BEGIN
     THROW 50400, 'Each line needs an idOrderLine and a quantity of at least 1, and a line cannot repeat.', 1;
 
   SET @Now = ISNULL(@Now, SYSUTCDATETIME());
-  SET @IDReturn = NULL; SET @IDRefund = NULL; SET @RefundAmount = NULL;
+  SET @IDReturn = NULL; SET @IDRefund = NULL; SET @RefundAmount = NULL; SET @RefundAmountText = NULL;
 
   DECLARE @OwnsTransaction BIT = CASE WHEN @@TRANCOUNT = 0 THEN 1 ELSE 0 END;
   IF @OwnsTransaction = 1 BEGIN TRANSACTION;
@@ -79,6 +80,7 @@ BEGIN
   DECLARE @NewStatus TINYINT = CASE WHEN @PendingAfter = 0 THEN 8 ELSE 7 END;
   DECLARE @TotalCents BIGINT = (SELECT SUM(RefundCents) FROM @Computed);
   SET @RefundAmount = CAST(@TotalCents AS DECIMAL(18,2)) / CAST(100 AS DECIMAL(18,2));
+  SET @RefundAmountText = (SELECT Text FROM dbo.FU_Money_CentsToText(@TotalCents));
 
   INSERT INTO dbo.Returns (IDOrder, Type, Reason, RefundAmount, IDUser, CreatedAt)
   VALUES (@IDOrder, CASE WHEN @NewStatus = 8 THEN N'Full' ELSE N'Partial' END, LEFT(@Reason, 250), @RefundAmount, @IDActor, @Now);
