@@ -32,9 +32,9 @@ const failures: string[] = [];
 
 function check(name: string, actual: unknown, expected: unknown): void {
   const ok = actual === expected;
-  console.log(
-    `  ${ok ? 'ok  ' : 'FAIL'} ${name}: ${String(actual)}${ok ? '' : ` (expected ${String(expected)})`}`,
-  );
+  // Sin plantillas anidadas: lo esperado solo se muestra cuando la comprobación falla
+  const detail = ok ? '' : ' (expected ' + String(expected) + ')';
+  console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${name}: ${String(actual)}${detail}`);
   if (!ok) failures.push(name);
 }
 
