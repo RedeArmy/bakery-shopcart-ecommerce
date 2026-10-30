@@ -12,10 +12,10 @@ The ruleset is versioned in [`.github/rulesets/main-protection.json`](../../.git
 | Require linear history | Only squash and rebase merges; no merge commits |
 | Require a pull request | No direct commits to `main`. Zero approvals are required because this is a one-person project; raise `required_approving_review_count` to 1 once a second reviewer exists |
 | Dismiss stale approvals and require resolved conversations | A new push invalidates earlier approvals and open threads block the merge |
-| Require status checks, branch up to date | `lint`, `typecheck`, `unit`, `architecture`, `secrets`, `sql-lint`, `compose-validate`, `windows-smoke` and `sonarcloud` must pass on the latest commit |
+| Require status checks, branch up to date | `lint`, `typecheck`, `unit`, `architecture`, `secrets`, `sql-lint`, `sql-tests`, `compose-validate`, `windows-smoke` and `sonarcloud` must pass on the latest commit |
 | No bypass actors | The rules apply to everyone |
 
-The `sql-tests` and `integration` jobs are switched off until Stage 2. Add them to `required_status_checks` when they are enabled.
+The `integration` job is switched off until Stage 2. Add it to `required_status_checks` when it is enabled. `sql-tests` is enabled; the ruleset in GitHub must list it too (edit the active ruleset and add the check, or re-import the JSON), and only after the job has passed once on a pull request, because a required check that never ran blocks every merge.
 
 ### Import it
 

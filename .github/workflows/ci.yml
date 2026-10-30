@@ -117,9 +117,8 @@ jobs:
         with:
           args: -Dsonar.qualitygate.wait=true
 
-  # Etapa 2: se habilita cuando existan el runner de migraciones y las migraciones V0001-V0009
+  # Migra la base de pruebas, verifica el esquema y ejecuta tSQLt sobre él
   sql-tests:
-    if: false
     runs-on: ubuntu-latest
     needs: [sql-lint]
     services:
@@ -159,7 +158,7 @@ jobs:
         with:
           name: tsqlt-junit
           path: test-results/tsqlt-junit.xml
-      - run: npm run sql:coverage
+      # sql:coverage se añadirá aquí cuando exista sp-coverage.ts (Etapa 2)
 
   # Etapa 2 en adelante: pruebas de integración y concurrencia con Testcontainers (SQL Server real)
   integration:

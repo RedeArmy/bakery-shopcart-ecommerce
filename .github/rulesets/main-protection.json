@@ -36,6 +36,7 @@
           { "context": "architecture" },
           { "context": "secrets" },
           { "context": "sql-lint" },
+          { "context": "sql-tests" },
           { "context": "compose-validate" },
           { "context": "windows-smoke" },
           { "context": "sonarcloud" }
