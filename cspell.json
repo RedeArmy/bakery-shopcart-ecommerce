@@ -54,6 +54,12 @@
     "/^.*<!--\\s*spelling-ignore\\s*-->.*$/gm"
   ],
   "words": [
+    "Objeto",
+    "Cambio",
+    "SNAME",
+    "listextendedproperty",
+    "updateextendedproperty",
+    "addextendedproperty",
     "shopcart",
     "SOLDOUT",
     "Pasteles",
