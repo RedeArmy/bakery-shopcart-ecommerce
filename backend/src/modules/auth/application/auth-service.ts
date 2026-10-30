@@ -157,7 +157,7 @@ export class AuthService {
     if (rotated.outcome !== 'Rotated' || rotated.idUser === null) return err(REFRESH_INVALID());
 
     const user = await this.repository.findById(rotated.idUser);
-    if (user === null || !user.isActive) return err(REFRESH_INVALID());
+    if (!user?.isActive) return err(REFRESH_INVALID());
     return ok(await this.session(user, next.token));
   }
 

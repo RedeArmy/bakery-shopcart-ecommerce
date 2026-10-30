@@ -924,9 +924,9 @@ async function deliveredOrder(
   const idOrder = order.idOrder ?? 0;
   const idPayment = order.idPayment ?? 0;
   await confirmPayment(pool, idPayment, `${(units * 10).toString()}.00`);
-  for (let status = 3; status <= stop; status += 1) {
-    await changeStatus(pool, operator, idOrder, status);
-  }
+  // Cada paso depende del anterior; inSequence los encadena sin esperar dentro de un bucle
+  const steps = [3, 4, 5].filter((status) => status <= stop);
+  await inSequence(steps, (status) => changeStatus(pool, operator, idOrder, status));
   const idLine = await scalar(
     pool,
     `SELECT Value = IDOrderLine FROM dbo.OrderLines WHERE IDOrder = ${idOrder};`,

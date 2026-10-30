@@ -25,7 +25,7 @@ export interface RefreshToken {
 }
 
 const ISSUER = 'shopcart';
-const ROLES: readonly string[] = ['Customer', 'Operator', 'Administrator'];
+const ROLES: ReadonlySet<string> = new Set(['Customer', 'Operator', 'Administrator']);
 
 /**
  * Emite y verifica los tokens. El access token es un JWT HS256 de vida corta; el de refresco es opaco, de 48 bytes
@@ -58,7 +58,7 @@ export function createTokenService(config: TokenConfig, clock: Clock) {
         });
         const idUser = Number(payload.sub);
         const role = payload['role'];
-        if (!Number.isInteger(idUser) || typeof role !== 'string' || !ROLES.includes(role)) {
+        if (!Number.isInteger(idUser) || typeof role !== 'string' || !ROLES.has(role)) {
           return null;
         }
         return { idUser, role: role as RoleName };
