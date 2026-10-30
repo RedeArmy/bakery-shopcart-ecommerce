@@ -1,12 +1,14 @@
 /* =====================================================================
    Objeto   : dbo.SP_Inventory_ReleaseExpiredReservations
-   Version  : 1.0.0
-   Cambio   : Primera versión: libera las reservas vencidas que no llegaron a convertirse en pedido
+   Version  : 1.1.0
+   Cambio   : Devuelve también el conteo por parámetro de salida (@Released) para que el procedimiento del job no tenga que capturar el conjunto de resultados
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
-   Compat   : Nueva; la ejecutará el job de expiración cada 60 segundos. Devuelve una fila con ReleasedReservations.
+   Compat   : Compatible: sigue devolviendo una fila con ReleasedReservations; el parámetro de salida es opcional. Lo llama el job
+              de expiración cada 60 segundos (SP_Jobs_ExpirePayments).
    ===================================================================== */
 CREATE OR ALTER PROCEDURE dbo.SP_Inventory_ReleaseExpiredReservations
-  @Now DATETIME2(3) = NULL
+  @Now      DATETIME2(3) = NULL,
+  @Released INT          = NULL OUTPUT
 AS
 BEGIN
   SET NOCOUNT ON;
@@ -53,7 +55,8 @@ BEGIN
     GROUP BY rl.IDVariant
   ) AS l ON l.IDVariant = v.IDVariant;
 
-  SELECT ReleasedReservations = COUNT(*) FROM @Expired;
+  SET @Released = (SELECT COUNT(*) FROM @Expired);
+  SELECT ReleasedReservations = @Released;
 
   IF @OwnsTransaction = 1 COMMIT TRANSACTION;
 END;

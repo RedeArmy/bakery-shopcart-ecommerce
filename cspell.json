@@ -141,6 +141,8 @@
     "READPAST",
     "ROWLOCK",
     "getapplock",
+    "releaseapplock",
+    "APPLOCK",
     "MADR",
     "idempotency",
     "Idempotency",
