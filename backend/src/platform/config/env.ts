@@ -20,7 +20,7 @@ const envSchema = z.object({
     .min(1)
     .default('http://localhost:8080')
     .transform((value) => value.split(',').map((origin) => origin.trim())),
-  APP_PUBLIC_URL: z.string().url(),
+  APP_PUBLIC_URL: z.url(),
   REQUIRED_SCHEMA_VERSION: z.preprocess(blankToUndefined, z.coerce.number().int().optional()),
 });
 

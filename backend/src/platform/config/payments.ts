@@ -20,7 +20,7 @@ export const paymentsEnvSchema = z.object({
       .optional(),
   ),
   RECURRENTE_WEBHOOK_SECRET: z.preprocess(blank, z.string().startsWith('whsec_').optional()),
-  RECURRENTE_BASE_URL: z.string().url().default('https://app.recurrente.com/api'),
+  RECURRENTE_BASE_URL: z.url().default('https://app.recurrente.com/api'),
   PAYMENTS_CARD_ENABLED: z.enum(['true', 'false']).default('true'),
   PAYMENT_PROOFS_DIR: z.string().default('/data/payment-proofs'),
   PAYMENT_PROOF_MAX_BYTES: z.coerce
