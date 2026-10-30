@@ -1,6 +1,6 @@
 // Superficie pública del módulo auth: ningún otro módulo puede importar nada más que este archivo
 import type { RequestHandler, Router } from 'express';
-import type { ProcedureExecutor } from '../../platform/db/execute-procedure.js';
+import type { ProcedureExecutor } from '../../platform/db/executor.js';
 import type { PasswordHasher } from '../../platform/security/passwords.js';
 import type { TokenService } from '../../platform/security/tokens.js';
 import type { Clock } from '../../shared-kernel/index.js';
