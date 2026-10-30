@@ -48,7 +48,8 @@ export function createProcedureExecutor(database: Database, options: ExecutorOpt
     params: ProcedureParam[] = [],
     outputs: Omit<ProcedureParam, 'value'>[] = [],
   ): Promise<ProcedureResult<T>> {
-    for (let attempt = 0; ; attempt += 1) {
+    // Recursivo y no un bucle: cada reintento debe empezar después de la espera del anterior
+    const run = async (attempt: number): Promise<ProcedureResult<T>> => {
       const request = (await database.getPool()).request();
       for (const param of params) request.input(param.name, param.type, param.value);
       for (const output of outputs) request.output(output.name, output.type);
@@ -58,9 +59,10 @@ export function createProcedureExecutor(database: Database, options: ExecutorOpt
       } catch (error) {
         // El deadlock (1205) revierte la transacción completa del procedimiento: repetirlo es seguro
         if (!isDeadlock(error) || attempt >= MAX_DEADLOCK_RETRIES) throw mapSqlError(error);
-        // El reintento solo puede ocurrir después de la espera, por eso es secuencial
         await sleep(backoffDelay(attempt, random));
+        return run(attempt + 1);
       }
-    }
+    };
+    return run(0);
   };
 }
