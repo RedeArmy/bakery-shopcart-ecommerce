@@ -1,9 +1,11 @@
 /* =====================================================================
    Objeto   : dbo.SP_Cart_SetItemQuantity
-   Version  : 1.0.0
-   Cambio   : Primera versión: fija la cantidad absoluta de una variante en el carrito, creándolo si hace falta (ADR-0013)
+   Version  : 1.2.0
+   Cambio   : La existencia disponible se calcula con FU_Cart_AvailableStock, que también usa la fusión del carrito (R0203)
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
-   Compat   : Nueva. Errores: 50400, 50404 variante inexistente, 50409 otra solicitud crea el carrito, 50422 variante no disponible.
+   Compat   : Compatible con 1.1.0: mismo resultado. Rechaza una cantidad sobre la existencia disponible (RF-04, desde 1.1.0). Errores: 50400, 50404 variante inexistente,
+              50409 otra solicitud crea el carrito o INSUFFICIENT_STOCK (cantidad sobre la existencia, como en el checkout),
+              50422 variante no disponible.
    ===================================================================== */
 CREATE OR ALTER PROCEDURE dbo.SP_Cart_SetItemQuantity
   @IDUser      INT              = NULL,
@@ -40,6 +42,16 @@ BEGIN
     SELECT TOP (1) IDCart FROM dbo.Carts
     WHERE Status = N'Active' AND ((@IDUser IS NOT NULL AND IDUser = @IDUser) OR (@IDUser IS NULL AND GuestToken = @GuestToken))
   );
+
+  -- Se comprueba antes de crear el carrito, para que un rechazo no deje un carrito vacío si quien llama ya abrió una
+  -- transacción; la reserva del checkout sigue siendo la garantía final contra la sobreventa.
+  DECLARE @Available INT = (SELECT Available FROM dbo.FU_Cart_AvailableStock(@IDCart, @IDVariant));
+  IF @Quantity > @Available
+  BEGIN
+    -- El código estable viaja en el mensaje para que la API lo exponga tal cual (el frontend lo traduce)
+    DECLARE @Message NVARCHAR(200) = CONCAT(N'INSUFFICIENT_STOCK: Only ', IIF(@Available < 0, 0, @Available), N' units are available.');
+    THROW 50409, @Message, 1;
+  END;
 
   IF @IDCart IS NULL
   BEGIN
