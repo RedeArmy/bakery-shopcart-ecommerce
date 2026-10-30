@@ -1,56 +1,2493 @@
 # Contrato de la API de ShopCart (fuente de verdad, ADR-0011).
-# Esqueleto mínimo válido de la Etapa 1: las rutas de negocio se añaden primero aquí (contract first).
+# Las rutas de negocio se añaden primero aquí (contract first); backend/tests/unit/openapi.test.ts comprueba que este archivo
+# y las rutas de Express describen exactamente las mismas operaciones.
 openapi: 3.0.3
 info:
   title: ShopCart API
-  version: 0.1.0
-  description: >-
-    E-commerce API for the Dulce Aroma bakery. Amounts are decimal strings with two
-    decimals and a currency, never JSON numbers. Errors share a single shape.
+  version: 0.2.0
+  description: E-commerce API for the Dulce Aroma bakery. Amounts are decimal strings with two decimals (never JSON numbers) and the currency is always GTQ. Errors share a single shape. Every mutating endpoint needs an Idempotency-Key header; PUT and DELETE accept it optionally. Delivery Phase 1 covers deposits; card payments and the webhook arrive in Phase 2.
 servers:
   - url: /
     description: Same origin as the web application (nginx proxies /api and /health)
 tags:
   - name: Health
     description: Liveness and readiness probes
+  - name: Authentication
+    description: 'Accounts and sessions. Login, refresh and logout take no Idempotency-Key: they use rate limiting, lockout and token rotation.'
+  - name: Catalogue
+    description: Public catalogue and its administration
+  - name: Cart
+    description: Visitor (X-Cart-Token) or customer cart. Quantities are absolute, so repeating a request is harmless.
+  - name: Addresses
+    description: Own delivery addresses only
+  - name: Checkout
+    description: 'Reservation and order creation. The client never sends an amount: the database prices everything.'
+  - name: Orders
+    description: Orders of the signed-in customer; staff use /admin/orders
+  - name: Payments
+    description: Bank deposits, proofs, review and refunds. Card payments arrive in Delivery Phase 2.
+  - name: Inventory
+    description: Stock movements; only an administrator moves stock
+  - name: Coupons
+    description: Coupon administration
+  - name: Users
+    description: Accounts are deactivated, never deleted
+  - name: Audit
+    description: Immutable audit log and system versions
 paths:
   /health/live:
     get:
-      tags: [Health]
+      tags:
+        - Health
       summary: Liveness probe
       description: The process is running. It does not touch dependencies.
       operationId: getLiveness
       responses:
         '200':
-          description: The process is alive
+          description: Success
           content:
             application/json:
               schema:
                 type: object
-                required: [status]
                 properties:
                   status:
                     type: string
-                    enum: [ok]
+                    enum:
+                      - ok
+                required:
+                  - status
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /health/ready:
     get:
-      tags: [Health]
+      tags:
+        - Health
       summary: Readiness probe
-      description: The database is reachable (and, from Stage 2, the schema version is current).
+      description: The database is reachable and the schema version is current.
       operationId: getReadiness
       responses:
         '200':
-          description: Ready to receive traffic
+          description: Success
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Readiness'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '503':
-          description: A dependency is unavailable
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Create a customer account
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Success
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Readiness'
+                type: object
+                properties:
+                  idUser:
+                    $ref: '#/components/schemas/Id'
+                required:
+                  - idUser
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Sign in
+      description: The same 401 answers a wrong password and an unknown email. A locked account answers 423 without checking the password.
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '423':
+          $ref: '#/components/responses/Locked'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Rotate the refresh token
+      description: Reusing a rotated token revokes its whole family (REFRESH_TOKEN_REUSED).
+      operationId: refreshSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Revoke the refresh token family
+      operationId: logout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '204':
+          description: Signed out
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/auth/me:
+    get:
+      tags:
+        - Authentication
+      summary: Own profile
+      operationId: getProfile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/categories:
+    get:
+      tags:
+        - Catalogue
+      summary: Category tree
+      operationId: listCategories
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CategoryNode'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/products:
+    get:
+      tags:
+        - Catalogue
+      summary: Search products
+      operationId: searchProducts
+      parameters:
+        - name: q
+          in: query
+          description: Text in the name or description
+          schema:
+            type: string
+        - name: category
+          in: query
+          description: Includes the subcategories
+          schema:
+            $ref: '#/components/schemas/Id'
+        - name: min
+          in: query
+          schema:
+            $ref: '#/components/schemas/MoneyText'
+        - name: max
+          in: query
+          schema:
+            $ref: '#/components/schemas/MoneyText'
+        - name: available
+          in: query
+          schema:
+            type: boolean
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum:
+              - name
+              - price_asc
+              - price_desc
+              - newest
+            default: name
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProductSummary'
+                  page:
+                    type: integer
+                    minimum: 1
+                  size:
+                    type: integer
+                    minimum: 1
+                    maximum: 100
+                  total:
+                    type: integer
+                required:
+                  - items
+                  - page
+                  - size
+                  - total
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/products/{id}:
+    get:
+      tags:
+        - Catalogue
+      summary: Product with its variants and images
+      operationId: getProduct
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/categories:
+    get:
+      tags:
+        - Catalogue
+      summary: All categories, including inactive ones
+      operationId: adminListCategories
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Category'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      tags:
+        - Catalogue
+      summary: Create a category
+      operationId: adminCreateCategory
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryRequest'
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idCategory:
+                    $ref: '#/components/schemas/Id'
+                required:
+                  - idCategory
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/categories/{id}:
+    put:
+      tags:
+        - Catalogue
+      summary: Edit a category
+      operationId: adminUpdateCategory
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idCategory:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    delete:
+      tags:
+        - Catalogue
+      summary: Deactivate a category
+      operationId: adminDeactivateCategory
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idCategory:
+                    $ref: '#/components/schemas/Id'
+                  isActive:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/products:
+    get:
+      tags:
+        - Catalogue
+      summary: Search products, including inactive ones
+      operationId: adminSearchProducts
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            $ref: '#/components/schemas/Id'
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum:
+              - name
+              - price_asc
+              - price_desc
+              - newest
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProductSummary'
+                  page:
+                    type: integer
+                    minimum: 1
+                  size:
+                    type: integer
+                    minimum: 1
+                    maximum: 100
+                  total:
+                    type: integer
+                required:
+                  - items
+                  - page
+                  - size
+                  - total
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      tags:
+        - Catalogue
+      summary: Create a product
+      operationId: adminCreateProduct
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductRequest'
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idProduct:
+                    $ref: '#/components/schemas/Id'
+                required:
+                  - idProduct
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/products/{id}:
+    get:
+      tags:
+        - Catalogue
+      summary: Product, including inactive variants
+      operationId: adminGetProduct
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    put:
+      tags:
+        - Catalogue
+      summary: Edit a product
+      operationId: adminUpdateProduct
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idProduct:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    delete:
+      tags:
+        - Catalogue
+      summary: Deactivate a product
+      operationId: adminDeactivateProduct
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idProduct:
+                    $ref: '#/components/schemas/Id'
+                  isActive:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/variants:
+    post:
+      tags:
+        - Catalogue
+      summary: Create a variant
+      operationId: adminCreateVariant
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VariantCreateRequest'
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idVariant:
+                    $ref: '#/components/schemas/Id'
+                required:
+                  - idVariant
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/variants/{id}:
+    put:
+      tags:
+        - Catalogue
+      summary: Edit a variant
+      operationId: adminUpdateVariant
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VariantUpdateRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idVariant:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/variants/{id}/price:
+    patch:
+      tags:
+        - Catalogue
+      summary: Change the price; the previous value stays in the audit log
+      operationId: adminChangePrice
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PriceRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idVariant:
+                    $ref: '#/components/schemas/Id'
+                  price:
+                    $ref: '#/components/schemas/MoneyText'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/cart:
+    get:
+      tags:
+        - Cart
+      summary: Current cart with totals computed by the database
+      operationId: getCart
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - &a1
+          $ref: '#/components/parameters/CartToken'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/cart/items/{variantId}:
+    put:
+      tags:
+        - Cart
+      summary: Set the quantity of a variant
+      operationId: setCartItem
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - name: variantId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - *a1
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CartItemRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    delete:
+      tags:
+        - Cart
+      summary: Remove a variant from the cart
+      operationId: removeCartItem
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - name: variantId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - *a1
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/cart/coupon:
+    post:
+      tags:
+        - Cart
+      summary: Apply a coupon
+      description: An expired, exhausted or already used coupon answers with its own code (COUPON_EXPIRED, COUPON_EXHAUSTED, COUPON_ALREADY_USED).
+      operationId: applyCoupon
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CouponCodeRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    delete:
+      tags:
+        - Cart
+      summary: Remove the coupon
+      operationId: removeCoupon
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/cart/merge:
+    post:
+      tags:
+        - Cart
+      summary: Give the visitor cart to the signed-in customer
+      operationId: mergeGuestCart
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MergeCartRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/addresses:
+    get:
+      tags:
+        - Addresses
+      summary: Own addresses
+      operationId: listAddresses
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Address'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      tags:
+        - Addresses
+      summary: Add an address
+      operationId: createAddress
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressRequest'
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idAddress:
+                    $ref: '#/components/schemas/Id'
+                required:
+                  - idAddress
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/addresses/{id}:
+    put:
+      tags:
+        - Addresses
+      summary: Edit an own address
+      description: Another customer's address answers 404.
+      operationId: updateAddress
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idAddress:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/checkout/payment-methods:
+    get:
+      tags:
+        - Checkout
+      summary: Payment methods offered for a delivery date
+      operationId: getPaymentMethods
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: deliveryDate
+          in: query
+          description: Required
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentMethodsView'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/checkout/start:
+    post:
+      tags:
+        - Checkout
+      summary: Reserve the stock of the cart
+      operationId: startCheckout
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reservation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/checkout/confirm:
+    post:
+      tags:
+        - Checkout
+      summary: Create the order waiting for payment
+      description: Repeating the same Idempotency-Key and body replays the stored response.
+      operationId: confirmCheckout
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmRequest'
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatedOrder'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/orders:
+    get:
+      tags:
+        - Orders
+      summary: Own orders
+      operationId: listOrders
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 8
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrderSummary'
+                  page:
+                    type: integer
+                    minimum: 1
+                  size:
+                    type: integer
+                    minimum: 1
+                    maximum: 100
+                  total:
+                    type: integer
+                required:
+                  - items
+                  - page
+                  - size
+                  - total
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/orders/{id}:
+    get:
+      tags:
+        - Orders
+      summary: Own order with lines and history
+      operationId: getOrder
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/orders/{id}/cancel:
+    post:
+      tags:
+        - Orders
+      summary: Cancel an order before it is dispatched
+      description: The customer cancels their own order; staff may cancel any. A paid order restores the stock and opens a pending refund.
+      operationId: cancelOrder
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/orders/{id}/payment:
+    get:
+      tags:
+        - Payments
+      summary: Payment attempts of an own order
+      operationId: getOrderPayments
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Payment'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/orders/{id}/payment/attempts:
+    post:
+      tags:
+        - Payments
+      summary: Open another deposit attempt after a rejection
+      operationId: createDepositAttempt
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttemptRequest'
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attempt'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/orders/{id}/payment/proofs:
+    post:
+      tags:
+        - Payments
+      summary: Upload the deposit proof
+      description: multipart/form-data. The type is checked by the first bytes of the file. The idempotency fingerprint covers the text fields and the SHA-256 of the file.
+      operationId: uploadProof
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProofUpload'
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProofStored'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMedia'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/orders/{id}/payment/proofs/{proofId}:
+    get:
+      tags:
+        - Payments
+      summary: Download an own proof
+      operationId: downloadOwnProof
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - name: proofId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+      responses:
+        '200':
+          description: The file
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/orders:
+    get:
+      tags:
+        - Orders
+      summary: All orders
+      operationId: adminListOrders
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 8
+        - name: search
+          in: query
+          description: Order number or customer email
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrderSummary'
+                  page:
+                    type: integer
+                    minimum: 1
+                  size:
+                    type: integer
+                    minimum: 1
+                    maximum: 100
+                  total:
+                    type: integer
+                required:
+                  - items
+                  - page
+                  - size
+                  - total
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/orders/{id}:
+    get:
+      tags:
+        - Orders
+      summary: Any order with lines and history
+      operationId: adminGetOrder
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/orders/{id}/status:
+    patch:
+      tags:
+        - Orders
+      summary: Move the order to preparation, dispatch or delivery
+      operationId: adminChangeOrderStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/orders/{id}/returns:
+    post:
+      tags:
+        - Orders
+      summary: Register a full or partial return of a delivered order
+      description: The last unit of a line refunds what is missing from the line total, so the refunds add up to the exact line total.
+      operationId: adminRegisterReturn
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReturnRequest'
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReturnRegistered'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/orders/{id}/payment:
+    get:
+      tags:
+        - Payments
+      summary: Payment attempts of any order
+      operationId: adminGetOrderPayments
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Payment'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/payments/deposits:
+    get:
+      tags:
+        - Payments
+      summary: Deposit review queue
+      operationId: adminListDeposits
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - Pending
+              - UnderReview
+              - Approved
+              - Rejected
+            default: UnderReview
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DepositQueueItem'
+                  page:
+                    type: integer
+                    minimum: 1
+                  size:
+                    type: integer
+                    minimum: 1
+                    maximum: 100
+                  total:
+                    type: integer
+                required:
+                  - items
+                  - page
+                  - size
+                  - total
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/payments/{id}/proofs/{proofId}:
+    get:
+      tags:
+        - Payments
+      summary: Download any proof
+      operationId: adminDownloadProof
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - name: proofId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+      responses:
+        '200':
+          description: The file
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/payments/{id}/approve:
+    post:
+      tags:
+        - Payments
+      summary: Approve a deposit under review
+      description: A deposited amount different from the order total rejects the deposit instead (RejectedAmountMismatch).
+      operationId: adminApproveDeposit
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewOutcome'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/payments/{id}/reject:
+    post:
+      tags:
+        - Payments
+      summary: Reject a deposit with a reason
+      description: After the maximum number of attempts the order is cancelled (RejectedOrderCancelled).
+      operationId: adminRejectDeposit
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewOutcome'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/bank-accounts:
+    get:
+      tags:
+        - Payments
+      summary: Bank accounts, including inactive ones
+      operationId: adminListBankAccounts
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BankAccount'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      tags:
+        - Payments
+      summary: Add a bank account
+      operationId: adminCreateBankAccount
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BankAccountRequest'
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idBankAccount:
+                    $ref: '#/components/schemas/Id'
+                required:
+                  - idBankAccount
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/bank-accounts/{id}:
+    put:
+      tags:
+        - Payments
+      summary: Edit a bank account
+      operationId: adminUpdateBankAccount
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BankAccountRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idBankAccount:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/refunds:
+    get:
+      tags:
+        - Payments
+      summary: Refunds
+      operationId: adminListRefunds
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - Pending
+              - Processed
+              - Failed
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Refund'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/refunds/{id}:
+    patch:
+      tags:
+        - Payments
+      summary: Mark a refund as processed or failed
+      description: Processing writes the money ledger and needs the transfer reference.
+      operationId: adminMarkRefund
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idRefund:
+                    $ref: '#/components/schemas/Id'
+                  status:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/inventory/ledger:
+    get:
+      tags:
+        - Inventory
+      summary: Ledger of a variant, newest first
+      operationId: adminGetLedger
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: variant
+          in: query
+          description: Required
+          schema:
+            $ref: '#/components/schemas/Id'
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LedgerEntry'
+                  page:
+                    type: integer
+                    minimum: 1
+                  size:
+                    type: integer
+                    minimum: 1
+                    maximum: 100
+                  total:
+                    type: integer
+                required:
+                  - items
+                  - page
+                  - size
+                  - total
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/inventory/entries:
+    post:
+      tags:
+        - Inventory
+      summary: Register units that arrived
+      operationId: adminRegisterEntry
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EntryRequest'
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Movement'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/inventory/adjustments:
+    post:
+      tags:
+        - Inventory
+      summary: Set the physical stock to a counted value
+      operationId: adminAdjustStock
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdjustmentRequest'
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Movement'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/coupons:
+    get:
+      tags:
+        - Coupons
+      summary: Coupons with their status
+      operationId: adminListCoupons
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: includeInactive
+          in: query
+          schema:
+            type: boolean
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Coupon'
+                  page:
+                    type: integer
+                    minimum: 1
+                  size:
+                    type: integer
+                    minimum: 1
+                    maximum: 100
+                  total:
+                    type: integer
+                required:
+                  - items
+                  - page
+                  - size
+                  - total
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      tags:
+        - Coupons
+      summary: Create a coupon
+      operationId: adminCreateCoupon
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CouponRequest'
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idCoupon:
+                    $ref: '#/components/schemas/Id'
+                required:
+                  - idCoupon
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/coupons/{id}:
+    put:
+      tags:
+        - Coupons
+      summary: Edit a coupon
+      operationId: adminUpdateCoupon
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CouponRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idCoupon:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    delete:
+      tags:
+        - Coupons
+      summary: Deactivate a coupon
+      operationId: adminDeactivateCoupon
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idCoupon:
+                    $ref: '#/components/schemas/Id'
+                  isActive:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/users:
+    get:
+      tags:
+        - Users
+      summary: Accounts
+      operationId: adminListUsers
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: role
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 3
+        - name: active
+          in: query
+          schema:
+            type: boolean
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserAccount'
+                  page:
+                    type: integer
+                    minimum: 1
+                  size:
+                    type: integer
+                    minimum: 1
+                    maximum: 100
+                  total:
+                    type: integer
+                required:
+                  - items
+                  - page
+                  - size
+                  - total
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/users/{id}:
+    patch:
+      tags:
+        - Users
+      summary: Activate or deactivate an account
+      operationId: adminSetUserStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserStatusRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idUser:
+                    $ref: '#/components/schemas/Id'
+                  isActive:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/audit-log:
+    get:
+      tags:
+        - Audit
+      summary: Audit log, newest first
+      operationId: adminQueryAudit
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: module
+          in: query
+          schema:
+            type: string
+        - name: entityKey
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditEntry'
+                  page:
+                    type: integer
+                    minimum: 1
+                  size:
+                    type: integer
+                    minimum: 1
+                    maximum: 100
+                  total:
+                    type: integer
+                required:
+                  - items
+                  - page
+                  - size
+                  - total
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/system/version:
+    get:
+      tags:
+        - Audit
+      summary: Application, schema and procedure versions
+      operationId: adminGetSystemVersion
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemVersion'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 components:
   securitySchemes:
     bearerAuth:
@@ -62,44 +2499,135 @@ components:
       name: Idempotency-Key
       in: header
       required: true
-      description: Unique key per logical operation. Repeating it replays the stored response.
+      description: Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response.
       schema:
         type: string
         minLength: 8
         maxLength: 64
+    IdempotencyKeyOptional:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Optional here (PUT and DELETE are idempotent by semantics); honoured when present.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 64
+    CartToken:
+      name: X-Cart-Token
+      in: header
+      required: false
+      description: UUID chosen by the browser for a visitor cart
+      schema:
+        type: string
+        format: uuid
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    Size:
+      name: size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+  responses:
+    BadRequest:
+      description: Validation failed, or a mandatory header is missing
+      content: &a2
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorised:
+      description: Missing or expired access token
+      content: *a2
+    Forbidden:
+      description: The role is not allowed to perform this action
+      content: *a2
+    NotFound:
+      description: The resource does not exist or does not belong to the caller
+      content: *a2
+    Conflict:
+      description: Conflict with the current state (out of stock, request in progress, duplicate)
+      content: *a2
+    Unprocessable:
+      description: A business rule refused the request, or the idempotency key was reused with another body
+      content: *a2
+    PayloadTooLarge:
+      description: The file is above 5 MB
+      content: *a2
+    UnsupportedMedia:
+      description: The file is not a JPEG, a PNG or a PDF
+      content: *a2
+    Locked:
+      description: The account is temporarily locked after repeated failed sign-ins; details.lockedUntil says until when
+      content: *a2
+    Unavailable:
+      description: A dependency is unavailable or the schema is outdated
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Readiness'
+    TooManyRequests:
+      description: Rate limit exceeded; see the Retry-After header
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+        RateLimit-Limit:
+          schema:
+            type: integer
+        RateLimit-Remaining:
+          schema:
+            type: integer
+        RateLimit-Reset:
+          schema:
+            type: integer
+      content: *a2
   schemas:
-    Money:
-      type: object
-      required: [amount, currency]
-      properties:
-        amount:
-          type: string
-          pattern: '^\d{1,16}\.\d{2}$'
-          example: '145.00'
-        currency:
-          type: string
-          enum: [GTQ]
     Readiness:
       type: object
-      required: [status, checks]
+      required:
+        - status
+        - checks
       properties:
         status:
           type: string
-          enum: [ok, unavailable]
+          enum:
+            - ok
+            - unavailable
         checks:
           type: object
-          required: [database]
           properties:
             database:
               type: string
-              enum: [up, down]
+              enum:
+                - up
+                - down
+            schema:
+              type: string
+              enum:
+                - ok
+                - outdated
+                - unknown
+          required:
+            - database
     ErrorResponse:
       type: object
-      required: [error]
+      required:
+        - error
       properties:
         error:
           type: object
-          required: [code, message, requestId]
+          required:
+            - code
+            - message
+            - requestId
           properties:
             code:
               type: string
@@ -112,32 +2640,1370 @@ components:
               description: Optional structured details such as validation issues
             requestId:
               type: string
-  responses:
-    Unauthorised:
-      description: Missing or expired access token
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Forbidden:
-      description: The role is not allowed to perform this action
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    NotFound:
-      description: The resource does not exist or does not belong to the caller
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    TooManyRequests:
-      description: Rate limit exceeded; see the Retry-After header
-      headers:
-        Retry-After:
-          schema:
-            type: integer
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
+    MoneyText:
+      type: string
+      pattern: ^\d{1,16}\.\d{2}$
+      example: '145.00'
+    Id:
+      type: integer
+      minimum: 1
+    RegisterRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 256
+        password:
+          type: string
+          minLength: 10
+          maxLength: 128
+        fullName:
+          type: string
+          maxLength: 120
+        phone:
+          type: string
+          maxLength: 20
+          nullable: true
+      required:
+        - email
+        - password
+        - fullName
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required:
+        - email
+        - password
+    RefreshRequest:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+      required:
+        - refreshToken
+    UserProfile:
+      type: object
+      properties:
+        idUser:
+          $ref: '#/components/schemas/Id'
+        role:
+          type: string
+          enum:
+            - Customer
+            - Operator
+            - Administrator
+        email:
+          type: string
+        fullName:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+      required:
+        - idUser
+        - role
+        - email
+        - fullName
+        - isActive
+    Session:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+          description: Seconds of life of the access token
+        user:
+          $ref: '#/components/schemas/UserProfile'
+      required:
+        - accessToken
+        - refreshToken
+        - expiresIn
+        - user
+    CategoryNode:
+      type: object
+      properties:
+        idCategory:
+          $ref: '#/components/schemas/Id'
+        idParentCategory:
+          type: integer
+          nullable: true
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        activeProducts:
+          type: integer
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryNode'
+      required:
+        - idCategory
+        - name
+        - children
+    Category:
+      type: object
+      properties:
+        idCategory:
+          $ref: '#/components/schemas/Id'
+        idParentCategory:
+          type: integer
+          nullable: true
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        activeProducts:
+          type: integer
+    CategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 80
+        description:
+          type: string
+          maxLength: 300
+          nullable: true
+        parentId:
+          type: integer
+          nullable: true
+      required:
+        - name
+    ProductSummary:
+      type: object
+      properties:
+        idProduct:
+          $ref: '#/components/schemas/Id'
+        idCategory:
+          $ref: '#/components/schemas/Id'
+        categoryName:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        leadTimeDays:
+          type: integer
+        isActive:
+          type: boolean
+        primaryImageUrl:
+          type: string
+          nullable: true
+        minPrice:
+          $ref: '#/components/schemas/MoneyText'
+        maxPrice:
+          $ref: '#/components/schemas/MoneyText'
+        available:
+          type: integer
+      required:
+        - idProduct
+        - name
+        - minPrice
+        - maxPrice
+    Variant:
+      type: object
+      properties:
+        idVariant:
+          $ref: '#/components/schemas/Id'
+        sku:
+          type: string
+        price:
+          $ref: '#/components/schemas/MoneyText'
+        onHandStock:
+          type: integer
+        isActive:
+          type: boolean
+        attributes:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              value:
+                type: string
+      required:
+        - idVariant
+        - sku
+        - price
+    ProductDetail:
+      type: object
+      properties:
+        idProduct:
+          $ref: '#/components/schemas/Id'
+        idCategory:
+          $ref: '#/components/schemas/Id'
+        categoryName:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        leadTimeDays:
+          type: integer
+        isActive:
+          type: boolean
+        images:
+          type: array
+          items:
+            type: object
+            properties:
+              idProductImage:
+                type: integer
+              url:
+                type: string
+              sortOrder:
+                type: integer
+              isPrimary:
+                type: boolean
+        variants:
+          type: array
+          items:
+            $ref: '#/components/schemas/Variant'
+      required:
+        - idProduct
+        - name
+        - variants
+    ProductRequest:
+      type: object
+      properties:
+        categoryId:
+          $ref: '#/components/schemas/Id'
+        name:
+          type: string
+          maxLength: 150
+        description:
+          type: string
+          maxLength: 1000
+          nullable: true
+        leadTimeDays:
+          type: integer
+          minimum: 0
+          maximum: 255
+          default: 0
+        rowVersion:
+          type: string
+          description: Base64 version read earlier; a stale edit is rejected
+          nullable: true
+      required:
+        - categoryId
+        - name
+    VariantCreateRequest:
+      type: object
+      properties:
+        productId:
+          $ref: '#/components/schemas/Id'
+        sku:
+          type: string
+          maxLength: 40
+        price:
+          $ref: '#/components/schemas/MoneyText'
+        attributes:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              value:
+                type: string
+            required:
+              - name
+              - value
+          nullable: true
+      required:
+        - productId
+        - sku
+        - price
+    VariantUpdateRequest:
+      type: object
+      properties:
+        sku:
+          type: string
+          maxLength: 40
+        isActive:
+          type: boolean
+        attributes:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              value:
+                type: string
+            required:
+              - name
+              - value
+          nullable: true
+      required:
+        - sku
+        - isActive
+    PriceRequest:
+      type: object
+      properties:
+        price:
+          $ref: '#/components/schemas/MoneyText'
+      required:
+        - price
+    CartLine:
+      type: object
+      properties:
+        idCartItem:
+          type: integer
+        idVariant:
+          $ref: '#/components/schemas/Id'
+        sku:
+          type: string
+        productName:
+          type: string
+        quantity:
+          type: integer
+        inscription:
+          type: string
+          nullable: true
+        unitPrice:
+          $ref: '#/components/schemas/MoneyText'
+        lineTotal:
+          $ref: '#/components/schemas/MoneyText'
+        available:
+          type: integer
+        isAvailable:
+          type: boolean
+      required:
+        - idVariant
+        - quantity
+        - unitPrice
+        - lineTotal
+    Cart:
+      type: object
+      properties:
+        idCart:
+          type: integer
+          nullable: true
+        couponCode:
+          type: string
+          nullable: true
+        couponReason:
+          type: string
+          description: 'Why the coupon stopped discounting: Expired, Exhausted, AlreadyUsed, ...'
+          nullable: true
+        subtotal:
+          $ref: '#/components/schemas/MoneyText'
+        discount:
+          $ref: '#/components/schemas/MoneyText'
+        total:
+          $ref: '#/components/schemas/MoneyText'
+        vat:
+          $ref: '#/components/schemas/MoneyText'
+        taxableBase:
+          $ref: '#/components/schemas/MoneyText'
+        itemCount:
+          type: integer
+        hasUnavailableLines:
+          type: boolean
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartLine'
+      required:
+        - idCart
+        - subtotal
+        - discount
+        - total
+        - vat
+        - taxableBase
+        - itemCount
+        - lines
+    CartItemRequest:
+      type: object
+      properties:
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+        inscription:
+          type: string
+          maxLength: 60
+          nullable: true
+      required:
+        - quantity
+    CouponCodeRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          maxLength: 30
+      required:
+        - code
+    MergeCartRequest:
+      type: object
+      properties:
+        guestToken:
+          type: string
+          format: uuid
+      required:
+        - guestToken
+    Address:
+      type: object
+      properties:
+        idAddress:
+          $ref: '#/components/schemas/Id'
+        label:
+          type: string
+        recipient:
+          type: string
+        phone:
+          type: string
+        line1:
+          type: string
+        line2:
+          type: string
+          nullable: true
+        municipality:
+          type: string
+        department:
+          type: string
+        reference:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+      required:
+        - idAddress
+        - label
+        - recipient
+        - phone
+        - line1
+        - municipality
+        - department
+    AddressRequest:
+      type: object
+      properties:
+        label:
+          type: string
+          maxLength: 40
+        recipient:
+          type: string
+          maxLength: 120
+        phone:
+          type: string
+        line1:
+          type: string
+          maxLength: 200
+        line2:
+          type: string
+          nullable: true
+        municipality:
+          type: string
+        department:
+          type: string
+        reference:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+      required:
+        - label
+        - recipient
+        - phone
+        - line1
+        - municipality
+        - department
+    BankAccount:
+      type: object
+      properties:
+        idBankAccount:
+          $ref: '#/components/schemas/Id'
+        bankName:
+          type: string
+        accountType:
+          type: string
+          enum:
+            - Checking
+            - Savings
+        accountNumber:
+          type: string
+        holderName:
+          type: string
+        currency:
+          type: string
+          enum:
+            - GTQ
+        instructions:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+      required:
+        - idBankAccount
+        - bankName
+        - accountType
+        - accountNumber
+        - holderName
+    BankAccountRequest:
+      type: object
+      properties:
+        bankName:
+          type: string
+          maxLength: 80
+        accountType:
+          type: string
+          enum:
+            - Checking
+            - Savings
+        accountNumber:
+          type: string
+          maxLength: 30
+        holderName:
+          type: string
+          maxLength: 120
+        instructions:
+          type: string
+          maxLength: 300
+          nullable: true
+        isActive:
+          type: boolean
+      required:
+        - bankName
+        - accountType
+        - accountNumber
+        - holderName
+    MethodOffer:
+      type: object
+      properties:
+        method:
+          type: string
+          enum:
+            - CARD
+            - BANK_DEPOSIT
+        available:
+          type: boolean
+        reason:
+          type: string
+          description: Stable code the panel translates
+          nullable: true
+        deadlineAt:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - method
+        - available
+    PaymentMethodsView:
+      type: object
+      properties:
+        deliveryDate:
+          type: string
+          format: date
+        earliestDeliveryDate:
+          type: string
+          format: date
+        deliveryDateAllowed:
+          type: boolean
+        methods:
+          type: array
+          items:
+            $ref: '#/components/schemas/MethodOffer'
+        bankAccounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/BankAccount'
+      required:
+        - deliveryDate
+        - methods
+        - bankAccounts
+    Reservation:
+      type: object
+      properties:
+        idReservation:
+          $ref: '#/components/schemas/Id'
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+        - idReservation
+        - expiresAt
+    ConfirmRequest:
+      type: object
+      properties:
+        idReservation:
+          $ref: '#/components/schemas/Id'
+        idAddress:
+          $ref: '#/components/schemas/Id'
+        deliveryDate:
+          type: string
+          format: date
+        method:
+          type: string
+          enum:
+            - CARD
+            - BANK_DEPOSIT
+        idBankAccount:
+          type: integer
+          nullable: true
+      required:
+        - idReservation
+        - idAddress
+        - deliveryDate
+        - method
+    CreatedOrder:
+      type: object
+      properties:
+        idOrder:
+          $ref: '#/components/schemas/Id'
+        idPayment:
+          $ref: '#/components/schemas/Id'
+        orderNumber:
+          type: string
+          example: PED-2026-000123
+        paymentExpiresAt:
+          type: string
+          format: date-time
+      required:
+        - idOrder
+        - idPayment
+        - orderNumber
+        - paymentExpiresAt
+    OrderSummary:
+      type: object
+      properties:
+        idOrder:
+          $ref: '#/components/schemas/Id'
+        orderNumber:
+          type: string
+        idUser:
+          type: integer
+        customerName:
+          type: string
+        customerEmail:
+          type: string
+        idOrderStatus:
+          type: integer
+        statusName:
+          type: string
+        total:
+          $ref: '#/components/schemas/MoneyText'
+        itemCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        requestedDeliveryDate:
+          type: string
+          format: date
+      required:
+        - idOrder
+        - orderNumber
+        - statusName
+        - total
+    OrderLine:
+      type: object
+      properties:
+        idOrderLine:
+          $ref: '#/components/schemas/Id'
+        idVariant:
+          type: integer
+        sku:
+          type: string
+        productName:
+          type: string
+        attributes:
+          type: string
+        quantity:
+          type: integer
+        unitPrice:
+          $ref: '#/components/schemas/MoneyText'
+        lineDiscount:
+          $ref: '#/components/schemas/MoneyText'
+        lineTotal:
+          $ref: '#/components/schemas/MoneyText'
+        returnedQuantity:
+          type: integer
+        inscription:
+          type: string
+          nullable: true
+      required:
+        - idOrderLine
+        - quantity
+        - unitPrice
+        - lineTotal
+    OrderHistoryEntry:
+      type: object
+      properties:
+        idPreviousStatus:
+          type: integer
+          nullable: true
+        idNewStatus:
+          type: integer
+        newStatusName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        comment:
+          type: string
+          nullable: true
+    OrderDetail:
+      type: object
+      properties:
+        idOrder:
+          $ref: '#/components/schemas/Id'
+        orderNumber:
+          type: string
+        idUser:
+          type: integer
+        customerName:
+          type: string
+        customerEmail:
+          type: string
+        idOrderStatus:
+          type: integer
+        statusName:
+          type: string
+        couponCode:
+          type: string
+          nullable: true
+        deliveryRecipient:
+          type: string
+        deliveryPhone:
+          type: string
+        deliveryLine1:
+          type: string
+        deliveryMunicipality:
+          type: string
+        deliveryDepartment:
+          type: string
+        requestedDeliveryDate:
+          type: string
+          format: date
+        subtotal:
+          $ref: '#/components/schemas/MoneyText'
+        discount:
+          $ref: '#/components/schemas/MoneyText'
+        shipping:
+          $ref: '#/components/schemas/MoneyText'
+        total:
+          $ref: '#/components/schemas/MoneyText'
+        taxableBase:
+          $ref: '#/components/schemas/MoneyText'
+        vat:
+          $ref: '#/components/schemas/MoneyText'
+        createdAt:
+          type: string
+          format: date-time
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderLine'
+        history:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderHistoryEntry'
+      required:
+        - idOrder
+        - orderNumber
+        - statusName
+        - total
+        - lines
+        - history
+    CancelRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 250
+          nullable: true
+    StatusRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - InPreparation
+            - Dispatched
+            - Delivered
+        comment:
+          type: string
+          maxLength: 250
+          nullable: true
+      required:
+        - status
+    ReturnRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 250
+        lines:
+          type: array
+          items:
+            type: object
+            properties:
+              idOrderLine:
+                $ref: '#/components/schemas/Id'
+              quantity:
+                type: integer
+                minimum: 1
+            required:
+              - idOrderLine
+              - quantity
+      required:
+        - reason
+        - lines
+    ReturnRegistered:
+      type: object
+      properties:
+        idReturn:
+          $ref: '#/components/schemas/Id'
+        idRefund:
+          $ref: '#/components/schemas/Id'
+        refundAmount:
+          $ref: '#/components/schemas/MoneyText'
+      required:
+        - idReturn
+        - idRefund
+        - refundAmount
+    Proof:
+      type: object
+      properties:
+        idPaymentProof:
+          $ref: '#/components/schemas/Id'
+        originalFileName:
+          type: string
+        mimeType:
+          type: string
+        sizeBytes:
+          type: integer
+        uploadedAt:
+          type: string
+          format: date-time
+    Payment:
+      type: object
+      properties:
+        idPayment:
+          $ref: '#/components/schemas/Id'
+        idPaymentMethod:
+          type: integer
+        methodCode:
+          type: string
+        idPaymentStatus:
+          type: integer
+        statusName:
+          type: string
+        amount:
+          $ref: '#/components/schemas/MoneyText'
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        idBankAccount:
+          type: integer
+          nullable: true
+        bankName:
+          type: string
+          nullable: true
+        accountType:
+          type: string
+          nullable: true
+        accountNumber:
+          type: string
+          nullable: true
+        holderName:
+          type: string
+          nullable: true
+        instructions:
+          type: string
+          nullable: true
+        referenceNumber:
+          type: string
+          nullable: true
+        depositDate:
+          type: string
+          format: date
+          nullable: true
+        depositedAmount:
+          $ref: '#/components/schemas/MoneyText'
+          nullable: true
+        isCurrent:
+          type: boolean
+          nullable: true
+        rejectionReason:
+          type: string
+          nullable: true
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        attemptsRejected:
+          type: integer
+        maxAttempts:
+          type: integer
+        proofs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Proof'
+      required:
+        - idPayment
+        - idPaymentStatus
+        - statusName
+        - amount
+        - attemptsRejected
+        - maxAttempts
+        - proofs
+    AttemptRequest:
+      type: object
+      properties:
+        idBankAccount:
+          type: integer
+          nullable: true
+    Attempt:
+      type: object
+      properties:
+        idPayment:
+          $ref: '#/components/schemas/Id'
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+        - idPayment
+        - expiresAt
+    ProofUpload:
+      type: object
+      required:
+        - file
+        - referenceNumber
+        - depositDate
+        - depositedAmount
+      properties:
+        file:
+          type: string
+          format: binary
+          description: JPEG, PNG or PDF up to 5 MB, checked by its first bytes
+        referenceNumber:
+          type: string
+          maxLength: 40
+        depositDate:
+          type: string
+          format: date
+        depositedAmount:
+          $ref: '#/components/schemas/MoneyText'
+    ProofStored:
+      type: object
+      properties:
+        idPaymentProof:
+          $ref: '#/components/schemas/Id'
+        idPayment:
+          $ref: '#/components/schemas/Id'
+      required:
+        - idPaymentProof
+        - idPayment
+    DepositQueueItem:
+      type: object
+      properties:
+        idPayment:
+          $ref: '#/components/schemas/Id'
+        idOrder:
+          $ref: '#/components/schemas/Id'
+        orderNumber:
+          type: string
+        customerName:
+          type: string
+        customerEmail:
+          type: string
+        amount:
+          $ref: '#/components/schemas/MoneyText'
+        idPaymentStatus:
+          type: integer
+        statusName:
+          type: string
+        bankName:
+          type: string
+        referenceNumber:
+          type: string
+          nullable: true
+        depositDate:
+          type: string
+          format: date
+          nullable: true
+        depositedAmount:
+          $ref: '#/components/schemas/MoneyText'
+          nullable: true
+        rejectionReason:
+          type: string
+          nullable: true
+        idPaymentProof:
+          type: integer
+          nullable: true
+        submittedAt:
+          type: string
+          format: date-time
+          nullable: true
+        ageHours:
+          type: integer
+          nullable: true
+      required:
+        - idPayment
+        - idOrder
+        - orderNumber
+        - amount
+        - statusName
+    ReviewOutcome:
+      type: object
+      properties:
+        outcome:
+          type: string
+          description: Approved, AlreadyApproved, Orphan, RejectedAmountMismatch, Rejected, RejectedOrderCancelled or AlreadyRejected
+      required:
+        - outcome
+    RejectRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 250
+      required:
+        - reason
+    Refund:
+      type: object
+      properties:
+        idRefund:
+          $ref: '#/components/schemas/Id'
+        idPayment:
+          $ref: '#/components/schemas/Id'
+        idOrder:
+          $ref: '#/components/schemas/Id'
+        orderNumber:
+          type: string
+        idReturn:
+          type: integer
+          nullable: true
+        amount: {}
+        amountText:
+          $ref: '#/components/schemas/MoneyText'
+        reason:
+          type: string
+        status:
+          type: string
+          enum:
+            - Pending
+            - Processed
+            - Failed
+        externalReference:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        processedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - idRefund
+        - idPayment
+        - amountText
+        - status
+    RefundRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - Processed
+            - Failed
+        externalReference:
+          type: string
+          maxLength: 80
+          nullable: true
+      required:
+        - status
+    LedgerEntry:
+      type: object
+      properties:
+        idInventoryMovement:
+          type: string
+        movementType:
+          type: string
+          enum:
+            - Entry
+            - Exit
+            - Adjustment
+            - Return
+        quantity:
+          type: integer
+        resultingBalance:
+          type: integer
+        reason:
+          type: string
+        idUser:
+          type: integer
+        userName:
+          type: string
+        idOrder:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - movementType
+        - quantity
+        - resultingBalance
+    EntryRequest:
+      type: object
+      properties:
+        idVariant:
+          $ref: '#/components/schemas/Id'
+        quantity:
+          type: integer
+          minimum: 1
+        reason:
+          type: string
+          maxLength: 250
+      required:
+        - idVariant
+        - quantity
+        - reason
+    AdjustmentRequest:
+      type: object
+      properties:
+        idVariant:
+          $ref: '#/components/schemas/Id'
+        newOnHand:
+          type: integer
+          minimum: 0
+        reason:
+          type: string
+          maxLength: 250
+      required:
+        - idVariant
+        - newOnHand
+        - reason
+    Movement:
+      type: object
+      properties:
+        idMovement:
+          type: string
+          description: Null when the stock already had the requested value
+          nullable: true
+      required:
+        - idMovement
+    Coupon:
+      type: object
+      properties:
+        idCoupon:
+          $ref: '#/components/schemas/Id'
+        code:
+          type: string
+        type:
+          type: string
+          enum:
+            - Percentage
+            - FixedAmount
+        value:
+          $ref: '#/components/schemas/MoneyText'
+        minimumAmount:
+          $ref: '#/components/schemas/MoneyText'
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        totalUsageLimit:
+          type: integer
+          nullable: true
+        perCustomerUsageLimit:
+          type: integer
+          nullable: true
+        usageCount:
+          type: integer
+        idCategory:
+          type: integer
+          nullable: true
+        isActive:
+          type: boolean
+        status:
+          type: string
+          enum:
+            - Inactive
+            - NotStarted
+            - Expired
+            - Exhausted
+            - Active
+      required:
+        - idCoupon
+        - code
+        - type
+        - value
+        - status
+    CouponRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{3,30}$
+          description: Required on creation, ignored on update
+        type:
+          type: string
+          enum:
+            - Percentage
+            - FixedAmount
+        value:
+          $ref: '#/components/schemas/MoneyText'
+        minimumAmount:
+          $ref: '#/components/schemas/MoneyText'
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        totalUsageLimit:
+          type: integer
+          nullable: true
+        perCustomerUsageLimit:
+          type: integer
+          nullable: true
+        categoryId:
+          type: integer
+          nullable: true
+      required:
+        - type
+        - value
+        - startsAt
+        - endsAt
+    UserAccount:
+      type: object
+      properties:
+        idUser:
+          $ref: '#/components/schemas/Id'
+        email:
+          type: string
+        fullName:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        idRole:
+          type: integer
+        roleName:
+          type: string
+        isActive:
+          type: boolean
+        lockedUntil:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - idUser
+        - email
+        - roleName
+        - isActive
+    UserStatusRequest:
+      type: object
+      properties:
+        isActive:
+          type: boolean
+      required:
+        - isActive
+    AuditEntry:
+      type: object
+      properties:
+        idAuditLog:
+          type: string
+        module:
+          type: string
+        entityName:
+          type: string
+        entityKey:
+          type: string
+        action:
+          type: string
+          enum:
+            - Create
+            - Update
+            - Deactivate
+            - StatusChange
+        previousValue:
+          type: string
+          nullable: true
+        newValue:
+          type: string
+          nullable: true
+        idUser:
+          type: integer
+          nullable: true
+        userName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - module
+        - entityName
+        - entityKey
+        - action
+    SystemVersion:
+      type: object
+      properties:
+        app:
+          type: string
+        schemaVersion:
+          type: integer
+        objects:
+          type: array
+          items:
+            type: object
+            properties:
+              objectName:
+                type: string
+              objectType:
+                type: string
+              version:
+                type: string
+              change:
+                type: string
+      required:
+        - app
+        - schemaVersion
+        - objects
