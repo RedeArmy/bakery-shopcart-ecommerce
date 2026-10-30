@@ -9,7 +9,8 @@ export type MigrationErrorCode =
   | 'OBJECT_VERSION_NOT_RAISED'
   | 'OBJECT_VERSION_LOWERED'
   | 'OBJECT_NOT_CREATED'
-  | 'LOCK_NOT_ACQUIRED';
+  | 'LOCK_NOT_ACQUIRED'
+  | 'COLLATION_MISMATCH';
 
 /** Error esperado del runner, con un código estable para los registros y las pruebas. */
 export class MigrationError extends Error {

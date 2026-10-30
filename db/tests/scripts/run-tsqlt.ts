@@ -8,7 +8,7 @@ import sql from 'mssql';
 import { verifyDirectory } from '../../../tools/scripts/lib/checksums.js';
 import { splitBatches } from '../../runner/src/batches.js';
 import { normalise } from '../../runner/src/checksum.js';
-import { connect } from '../../runner/src/database.js';
+import { connect, enforceCollation, ensureDatabase } from '../../runner/src/database.js';
 import { inSequence } from '../../runner/src/sequence.js';
 import { loadConfig } from './lib/config.js';
 import { buildJUnitXml, summarise, type TestResultRow } from './lib/junit.js';
@@ -23,14 +23,6 @@ async function runScript(pool: sql.ConnectionPool, path: string): Promise<void> 
   const batches = splitBatches(normalise(readFileSync(path, 'utf8')));
   await inSequence(batches, (batch) => pool.request().batch(batch));
   console.log(`Ran ${path.slice(ROOT.length + 1)} (${batches.length} batches).`);
-}
-
-async function ensureDatabase(pool: sql.ConnectionPool, name: string): Promise<void> {
-  // El nombre ya está validado, pero se pasa como parámetro y se entrecomilla con QUOTENAME de todos modos
-  await pool.request().input('name', sql.NVarChar(128), name).query(`
-    DECLARE @create NVARCHAR(400) = N'CREATE DATABASE ' + QUOTENAME(@name) + N';';
-    IF DB_ID(@name) IS NULL EXEC sp_executesql @create;
-  `);
 }
 
 // La base de pruebas puede contener el esquema migrado: se conserva y solo se retira tSQLt, porque
@@ -93,6 +85,7 @@ async function main(): Promise<number> {
 
   const pool = await connect(connection, config.database);
   try {
+    await enforceCollation(pool, config.database);
     await uninstallIfPresent(pool);
     await runScript(pool, join(INSTALL_DIRECTORY, 'tSQLt.class.sql'));
     await inSequence(testFiles(), (file) => runScript(pool, file));

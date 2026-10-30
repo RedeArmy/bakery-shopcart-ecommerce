@@ -146,6 +146,8 @@ jobs:
         env:
           ACCEPT_EULA: 'Y'
           MSSQL_SA_PASSWORD: ${{ secrets.CI_SA_PASSWORD }}
+          # Mismo collation que la base de datos del proyecto (ADR-0025)
+          MSSQL_COLLATION: Latin1_General_100_CI_AS_SC
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

@@ -8,10 +8,13 @@
 EXEC tSQLt.NewTestClass 'Test_Seeds';
 GO
 
+-- Las tablas #Expected declaran COLLATE DATABASE_DEFAULT en el texto: una tabla temporal toma el collation de tempdb
+-- y, si el servidor usa otro, compararla con una tabla de la base de datos daría un conflicto de collation
+
 CREATE PROCEDURE Test_Seeds.[test the roles are the three fixed roles]
 AS
 BEGIN
-    CREATE TABLE #Expected (IDRole TINYINT, Name NVARCHAR(30));
+    CREATE TABLE #Expected (IDRole TINYINT, Name NVARCHAR(30) COLLATE DATABASE_DEFAULT);
     INSERT INTO #Expected VALUES (1, N'Customer'), (2, N'Operator'), (3, N'Administrator');
 
     SELECT IDRole, Name INTO #Actual FROM dbo.Roles;
@@ -23,7 +26,7 @@ GO
 CREATE PROCEDURE Test_Seeds.[test the order statuses are the eight states of the lifecycle]
 AS
 BEGIN
-    CREATE TABLE #Expected (IDOrderStatus TINYINT, Name NVARCHAR(30));
+    CREATE TABLE #Expected (IDOrderStatus TINYINT, Name NVARCHAR(30) COLLATE DATABASE_DEFAULT);
     INSERT INTO #Expected VALUES
         (1, N'PendingPayment'), (2, N'Paid'), (3, N'InPreparation'), (4, N'Dispatched'),
         (5, N'Delivered'), (6, N'Cancelled'), (7, N'PartiallyReturned'), (8, N'Returned');
@@ -67,7 +70,7 @@ GO
 CREATE PROCEDURE Test_Seeds.[test the payment methods carry the codes of the API]
 AS
 BEGIN
-    CREATE TABLE #Expected (IDPaymentMethod TINYINT, Code NVARCHAR(30), Name NVARCHAR(60));
+    CREATE TABLE #Expected (IDPaymentMethod TINYINT, Code NVARCHAR(30) COLLATE DATABASE_DEFAULT, Name NVARCHAR(60) COLLATE DATABASE_DEFAULT);
     INSERT INTO #Expected VALUES (1, N'CARD', N'Card'), (2, N'BANK_DEPOSIT', N'BankDeposit');
 
     SELECT IDPaymentMethod, Code, Name INTO #Actual FROM dbo.PaymentMethods;
@@ -79,7 +82,7 @@ GO
 CREATE PROCEDURE Test_Seeds.[test the payment statuses are the eight states of the lifecycle]
 AS
 BEGIN
-    CREATE TABLE #Expected (IDPaymentStatus TINYINT, Name NVARCHAR(30));
+    CREATE TABLE #Expected (IDPaymentStatus TINYINT, Name NVARCHAR(30) COLLATE DATABASE_DEFAULT);
     INSERT INTO #Expected VALUES
         (1, N'Pending'), (2, N'UnderReview'), (3, N'Approved'), (4, N'Rejected'),
         (5, N'Failed'), (6, N'Expired'), (7, N'Refunded'), (8, N'Cancelled');
@@ -114,7 +117,7 @@ GO
 CREATE PROCEDURE Test_Seeds.[test the inventory movement types include the exit used by the unique index]
 AS
 BEGIN
-    CREATE TABLE #Expected (IDInventoryMovementType TINYINT, Name NVARCHAR(30));
+    CREATE TABLE #Expected (IDInventoryMovementType TINYINT, Name NVARCHAR(30) COLLATE DATABASE_DEFAULT);
     INSERT INTO #Expected VALUES (1, N'Entry'), (2, N'Exit'), (3, N'Adjustment'), (4, N'Return');
 
     SELECT IDInventoryMovementType, Name INTO #Actual FROM dbo.InventoryMovementTypes;
@@ -126,7 +129,7 @@ GO
 CREATE PROCEDURE Test_Seeds.[test the configuration holds the ten default settings]
 AS
 BEGIN
-    CREATE TABLE #Expected (SettingKey NVARCHAR(50), SettingValue NVARCHAR(100));
+    CREATE TABLE #Expected (SettingKey NVARCHAR(50) COLLATE DATABASE_DEFAULT, SettingValue NVARCHAR(100) COLLATE DATABASE_DEFAULT);
     INSERT INTO #Expected VALUES
         (N'ReservationMinutes', N'15'), (N'DepositReservationHours', N'24'), (N'MinDepositHours', N'2'),
         (N'RejectionGraceHours', N'12'), (N'MaxDepositAttempts', N'3'), (N'AbandonedCartHours', N'24'),

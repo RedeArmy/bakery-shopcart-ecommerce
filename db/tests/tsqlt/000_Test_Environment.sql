@@ -45,3 +45,32 @@ BEGIN
     EXEC tSQLt.AssertEquals @Expected = 1, @Actual = @EndsInCi;
 END;
 GO
+
+-- ADR-0025: el collation de la base de datos es una decisión del proyecto, no del servidor donde se crea
+CREATE PROCEDURE Test_Environment.[test the database uses the project collation]
+AS
+BEGIN
+    DECLARE @Collation NVARCHAR(128) = CAST(DATABASEPROPERTYEX(DB_NAME(), 'Collation') AS NVARCHAR(128));
+    EXEC tSQLt.AssertEqualsString @Expected = N'Latin1_General_100_CI_AS_SC', @Actual = @Collation;
+END;
+GO
+
+-- Si tempdb usa otro collation, las tablas temporales con texto chocan con las de la base de datos
+CREATE PROCEDURE Test_Environment.[test tempdb uses the same collation as the database]
+AS
+BEGIN
+    DECLARE @Database NVARCHAR(128) = CAST(DATABASEPROPERTYEX(DB_NAME(), 'Collation') AS NVARCHAR(128));
+    DECLARE @Tempdb NVARCHAR(128) = CAST(DATABASEPROPERTYEX(N'tempdb', 'Collation') AS NVARCHAR(128));
+    EXEC tSQLt.AssertEqualsString @Expected = @Database, @Actual = @Tempdb;
+END;
+GO
+
+-- _SC: un carácter fuera del plano básico (un emoji en una dedicatoria) cuenta como uno y no como dos
+CREATE PROCEDURE Test_Environment.[test a supplementary character counts as one character]
+AS
+BEGIN
+    DECLARE @Text NVARCHAR(10) = NCHAR(0xD83C) + NCHAR(0xDF82);
+    DECLARE @Length INT = LEN(@Text);
+    EXEC tSQLt.AssertEquals @Expected = 1, @Actual = @Length;
+END;
+GO

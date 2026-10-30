@@ -10,6 +10,9 @@ services:
     environment:
       ACCEPT_EULA: 'Y'
       MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+      # Mismo collation que la base de datos del proyecto (ADR-0025): así tempdb coincide y los #temp no chocan.
+      # Solo se aplica al crear el volumen; con un volumen anterior hay que recrearlo (docker compose down --volumes)
+      MSSQL_COLLATION: Latin1_General_100_CI_AS_SC
       # Límite de memoria: SQL Server consume toda la RAM disponible si no se acota
       MSSQL_MEMORY_LIMIT_MB: ${MSSQL_MEMORY_LIMIT_MB:-2048}
     volumes:
