@@ -5,7 +5,9 @@ title = "ShopCart gitleaks configuration"
 useDefault = true
 
 [allowlist]
-description = "Documented business configuration keys that the generic API key rule mistakes for secrets"
+description = "Documented business configuration keys and the dummy password of the runner tests, which the generic API key rule mistakes for secrets"
 regexes = [
   '''IdempotencyKeyHours=\d+''',
+  # Valor ficticio de las pruebas unitarias de la configuración del runner; no corresponde a ninguna cuenta
+  '''Abcdefg12345''',
 ]
