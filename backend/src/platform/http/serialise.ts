@@ -35,8 +35,11 @@ export function camelKey(key: string): string {
   return lowered + key.slice(lowered.length);
 }
 
-/** Solo fecha (yyyy-mm-dd) para las columnas DATE, que mssql entrega como medianoche UTC. */
-const isDateColumn = (key: string): boolean => key.endsWith('Date');
+/**
+ * Solo fecha (yyyy-mm-dd) para las columnas DATE, que mssql entrega como medianoche UTC. Por convención de nombres terminan
+ * en Date (DepositDate) o en Start (PeriodStart); las de fecha y hora terminan en At.
+ */
+const isDateColumn = (key: string): boolean => key.endsWith('Date') || key.endsWith('Start');
 
 function camelValue(key: string, value: unknown): unknown {
   if (value instanceof Date) {

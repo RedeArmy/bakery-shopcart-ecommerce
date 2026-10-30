@@ -63,6 +63,7 @@ export const POLICIES = {
   checkoutConfirm: { name: 'checkout-confirm', limit: 5, windowMs: 60_000 },
   proofUpload: { name: 'proof-upload', limit: 5, windowMs: 60_000 },
   review: { name: 'review', limit: 60, windowMs: 60_000 },
+  dashboard: { name: 'dashboard', limit: 30, windowMs: 60_000 },
 } as const satisfies Record<string, RateLimitPolicy>;
 
 /** Responde 429 con Retry-After y las cabeceras RateLimit-* cuando se supera el límite del grupo. */

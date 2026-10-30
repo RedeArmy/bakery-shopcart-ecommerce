@@ -34,6 +34,8 @@ tags:
     description: Accounts are deactivated, never deleted
   - name: Audit
     description: Immutable audit log and system versions
+  - name: Dashboard
+    description: 'Sales follow ADR-0009: paid, not cancelled, grouped by payment date in Guatemala time, net of returns'
 paths:
   /health/live:
     get:
@@ -2546,6 +2548,194 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/dashboard/summary:
+    get:
+      tags:
+        - Dashboard
+      summary: Headline figures for a range
+      description: The three counters at the end describe the present moment and do not depend on the range.
+      operationId: adminDashboardSummary
+      security:
+        - bearerAuth: []
+      parameters:
+        - &a2
+          name: from
+          in: query
+          description: 'Guatemala day, inclusive. Default: 29 days before "to"'
+          schema:
+            type: string
+            format: date
+        - &a3
+          name: to
+          in: query
+          description: 'Guatemala day, inclusive. Default: today in Guatemala'
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/dashboard/sales:
+    get:
+      tags:
+        - Dashboard
+      summary: Sales per day, week or month
+      description: One point per period, oldest first, with the periods without sales as zeros. At most 400 periods.
+      operationId: adminDashboardSales
+      security:
+        - bearerAuth: []
+      parameters:
+        - *a2
+        - *a3
+        - name: granularity
+          in: query
+          schema:
+            type: string
+            enum:
+              - day
+              - week
+              - month
+            default: day
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SalesPoint'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/dashboard/sales-by-category:
+    get:
+      tags:
+        - Dashboard
+      summary: Sales per category, net of returns, biggest first
+      description: The nets of all the categories add up to the net sale of the range.
+      operationId: adminDashboardSalesByCategory
+      security:
+        - bearerAuth: []
+      parameters:
+        - *a2
+        - *a3
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CategorySales'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/dashboard/top-products:
+    get:
+      tags:
+        - Dashboard
+      summary: Best sellers
+      description: Grouped by product, ordered by units sold minus returned, then net amount. A product with every unit returned does not appear.
+      operationId: adminDashboardTopProducts
+      security:
+        - bearerAuth: []
+      parameters:
+        - *a2
+        - *a3
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TopProduct'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/dashboard/abandoned-carts:
+    get:
+      tags:
+        - Dashboard
+      summary: Abandoned carts, most valuable first
+      description: Active carts with items and no activity for AbandonedCartHours. A visitor appears without name or email.
+      operationId: adminDashboardAbandonedCarts
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AbandonedCart'
+                  page:
+                    type: integer
+                    minimum: 1
+                  size:
+                    type: integer
+                    minimum: 1
+                    maximum: 100
+                  total:
+                    type: integer
+                required:
+                  - items
+                  - page
+                  - size
+                  - total
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 components:
   securitySchemes:
     bearerAuth:
@@ -2597,34 +2787,34 @@ components:
   responses:
     BadRequest:
       description: Validation failed, or a mandatory header is missing
-      content: &a2
+      content: &a4
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
     Unauthorised:
       description: Missing or expired access token
-      content: *a2
+      content: *a4
     Forbidden:
       description: The role is not allowed to perform this action
-      content: *a2
+      content: *a4
     NotFound:
       description: The resource does not exist or does not belong to the caller
-      content: *a2
+      content: *a4
     Conflict:
       description: Conflict with the current state (out of stock, request in progress, duplicate)
-      content: *a2
+      content: *a4
     Unprocessable:
       description: A business rule refused the request, or the idempotency key was reused with another body
-      content: *a2
+      content: *a4
     PayloadTooLarge:
       description: The file is above 5 MB
-      content: *a2
+      content: *a4
     UnsupportedMedia:
       description: The file is not a JPEG, a PNG or a PDF
-      content: *a2
+      content: *a4
     Locked:
       description: The account is temporarily locked after repeated failed sign-ins; details.lockedUntil says until when
-      content: *a2
+      content: *a4
     Unavailable:
       description: A dependency is unavailable or the schema is outdated
       content:
@@ -2646,7 +2836,7 @@ components:
         RateLimit-Reset:
           schema:
             type: integer
-      content: *a2
+      content: *a4
   schemas:
     Readiness:
       type: object
@@ -4115,6 +4305,136 @@ components:
         - entityKey
         - expected
         - actual
+    DashboardSummary:
+      type: object
+      properties:
+        fromDate:
+          type: string
+          format: date
+        toDate:
+          type: string
+          format: date
+        orders:
+          type: integer
+        gross:
+          $ref: '#/components/schemas/MoneyText'
+        returned:
+          $ref: '#/components/schemas/MoneyText'
+        net:
+          $ref: '#/components/schemas/MoneyText'
+        averageTicket:
+          $ref: '#/components/schemas/MoneyText'
+        pendingPaymentOrders:
+          type: integer
+          description: Orders waiting for payment right now (includes those with a proof under review)
+        depositsUnderReview:
+          type: integer
+        abandonedCarts:
+          type: integer
+      required:
+        - fromDate
+        - toDate
+        - orders
+        - gross
+        - returned
+        - net
+        - averageTicket
+        - pendingPaymentOrders
+        - depositsUnderReview
+        - abandonedCarts
+    SalesPoint:
+      type: object
+      properties:
+        periodStart:
+          type: string
+          format: date
+          description: First day of the day, the week (Monday) or the month
+        orders:
+          type: integer
+        gross:
+          $ref: '#/components/schemas/MoneyText'
+        returned:
+          $ref: '#/components/schemas/MoneyText'
+        net:
+          $ref: '#/components/schemas/MoneyText'
+        averageTicket:
+          $ref: '#/components/schemas/MoneyText'
+      required:
+        - periodStart
+        - orders
+        - gross
+        - returned
+        - net
+        - averageTicket
+    CategorySales:
+      type: object
+      properties:
+        idCategory:
+          $ref: '#/components/schemas/Id'
+        categoryName:
+          type: string
+        orders:
+          type: integer
+        units:
+          type: integer
+          description: Units sold minus returned
+        net:
+          $ref: '#/components/schemas/MoneyText'
+      required:
+        - idCategory
+        - categoryName
+        - orders
+        - units
+        - net
+    TopProduct:
+      type: object
+      properties:
+        position:
+          type: integer
+          minimum: 1
+        idProduct:
+          $ref: '#/components/schemas/Id'
+        productName:
+          type: string
+        units:
+          type: integer
+        net:
+          $ref: '#/components/schemas/MoneyText'
+      required:
+        - position
+        - idProduct
+        - productName
+        - units
+        - net
+    AbandonedCart:
+      type: object
+      properties:
+        idCart:
+          $ref: '#/components/schemas/Id'
+        idUser:
+          type: integer
+          nullable: true
+        customerName:
+          type: string
+          nullable: true
+        customerEmail:
+          type: string
+          nullable: true
+        itemCount:
+          type: integer
+        estimated:
+          $ref: '#/components/schemas/MoneyText'
+        lastActivityAt:
+          type: string
+          format: date-time
+        idleHours:
+          type: integer
+      required:
+        - idCart
+        - itemCount
+        - estimated
+        - lastActivityAt
+        - idleHours
     SystemVersion:
       type: object
       properties:

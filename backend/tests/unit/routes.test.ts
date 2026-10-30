@@ -13,6 +13,7 @@ import {
 } from '../../src/modules/checkout/index.js';
 import type { CheckoutRepositoryPort } from '../../src/modules/checkout/index.js';
 import { createCouponsRouter } from '../../src/modules/coupons/index.js';
+import { createDashboardRouter } from '../../src/modules/dashboard/index.js';
 import { createInventoryRouter } from '../../src/modules/inventory/index.js';
 import { createOrdersRouter } from '../../src/modules/orders/index.js';
 import {
@@ -115,6 +116,7 @@ describe('serialisation helpers', () => {
       {
         CreatedAt: new Date('2030-06-01T12:00:00.000Z'),
         DepositDate: new Date('2030-06-20T00:00:00.000Z'),
+        PeriodStart: new Date('2030-06-03T00:00:00.000Z'),
         RowVer: Buffer.from([1, 2, 3, 4]),
         Lines: '[{"IDOrderLine":1,"SKU":"A"}]',
         TotalCount: 9,
@@ -124,6 +126,7 @@ describe('serialisation helpers', () => {
     expect(row).toEqual({
       createdAt: '2030-06-01T12:00:00.000Z',
       depositDate: '2030-06-20',
+      periodStart: '2030-06-03',
       rowVer: Buffer.from([1, 2, 3, 4]).toString('base64'),
       lines: [{ idOrderLine: 1, sku: 'A' }],
     });
@@ -472,6 +475,115 @@ describe('administration routes', () => {
       .get('/admin/system/reconciliation?limit=501')
       .set(as('1:Administrator'));
     expect(tooMany.status).toBe(400);
+  });
+});
+
+describe('dashboard routes', () => {
+  const answers = {
+    summary: { orders: 2, net: '255.90' },
+    salesByPeriod: [{ periodStart: '2030-06-01', orders: 2 }],
+    salesByCategory: [{ categoryName: 'Cakes', net: '145.00' }],
+    topProducts: [{ position: 1, productName: 'Milk cake' }],
+    abandonedCarts: { items: [], page: 1, size: 20, total: 0 },
+  };
+
+  it('lets only an administrator see the dashboard', async () => {
+    const { repository } = fake(answers);
+    const app = appWith(createDashboardRouter(kit, repository));
+    for (const path of [
+      'summary',
+      'sales',
+      'sales-by-category',
+      'top-products',
+      'abandoned-carts',
+    ]) {
+      expect((await request(app).get(`/admin/dashboard/${path}`)).status).toBe(401);
+      expect(
+        (await request(app).get(`/admin/dashboard/${path}`).set(as('2:Operator'))).status,
+      ).toBe(403);
+      expect(
+        (await request(app).get(`/admin/dashboard/${path}`).set(as('7:Customer'))).status,
+      ).toBe(403);
+      expect(
+        (await request(app).get(`/admin/dashboard/${path}`).set(as('1:Administrator'))).status,
+      ).toBe(200);
+    }
+  });
+
+  it('passes the range and the granularity to the database and leaves empty dates to it', async () => {
+    const { repository, calls } = fake(answers);
+    const app = appWith(createDashboardRouter(kit, repository));
+    await request(app).get('/admin/dashboard/sales').set(as('1:Administrator'));
+    expect(calls.at(-1)).toEqual({
+      method: 'salesByPeriod',
+      args: [{ from: null, to: null }, 'day'],
+    });
+    await request(app)
+      .get('/admin/dashboard/sales?from=2030-06-01&to=2030-06-30&granularity=week')
+      .set(as('1:Administrator'));
+    expect(calls.at(-1)).toEqual({
+      method: 'salesByPeriod',
+      args: [{ from: '2030-06-01', to: '2030-06-30' }, 'week'],
+    });
+    await request(app).get('/admin/dashboard/summary?from=2030-06-01').set(as('1:Administrator'));
+    expect(calls.at(-1)).toEqual({ method: 'summary', args: [{ from: '2030-06-01', to: null }] });
+    await request(app)
+      .get('/admin/dashboard/sales-by-category?to=2030-06-30')
+      .set(as('1:Administrator'));
+    expect(calls.at(-1)).toEqual({
+      method: 'salesByCategory',
+      args: [{ from: null, to: '2030-06-30' }],
+    });
+  });
+
+  it('asks for ten best sellers by default and accepts up to fifty', async () => {
+    const { repository, calls } = fake(answers);
+    const app = appWith(createDashboardRouter(kit, repository));
+    await request(app).get('/admin/dashboard/top-products').set(as('1:Administrator'));
+    expect(calls.at(-1)).toEqual({ method: 'topProducts', args: [{ from: null, to: null }, 10] });
+    await request(app).get('/admin/dashboard/top-products?limit=50').set(as('1:Administrator'));
+    expect(calls.at(-1)?.args[1]).toBe(50);
+    expect(
+      (await request(app).get('/admin/dashboard/top-products?limit=51').set(as('1:Administrator')))
+        .status,
+    ).toBe(400);
+    expect(
+      (await request(app).get('/admin/dashboard/top-products?limit=0').set(as('1:Administrator')))
+        .status,
+    ).toBe(400);
+  });
+
+  it('rejects a malformed date or granularity before reaching the database', async () => {
+    const { repository, calls } = fake(answers);
+    const app = appWith(createDashboardRouter(kit, repository));
+    for (const query of ['from=yesterday', 'to=2030-13-45', 'from=2030-6-1']) {
+      const response = await request(app)
+        .get(`/admin/dashboard/summary?${query}`)
+        .set(as('1:Administrator'));
+      expect(response.status).toBe(400);
+      expect(codeOf(response)).toBe('VALIDATION_ERROR');
+    }
+    expect(
+      (await request(app).get('/admin/dashboard/sales?granularity=hour').set(as('1:Administrator')))
+        .status,
+    ).toBe(400);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('pages the abandoned carts', async () => {
+    const { repository, calls } = fake(answers);
+    const app = appWith(createDashboardRouter(kit, repository));
+    await request(app)
+      .get('/admin/dashboard/abandoned-carts?page=2&size=5')
+      .set(as('1:Administrator'));
+    expect(calls.at(-1)).toEqual({ method: 'abandonedCarts', args: [2, 5] });
+    expect(
+      (
+        await request(app)
+          .get('/admin/dashboard/abandoned-carts?size=101')
+          .set(as('1:Administrator'))
+      ).status,
+    ).toBe(400);
   });
 });
 
