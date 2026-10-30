@@ -6,8 +6,8 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 
 | Module | Procedures |
 |---|---|
-| Auth (RF-01) | `SP_Users_Register`, `SP_Users_GetByEmail`, `SP_Users_SetStatus`, `SP_Users_List`, `SP_Users_RecordFailedAttempt`, `SP_Tokens_Save`, `SP_Tokens_Rotate`, `SP_Tokens_RevokeFamily` |
-| Catalogue (RF-02) | `SP_Categories_Create/Update/Deactivate/List`, `SP_Products_Create/Update/Deactivate/Get/Search`, `SP_Variants_Create/Update`, `SP_Variants_ChangePrice`, `SP_Addresses_List/Save` |
+| Auth (RF-01) | **Built:** `SP_Users_Register`, `SP_Users_GetByEmail`, `SP_Users_SetStatus`, `SP_Users_List`, `SP_Users_RecordFailedAttempt`, `SP_Users_RecordSuccessfulLogin` (added: it resets the lockout counter), `SP_Tokens_Save`, `SP_Tokens_Rotate`, `SP_Tokens_RevokeFamily` |
+| Catalogue (RF-02) | **Built:** `SP_Categories_Create/Update/Deactivate/List`, `SP_Products_Create/Update/Deactivate/Get/Search`, `SP_Variants_Create/Update`, `SP_Variants_ChangePrice`, `SP_Variants_SetAttributes` (internal), `SP_Addresses_List/Save` |
 | Inventory (RF-03) | `SP_Inventory_RegisterEntry`, `SP_Inventory_AdjustStock`, **`SP_Inventory_ReserveStock`**, `SP_Inventory_ReleaseCartReservation`, **`SP_Inventory_ReleaseExpiredReservations`**, `SP_Inventory_GetLedger` |
 | Cart (RF-04) | `SP_Cart_Get`, `SP_Cart_SetItemQuantity`, `SP_Cart_RemoveItem`, `SP_Cart_MergeGuest`, `SP_Cart_ApplyCoupon`, `SP_Cart_RemoveCoupon` |
 | Coupons (RF-05) | `SP_Coupons_Create/Update/Deactivate/List`, `SP_Coupons_Validate` |
@@ -16,7 +16,7 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 | Payments, card (Phase 2) | `SP_Payments_RegisterExternalCheckout`, `SP_Payments_RegisterCreationFailure`, `SP_Payments_RegisterWebhookEvent`, `SP_Payments_ListPendingCardsToReconcile`, `SP_Webhooks_Purge` |
 | Orders (RF-07) | **`SP_Orders_ChangeStatus`**, **`SP_Orders_Cancel`**, `SP_Orders_List`, `SP_Orders_GetDetail`, **`SP_Returns_Register`** |
 | Dashboard (RF-08) | `SP_Dashboard_SalesByPeriod`, `SP_Dashboard_SalesByCategory`, `SP_Dashboard_TopTenProducts`, `SP_Dashboard_AbandonedCarts` |
-| Audit (RF-09) | `SP_Audit_Record` (internal use), `SP_Audit_Query` |
+| Audit (RF-09) | `SP_Audit_Record` (built, internal use), `SP_Audit_Query` |
 | System | `SP_System_GetSchemaVersion` (built, `R0100`), `SP_System_ListObjectVersions` |
 
 ## Views and functions
@@ -34,53 +34,42 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 | `VW_Carts_Abandoned` | Active carts with items and activity older than the configured threshold |
 | `FU_Catalogue_CurrentPrice(@IDVariant)` | Current price |
 | `FU_Coupons_DiscountCalculation(@IDCart, @IDCoupon)` | Discount per line with largest-remainder allocation |
-| `FU_Money_HalfEvenDivision(@N, @D)` | **The only rounding policy** (half-even) |
+| `FU_Money_HalfEvenDivision(@N, @D)` | **The only rounding policy** (half-even). `NULL` outside its domain (`@N >= 0`, `@D > 0`) |
+| `FU_Users_ActiveAdministrator(@IDUser)` | One row when the account is an active administrator; the second line of defence behind the role middleware for every catalogue write |
+| `FU_Money_VatIncluded(@TotalCents, @VatRate)` | VAT included in a total (`VatCents`) and the taxable base (`BaseCents` by subtraction, so base + VAT = total) |
 | `FU_Payments_DepositWindow(@DeliveryDate, @LeadTimeDays)` | Deposit deadline: `MIN(24 h, delivery − lead time)` and minutes available |
 | `FU_Dashboard_SalesByPeriod(@From, @To, @Granularity)` | Sales by day, week or month in GTQ and order count, by `PaidAt` |
 | `FU_Orders_RefundableAmount(@IDOrderLine, @Quantity)` | Proportional refund closing exactly on the last unit |
 
 ## Critical procedures in brief
 
-### `SP_Inventory_ReserveStock`: anti-oversell
+### Authentication and catalogue (built)
 
-```sql
-CREATE OR ALTER PROCEDURE dbo.SP_Inventory_ReserveStock
-  @IDUser INT, @IDCart INT, @IDReservation INT OUTPUT
-AS
-BEGIN
-  SET NOCOUNT ON; SET XACT_ABORT ON;
-  DECLARE @Minutes INT = (SELECT CAST(SettingValue AS INT) FROM dbo.Configuration WHERE SettingKey = 'ReservationMinutes');
-  BEGIN TRAN;
-    -- 1. Pertenencia (anti-IDOR dentro de la base de datos)
-    IF NOT EXISTS (SELECT 1 FROM dbo.Carts WHERE IDCart = @IDCart AND IDUser = @IDUser AND Status = 'Active')
-      THROW 50404, 'Cart not found.', 1;
-    IF NOT EXISTS (SELECT 1 FROM dbo.CartItems WHERE IDCart = @IDCart)
-      THROW 50422, 'The cart is empty.', 1;
+Sources: `R0120` (audit), `R0130` to `R0138` (accounts and tokens), `R0140` to `R0143` (categories), `R0150` to `R0154` (products), `R0159` to `R0162` (variants), `R0170` and `R0171` (addresses), `R0052` (administrator check). 112 tSQLt tests in `Test_Audit`, `Test_Auth`, `Test_Catalogue` and `Test_Addresses`.
 
-    -- 2. Libera una reserva previa del mismo carrito (reintento de checkout)
-    EXEC dbo.SP_Inventory_ReleaseCartReservation @IDCart = @IDCart;
+- **Accounts.** `SP_Users_Register` only creates customers: no role parameter, so a backend bug cannot make a privileged account from a public form. `SP_Users_GetByEmail` returns no rows for an unknown email instead of raising an error, so the login answers the same whether the account exists. The lockout lives in the database (it works with several replicas): from the fifth consecutive failure the account is locked for 1 minute, doubling with each further failure up to 60 minutes, decided by a single `UPDATE`. `SP_Users_SetStatus` needs an active administrator, refuses self-deactivation, revokes every refresh token when it deactivates, and writes an audit entry.
+- **Tokens.** Only the SHA-256 hash is stored. `SP_Tokens_Rotate` is atomic and detects reuse: presenting a token that was already rotated revokes the whole family. The outcome (`Rotated`, `NotFound`, `Expired`, `UserInactive`, `ReuseDetected`) is returned in an output parameter, never raised: under `XACT_ABORT` a `THROW` would roll back the very revocation that must be kept. Two tabs refreshing with the same token at once count as reuse and close the session; that is the price of detecting theft.
+- **Catalogue.** Every write needs an active administrator (`FU_Users_ActiveAdministrator`) and writes `SP_Audit_Record` in the same transaction; saving identical data leaves no entry. Categories cannot form cycles and cannot be deactivated while they hold active products or subcategories. A product update accepts the `RowVer` the panel read and answers 409 if it changed. Deactivating a product deactivates its variants, so `SP_Inventory_ReserveStock` stops reserving them. A variant is created without stock: units only enter through the inventory ledger, so the counter and the ledger never disagree. Prices travel as two-decimal text and are audited as text (module `Prices`).
+- **Reading.** `SP_Products_Get` returns one row with `Images` and `Variants` as JSON arrays. `SP_Products_Search` searches with `CHARINDEX` (a `%` typed by the user is text, not a wildcard), includes subcategories when filtering by category, and chooses the order among four fixed expressions, never a dynamic `ORDER BY`.
+- **Addresses.** The ownership condition is part of the `UPDATE` itself, so another customer's address answers 404 and is never modified, even under a race.
 
-    -- 3. Un solo UPDATE condicional: o se aparta todo o nada.
-    --    UPDLOCK serializa a quienes compiten por la misma variante; el segundo reevalúa con el valor ya actualizado.
-    UPDATE v SET ReservedStock = v.ReservedStock + ci.Quantity
-    FROM dbo.Variants v WITH (UPDLOCK, ROWLOCK)
-    JOIN dbo.CartItems ci ON ci.IDVariant = v.IDVariant
-    WHERE ci.IDCart = @IDCart AND v.IsActive = 1
-      AND (v.OnHandStock - v.ReservedStock) >= ci.Quantity;
+### `SP_Inventory_ReserveStock`: anti-oversell (built)
 
-    IF @@ROWCOUNT <> (SELECT COUNT(*) FROM dbo.CartItems WHERE IDCart = @IDCart)
-      THROW 50409, 'One or more units are no longer available.', 1;   -- rollback total
+Source: `db/objects/procedures/R0111__SP_Inventory_ReserveStock.sql`, with `R0110` (`SP_Inventory_ReleaseCartReservation`) and `R0112` (`SP_Inventory_ReleaseExpiredReservations`).
 
-    INSERT dbo.Reservations (IDCart, IDUser, Status, ExpiresAt)
-      VALUES (@IDCart, @IDUser, 'Active', DATEADD(MINUTE, @Minutes, SYSUTCDATETIME()));
-    SET @IDReservation = SCOPE_IDENTITY();
-    INSERT dbo.ReservationLines (IDReservation, IDVariant, Quantity)
-      SELECT @IDReservation, IDVariant, Quantity FROM dbo.CartItems WHERE IDCart = @IDCart;
-  COMMIT;
-END;
-```
+`SP_Inventory_ReserveStock(@IDUser, @IDCart, @Now = NULL, @IDReservation OUTPUT, @ExpiresAt OUTPUT)` reserves every line of the cart or none of them:
 
-The `CK_Variants_ReservedVsOnHand` check is the safety net if a future procedure is faulty. Deadlocks between multi-item carts are mitigated by the set-based update and by the backend retry on error 1205.
+1. Validates the parameters (`50400`), the reservation window in `Configuration` (`50422`), the cart belongs to the user and is `Active` (`50404`, the same answer as a missing cart) and is not empty (`50422`).
+2. Takes `UPDLOCK` on the cart row, so two requests for the same cart (double click, retry) are serialised. `UX_Reservations_OneActivePerCart` (V0011) is the second line of defence in the data.
+3. Locks the variants it will touch **in ascending `IDVariant` order**. Without that order, two carts holding the same variants in a different order wait for each other in a circle: 60 crossing carts lost 44 deadlocks even with five retries. With it, none do.
+4. Releases the previous reservation of the cart (a checkout retry), then runs one conditional `UPDATE` that adds the quantities to `ReservedStock` where `OnHandStock - ReservedStock >= Quantity` and the variant is active. If it touches fewer rows than the cart has lines, it raises `50409` and `XACT_ABORT` rolls everything back.
+5. Inserts the `Active` reservation with `ExpiresAt = @Now + ReservationMinutes` and its lines.
+
+The clock enters as `@Now` so tests are deterministic. `CK_Variants_ReservedVsOnHand` remains the last safety net.
+
+`SP_Inventory_ReleaseCartReservation(@IDUser, @IDCart)` returns the units of the cart's `Active` reservation that has no order and marks it `Released`; it takes the user because it is callable on its own and must not release another customer's cart. `SP_Inventory_ReleaseExpiredReservations(@Now = NULL)` does the same for every reservation without an order whose `ExpiresAt` has passed (status `Expired`) and returns `ReleasedReservations`; the job runner that calls it every 60 seconds is still pending (D-06). Both claim the reservation with a single `UPDATE` so concurrent runs never return the same units twice, and a reservation linked to an order is never touched (its window follows the payment).
+
+Proof: 18 tSQLt tests (`Test_Inventory`) and `npm run sql:concurrency`, which runs in CI against a real SQL Server: 100 buyers for 1 unit give exactly 1 success; 100 for 10 give exactly 10; 20 simultaneous requests for one cart hold the units once; a cart with one unavailable line holds nothing; 60 crossing carts reserve exactly the 40 that fit with no deadlock.
 
 ### `SP_Orders_CreateOrder`: atomic, born as `PendingPayment`
 

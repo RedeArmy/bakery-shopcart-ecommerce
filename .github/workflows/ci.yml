@@ -173,6 +173,12 @@ jobs:
           SQL_TEST_HOST: localhost
           SQL_TEST_PORT: '1433'
           SQL_TEST_PASSWORD: ${{ secrets.CI_SA_PASSWORD }}
+      # Carrera real entre decenas de conexiones: tSQLt corre cada prueba en una sola transacción y no puede reproducirla
+      - run: npm run sql:concurrency
+        env:
+          SQL_TEST_HOST: localhost
+          SQL_TEST_PORT: '1433'
+          SQL_TEST_PASSWORD: ${{ secrets.CI_SA_PASSWORD }}
       - uses: actions/upload-artifact@v7 # spelling-ignore: nombre de la acción de terceros
         if: always()
         with:

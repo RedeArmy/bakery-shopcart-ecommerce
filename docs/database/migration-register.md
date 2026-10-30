@@ -54,6 +54,7 @@ Environment states used in the register: **Verified** (run and checked), **Pendi
 | V0008 | `V0008__create_platform_tables.sql` | Idempotency, audit, configuration, DDL history | Schema, additive | Low | Applied |
 | V0009 | `V0009__create_triggers_and_permissions.sql` | Triggers and permissions | Schema, behaviour | High | Applied |
 | V0010 | `V0010__add_foreign_key_indexes.sql` | Foreign key support indexes | Schema, additive | Low | Draft |
+| V0011 | `V0011__add_one_active_reservation_per_cart.sql` | One active reservation per cart | Schema, additive | Low | Draft |
 
 Risk is the impact of a defect in the migration, not of running it: all nine run on an empty database, take no meaningful locks and move no data. **High** marks the migrations that protect money (V0007) or that can block legitimate writes if wrong (V0009).
 
@@ -223,6 +224,25 @@ Each entry uses the template in section 7. Common fields for V0001 to V0009 (V00
 | Author, date | Eder Yafeth Garcia Quiroa, 30 October 2026 |
 | Reviewer | Pending (pull request not opened) |
 | Environments | Local Verified (applied, `db:verify` clean, 66 tests passed); CI Pending; Production Not deployed |
+
+### V0011: One active reservation per cart
+
+| Field | Value |
+|---|---|
+| File | `db/migrations/V0011__add_one_active_reservation_per_cart.sql` |
+| SHA-256 | `085283cb69fc0ca0342247b1d6ab1ec28bd7ce6fdba5e00f5a4b019be6c16c01` |
+| Description | Adds the rule "a cart never holds stock twice" to the data. `SP_Inventory_ReserveStock` already serialises the requests of one cart with a lock; this index is the second line of defence if a future procedure forgets it. |
+| Objects created | Filtered unique index `UX_Reservations_OneActivePerCart` on `Reservations (IDCart)` where `Status = 'Active' AND IDOrder IS NULL` |
+| Key rules | A reservation linked to an order no longer counts: the cart is converted and the order keeps the stock |
+| Depends on | V0006 |
+| Data migration | None. On a populated database, a cart with two active reservations without an order would make the index fail: release the duplicates first |
+| Online impact | Index build on a small table; use `ONLINE = ON` where the edition allows it |
+| Compatibility | Fully compatible with `SP_Inventory_ReserveStock`, which releases the previous reservation before inserting |
+| Rollback | Additive. Compensating change: `DROP INDEX UX_Reservations_OneActivePerCart` |
+| Tests | `Test_Inventory` (the data refuse a second active reservation) and `npm run sql:concurrency` (20 simultaneous requests leave one) |
+| Author, date | Eder Yafeth Garcia Quiroa, 30 October 2026 |
+| Reviewer | Pending (pull request not opened) |
+| Environments | Local Verified (applied, `db:verify` clean, 101 tests passed, concurrency checks passed five times); CI Pending; Production Not deployed |
 
 ### Reference seeds
 
