@@ -55,13 +55,15 @@ CREATE TABLE dbo.DdlHistory (                -- poblada por un DDL trigger de la
    ===================================================================== */
 ```
 
+The runner creates `SchemaVersion` and `ObjectVersions` itself, idempotently, because it must record `V0001` before any table exists. `ObjectVersions` has one more column than the sketch above, `DefinitionChecksum CHAR(64)`: the digest of `OBJECT_DEFINITION` read right after the script ran. `db:verify` compares it with the live definition, which detects manual changes without depending on how SQL Server stores the text. `DdlHistory` and its trigger arrive with a later migration.
+
 ## What the runner does (`db/runner`, Node and TypeScript, own image)
 
 1. Applies pending `V` migrations, `R` objects and `S` seeds in order, **each script in its own transaction**.
 2. **Normalises line endings to LF before computing the checksum**, so the same script gives the same SHA-256 on Windows and Linux.
 3. Verifies the checksum of already-applied migrations. If someone edited one, it **aborts** (drift detection).
 4. For an `R` object: if the content changed but the header version did not, it **rejects**. If both changed, it applies the script, marks the previous version `IsCurrent = 0` and records the new one.
-5. Writes the version as an `EXTENDED PROPERTY` of the object, visible from SSMS.
+5. Writes the version as an `EXTENDED PROPERTY` named `Version` on procedures, views and functions, visible from SSMS. Triggers hang from a table, so they only get the `ObjectVersions` row.
 6. It is idempotent: it runs on every compose start.
 
 ## Additional controls

@@ -30,9 +30,10 @@ Stages 2 to 6 now have to fit in the four days before Delivery Phase 1; see the 
 ## Tracked follow-ups
 
 - [ ] `formatMoney` in `frontend/src/shared/lib/money` and its skipped test (Stage 7).
+- [x] Write the migration runner in `db/runner` (`npm run db:migrate` and `db:verify`, Stage 2, branch `feat/stage-2-migration-runner`).
 - [ ] Replace the `db-migrate` placeholder with the real runner and a `db/runner/Dockerfile` (Stage 2).
-- [ ] Enable the `sql-tests` and `integration` CI jobs (Stage 2).
-- [ ] Add the `windows-smoke` CRLF checksum test (Stage 2).
+- [ ] Enable the `sql-tests` and `integration` CI jobs (Stage 2). `run-tsqlt.ts` must first stop dropping `ShopCart_CI` (use `tSQLt.Uninstall` instead), otherwise it erases the migrated schema.
+- [x] Add the `windows-smoke` CRLF checksum test: the runner tests run on Windows in CI and cover CRLF, LF and a byte order mark (Stage 2).
 - [x] Evaluator question about `PendingPayment` answered affirmatively (open question 4).
 - [ ] Dependabot: ignore major versions and group minor and patch updates (before Stage 2).
 - [ ] Enable "Automatically delete head branches" in the repository settings (before Stage 2).

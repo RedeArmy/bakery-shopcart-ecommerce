@@ -5,6 +5,11 @@ All configuration comes from environment variables, validated with zod at start-
 | Variable | Default | Description |
 |---|---|---|
 | `MSSQL_SA_PASSWORD` | generated | Password of the `sa` user in the SQL Server container |
+| `MIGRATION_HOST` | `DB_HOST` | Host the migration runner connects to; set it to `localhost` when running from the host, because `DB_HOST` in `.env` is the compose service name |
+| `MIGRATION_PORT` | `DB_PORT` | Port the migration runner connects to |
+| `MIGRATION_USER` | `sa` | Login with DDL permissions used by the runner |
+| `MIGRATION_PASSWORD` | `MSSQL_SA_PASSWORD` | Password of the migration login |
+| `DB_SCRIPTS_ROOT` | `db` | Folder with `migrations`, `objects` and `seed` (tests point it at fixtures) |
 | `SQL_TEST_PASSWORD` | `MSSQL_SA_PASSWORD` | Password of the `sa` user of the throwaway tSQLt server (`CI_SA_PASSWORD` in CI) |
 | `SQL_TEST_HOST` | `localhost` | Host of the tSQLt server; anything else needs `SQL_TEST_ALLOW_REMOTE=true` |
 | `SQL_TEST_PORT` | `14333` | Port of the tSQLt server (`docker-compose.sql-test.yml` publishes it on the loopback only) |

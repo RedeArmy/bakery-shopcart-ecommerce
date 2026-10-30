@@ -137,8 +137,14 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npm run db:migrate
+        env: &migration-env
+          MIGRATION_HOST: localhost
+          MIGRATION_PORT: '1433'
+          MIGRATION_PASSWORD: ${{ secrets.CI_SA_PASSWORD }}
+          DB_NAME: ShopCart_CI
       # db:verify va ANTES de instalar tSQLt, que nunca viaja en la base de datos entregada (ADR-0023)
       - run: npm run db:verify
+        env: *migration-env
       - run: npm run sql:test
         env:
           SQL_TEST_HOST: localhost
@@ -178,5 +184,5 @@ jobs:
       - run: npm run test:unit
       # Los archivos de tSQLt llevan CRLF y se guardan sin conversión: en Windows (autocrlf activo) deben conservar sus checksums
       - run: npm run sql:lint
-      # Marcador de la Etapa 2: aquí se verifica que el checksum del runner no cambia con CRLF
+      # Incluye la prueba de que el checksum del runner no cambia entre CRLF y LF
       - run: npm run test --workspace=@shopcart/db-runner
