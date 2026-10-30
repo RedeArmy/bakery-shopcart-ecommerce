@@ -1107,6 +1107,192 @@ async function cancelRace(pool: sql.ConnectionPool): Promise<void> {
   await checkInvariant(pool, 'cancel race', [order.variant]);
 }
 
+// Resultado de una ejecución del job de vencimiento: 'error N' si falló, que en esta prueba nunca debe ocurrir
+interface ExpireRun {
+  outcome: string;
+  expired: number;
+  released: number;
+}
+
+async function runExpireJob(pool: sql.ConnectionPool): Promise<ExpireRun> {
+  try {
+    const result = await pool
+      .request()
+      .output('Outcome', sql.VarChar(10))
+      .output('ExpiredOrders', sql.Int)
+      .output('ReleasedReservations', sql.Int)
+      .execute('dbo.SP_Jobs_ExpirePayments');
+    return {
+      outcome: String(result.output['Outcome']),
+      expired: Number(result.output['ExpiredOrders']),
+      released: Number(result.output['ReleasedReservations']),
+    };
+  } catch (error) {
+    return {
+      outcome: `error ${(error as { number?: number }).number ?? '?'}`,
+      expired: 0,
+      released: 0,
+    };
+  }
+}
+
+// El bloqueo de ejecución única: mientras otra conexión sostiene el del job, la llamada responde Skipped sin esperar; los demás
+// jobs no se ven afectados; y si la conexión que lo sostenía muere sin soltarlo, SQL Server lo libera
+async function jobLock(pool: sql.ConnectionPool, settings: sql.config): Promise<void> {
+  console.log('\nthe job lock is held by another connection');
+  const holder = await new sql.ConnectionPool({ ...settings, pool: { min: 1, max: 1 } }).connect();
+  try {
+    await holder
+      .request()
+      .batch(
+        "DECLARE @r INT; EXEC @r = sys.sp_getapplock @Resource = N'Job:ExpirePayments', @LockMode = N'Exclusive', @LockOwner = N'Session', @LockTimeout = 0; IF @r < 0 THROW 50000, 'The test could not take the lock', 1;",
+      );
+    const blocked = await runExpireJob(pool);
+    check('a run while the lock is held is skipped without waiting', blocked.outcome, 'Skipped');
+    check('a skipped run did no work', blocked.expired + blocked.released, 0);
+
+    const purge = await pool
+      .request()
+      .output('Outcome', sql.VarChar(10))
+      .execute('dbo.SP_Jobs_PurgeExpired');
+    check('another job is not blocked by it', String(purge.output['Outcome']), 'Ran');
+
+    await holder
+      .request()
+      .batch(
+        "EXEC sys.sp_releaseapplock @Resource = N'Job:ExpirePayments', @LockOwner = N'Session';",
+      );
+    check('once the lock is released the job runs', (await runExpireJob(pool)).outcome, 'Ran');
+
+    await holder
+      .request()
+      .batch(
+        "DECLARE @r INT; EXEC @r = sys.sp_getapplock @Resource = N'Job:ExpirePayments', @LockMode = N'Exclusive', @LockOwner = N'Session', @LockTimeout = 0;",
+      );
+    check('the lock is taken again', (await runExpireJob(pool)).outcome, 'Skipped');
+  } finally {
+    // Cerrar la conexión SIN soltar el bloqueo: es lo que hace un proceso que muere
+    await holder.close();
+  }
+  check(
+    'the lock of a connection that died is released by SQL Server',
+    (await runExpireJob(pool)).outcome,
+    'Ran',
+  );
+}
+
+// Ocho ejecuciones simultáneas del job de vencimiento con pedidos y reservas ya vencidos: ninguna falla, cada pedido se cancela
+// una sola vez, lo reservado vuelve al stock y las cuentas cuadran
+async function expireRace(pool: sql.ConnectionPool): Promise<void> {
+  const orders = 12;
+  const carts = 8;
+  const callers = 8;
+  console.log(`\n${callers} job runs racing to expire ${orders} orders and ${carts} carts`);
+  await pool
+    .request()
+    .batch(
+      "IF NOT EXISTS (SELECT 1 FROM dbo.BankAccounts WHERE BankName = N'RACE Bank') INSERT INTO dbo.BankAccounts (BankName, AccountType, AccountNumber, HolderName) VALUES (N'RACE Bank', N'Checking', N'0001', N'Race');",
+    );
+  const bank = await scalar(
+    pool,
+    "SELECT Value = IDBankAccount FROM dbo.BankAccounts WHERE BankName = N'RACE Bank';",
+  );
+  const [variant = 0] = await createVariants(pool, 'exp', [100]);
+  const buyers = await createCarts(pool, 'exp', orders + carts);
+  await addLines(
+    pool,
+    buyers.map((cart) => ({ IDCart: cart.IDCart, IDVariant: variant, Quantity: 1 })),
+  );
+  const addresses = await createAddresses(pool, 'exp');
+  const reservations = await Promise.all(buyers.map((cart) => reserveCart(pool, cart)));
+  const placed = await Promise.all(
+    buyers
+      .slice(0, orders)
+      .map((cart, index) =>
+        placeOrder(
+          pool,
+          cart,
+          reservations[index] ?? 0,
+          addresses.get(cart.IDUser) ?? 0,
+          `race-exp-${index}`,
+          2,
+          bank,
+        ),
+      ),
+  );
+  check(
+    'every order was created',
+    placed.filter((order) => order.outcome === 'created').length,
+    orders,
+  );
+
+  // Se hacen vencer los plazos de los pagos pendientes y de las reservas de los carritos que no confirmaron
+  await pool.request().batch(`
+    UPDATE p SET ExpiresAt = DATEADD(HOUR, -1, SYSUTCDATETIME())
+    FROM dbo.Payments AS p JOIN dbo.Orders AS o ON o.IDOrder = p.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser
+    WHERE u.Email LIKE N'race-%@shopcart.test' AND p.IDPaymentStatus = 1;
+    UPDATE r SET ExpiresAt = DATEADD(HOUR, -1, SYSUTCDATETIME())
+    FROM dbo.Reservations AS r JOIN dbo.Users AS u ON u.IDUser = r.IDUser
+    WHERE u.Email LIKE N'race-%@shopcart.test' AND r.Status = N'Active' AND r.IDOrder IS NULL;
+  `);
+
+  const runs = await Promise.all(Array.from({ length: callers }, () => runExpireJob(pool)));
+  const errors = runs.filter((run) => run.outcome.startsWith('error')).length;
+  const ranRuns = runs.filter((run) => run.outcome === 'Ran');
+  console.log(
+    `  ran ${ranRuns.length}, skipped ${runs.filter((run) => run.outcome === 'Skipped').length}, errors ${errors}`,
+  );
+  check('no run fails', errors, 0);
+  check('at least one run did the work', ranRuns.length >= 1, true);
+  check(
+    'the orders were cancelled by the runs',
+    ranRuns.reduce((sum, run) => sum + run.expired, 0) >= orders,
+    true,
+  );
+  check(
+    'the abandoned carts were released by the runs',
+    ranRuns.reduce((sum, run) => sum + run.released, 0) >= carts,
+    true,
+  );
+
+  const ids = placed.map((order) => order.idOrder ?? 0).join(',');
+  check(
+    'every expired order is cancelled',
+    await scalar(
+      pool,
+      `SELECT Value = COUNT(*) FROM dbo.Orders WHERE IDOrder IN (${ids}) AND IDOrderStatus = 6;`,
+    ),
+    orders,
+  );
+  check(
+    'every payment of those orders expired',
+    await scalar(
+      pool,
+      `SELECT Value = COUNT(*) FROM dbo.Payments WHERE IDOrder IN (${ids}) AND IDPaymentStatus = 6;`,
+    ),
+    orders,
+  );
+  check(
+    'no reservation of the scenario is left active',
+    await scalar(
+      pool,
+      `SELECT Value = COUNT(*) FROM dbo.Reservations AS r JOIN dbo.Users AS u ON u.IDUser = r.IDUser WHERE u.Email LIKE N'race-exp%' AND r.Status = N'Active';`,
+    ),
+    0,
+  );
+  check('nothing stays reserved', await reservedStock(pool, variant), 0);
+  check(
+    'the stock was never touched, because no payment was approved',
+    await scalar(
+      pool,
+      `SELECT Value = OnHandStock FROM dbo.Variants WHERE IDVariant = ${variant};`,
+    ),
+    100,
+  );
+  check('one more run finds nothing to do', (await runExpireJob(pool)).expired, 0);
+  await checkInvariant(pool, 'expire race', [variant]);
+}
+
 async function confirmPayment(
   pool: sql.ConnectionPool,
   idPayment: number,
@@ -1188,7 +1374,7 @@ async function main(): Promise<number> {
   if (existsSync(envFile)) process.loadEnvFile(envFile);
   const config = loadConfig(process.env);
 
-  const pool = await new sql.ConnectionPool({
+  const settings: sql.config = {
     server: config.host,
     port: config.port,
     user: config.user,
@@ -1197,7 +1383,8 @@ async function main(): Promise<number> {
     options: { trustServerCertificate: true, encrypt: true },
     requestTimeout: 60_000,
     pool: { min: 1, max: MAX_CONNECTIONS },
-  }).connect();
+  };
+  const pool = await new sql.ConnectionPool(settings).connect();
 
   try {
     console.log(`Concurrency checks in ${config.database} on ${config.host}:${config.port}.`);
@@ -1217,6 +1404,8 @@ async function main(): Promise<number> {
       () => approveVersusReject(pool),
       () => returnRace(pool),
       () => cancelRace(pool),
+      () => jobLock(pool, settings),
+      () => expireRace(pool),
     ];
     await inSequence(scenarios, (scenario) => scenario());
   } finally {

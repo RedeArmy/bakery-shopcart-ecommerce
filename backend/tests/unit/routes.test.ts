@@ -438,7 +438,7 @@ describe('administration routes', () => {
       query: { items: [], page: 1, size: 20, total: 0 },
       systemVersion: { schemaVersion: 11, objects: [] },
     });
-    const app = appWith(createAuditRouter(kit, repository, '0.1.0'));
+    const app = appWith(createAuditRouter(kit, repository, '0.1.0', () => []));
     expect(
       (await request(app).get('/admin/audit-log?module=Orders').set(as('2:Operator'))).status,
     ).toBe(403);
@@ -448,6 +448,30 @@ describe('administration routes', () => {
     expect(
       (await request(app).get('/admin/system/version').set(as('1:Administrator'))).body,
     ).toEqual({ app: '0.1.0', schemaVersion: 11, objects: [] });
+  });
+
+  it('shows the state of the jobs and the current reconciliation discrepancies to an administrator only', async () => {
+    const status = [{ name: 'expirePayments', runs: 3, lastOutcome: 'Ran' }] as never;
+    const { repository, calls } = fake({
+      reconciliation: [{ source: 'Amounts', check: 'RefundsExceedPayment', entityKey: '9' }],
+    });
+    const app = appWith(createAuditRouter(kit, repository, '0.1.0', () => status));
+    expect((await request(app).get('/admin/system/jobs').set(as('2:Operator'))).status).toBe(403);
+    expect((await request(app).get('/admin/system/jobs').set(as('1:Administrator'))).body).toEqual(
+      status,
+    );
+    expect((await request(app).get('/admin/system/reconciliation')).status).toBe(401);
+    const found = await request(app)
+      .get('/admin/system/reconciliation?limit=5')
+      .set(as('1:Administrator'));
+    expect(found.body).toEqual([
+      { source: 'Amounts', check: 'RefundsExceedPayment', entityKey: '9' },
+    ]);
+    expect(calls.at(-1)).toEqual({ method: 'reconciliation', args: [5] });
+    const tooMany = await request(app)
+      .get('/admin/system/reconciliation?limit=501')
+      .set(as('1:Administrator'));
+    expect(tooMany.status).toBe(400);
   });
 });
 

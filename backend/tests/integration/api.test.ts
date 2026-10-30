@@ -553,6 +553,54 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
     );
   });
 
+  it('expires an unpaid order with the job runner against the database and reports the state of the jobs', async () => {
+    const order = await placeOrder(customerB, 1);
+    const before = num(
+      await api()
+        .get(`/api/v1/products/${idProduct}`)
+        .then((r) => list(r.body, 'variants')[0]),
+      'onHandStock',
+    );
+    // Se vence el plazo del pago como si hubiera pasado el tiempo
+    await admin.query(
+      `UPDATE dbo.Payments SET ExpiresAt = DATEADD(HOUR, -1, SYSUTCDATETIME()) WHERE IDPayment = ${order.idPayment}`,
+    );
+
+    const expire = await container.jobs.runNow('expirePayments');
+    expect(expire.lastOutcome).toBe('Ran');
+    expect(expire.lastCounts?.['expiredOrders']).toBeGreaterThanOrEqual(1);
+    const cancelled = await get(customerB.token, `/orders/${order.idOrder}`);
+    expect(str(cancelled.body, 'statusName')).toBe('Cancelled');
+    expect(
+      str(
+        (await get(customerB.token, `/orders/${order.idOrder}/payment`)).body as unknown,
+        '0.statusName',
+      ),
+    ).toBe('Expired');
+    // Lo reservado volvió: el stock físico no cambió porque nunca se pagó
+    const after = num(
+      await api()
+        .get(`/api/v1/products/${idProduct}`)
+        .then((r) => list(r.body, 'variants')[0]),
+      'onHandStock',
+    );
+    expect(after).toBe(before);
+
+    expect((await container.jobs.runNow('purgeExpired')).lastOutcome).toBe('Ran');
+    expect((await container.jobs.runNow('reconcileAmounts')).lastOutcome).toBe('Ran');
+
+    expect((await get(customerB.token, '/admin/system/jobs')).status).toBe(403);
+    const jobs = await get(administrator, '/admin/system/jobs');
+    const names = (jobs.body as Json[]).map((job) => job['name']);
+    expect(names).toEqual(['expirePayments', 'purgeExpired', 'reconcileAmounts']);
+    expect(num((jobs.body as Json[])[0], 'runs')).toBeGreaterThanOrEqual(1);
+    const reconciliation = await get(administrator, '/admin/system/reconciliation');
+    expect(reconciliation.status).toBe(200);
+    expect((reconciliation.body as Json[]).filter((row) => row['source'] === 'Amounts')).toEqual(
+      [],
+    );
+  });
+
   it('keeps the money and the stock reconciled after all the flows', async () => {
     const money = await admin.query('SELECT Total = COUNT(*) FROM dbo.VW_Reconciliation_Amounts');
     expect(money.recordset[0]?.['Total']).toBe(0);

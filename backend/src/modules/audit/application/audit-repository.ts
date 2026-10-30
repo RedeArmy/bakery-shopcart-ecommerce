@@ -13,4 +13,6 @@ export interface AuditSearch {
 export interface AuditRepository {
   query(search: AuditSearch): Promise<Page<Row>>;
   systemVersion(): Promise<{ schemaVersion: number; objects: Row[] }>;
+  /** Discrepancias actuales de importes e inventario; vacío cuando todo cuadra */
+  reconciliation(limit: number): Promise<Row[]>;
 }

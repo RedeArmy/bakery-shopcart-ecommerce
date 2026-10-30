@@ -2488,6 +2488,64 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/system/jobs:
+    get:
+      tags:
+        - Audit
+      summary: State of the background jobs in the instance that answers
+      description: Each job takes a database lock, so only one replica runs it at a time; this reports what THIS instance did (runs, skipped turns, failures, last counts).
+      operationId: adminGetJobs
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JobStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/system/reconciliation:
+    get:
+      tags:
+        - Audit
+      summary: Current money and inventory discrepancies
+      description: Empty when everything adds up. The daily reconciliation job writes an audit entry when it is not.
+      operationId: adminGetReconciliation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReconciliationRow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 components:
   securitySchemes:
     bearerAuth:
@@ -3983,6 +4041,80 @@ components:
         - entityName
         - entityKey
         - action
+    JobStatus:
+      type: object
+      properties:
+        name:
+          type: string
+          example: expirePayments
+        intervalMs:
+          type: integer
+        running:
+          type: boolean
+        runs:
+          type: integer
+        skipped:
+          type: integer
+        failures:
+          type: integer
+        consecutiveFailures:
+          type: integer
+        lastStartedAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastFinishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastDurationMs:
+          type: integer
+          nullable: true
+        lastOutcome:
+          type: string
+          enum:
+            - Ran
+            - Skipped
+            - Failed
+          nullable: true
+        lastCounts:
+          type: object
+          properties: {}
+          nullable: true
+        lastError:
+          type: string
+          nullable: true
+      required:
+        - name
+        - intervalMs
+        - running
+        - runs
+        - skipped
+        - failures
+        - consecutiveFailures
+    ReconciliationRow:
+      type: object
+      properties:
+        source:
+          type: string
+          enum:
+            - Amounts
+            - Inventory
+        check:
+          type: string
+          example: RefundsExceedPayment
+        entityKey:
+          type: string
+        expected:
+          type: string
+        actual:
+          type: string
+      required:
+        - source
+        - check
+        - entityKey
+        - expected
+        - actual
     SystemVersion:
       type: object
       properties:

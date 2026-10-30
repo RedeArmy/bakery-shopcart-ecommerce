@@ -31,6 +31,10 @@ All configuration comes from environment variables, validated with zod at start-
 | `REFRESH_TTL` | `7d` | Refresh token lifetime |
 | `CORS_ORIGINS` | `http://localhost:8080` | Comma-separated allow-list |
 | `APP_PUBLIC_URL` | `http://localhost:8080` | Public shop URL (gateway `success_url` and `cancel_url`) |
+| `JOBS_ENABLED` | `true` | `false` stops this instance from running the background jobs (the other replicas keep running them) |
+| `JOB_EXPIRE_SECONDS` | `60` | Seconds between runs of the payment and reservation expiry (10 to 3600) |
+| `JOB_PURGE_HOURS` | `24` | Hours between purges of expired idempotency keys (1 to 168) |
+| `JOB_RECONCILE_HOURS` | `24` | Hours between reconciliations of amounts and inventory (1 to 168) |
 | `PAYMENT_PROOFS_DIR` | `/data/payment-proofs` | Private directory for proofs (named volume) |
 | `PAYMENT_PROOF_MAX_BYTES` | `5242880` | Maximum proof size (5 MB) |
 | `RECURRENTE_PUBLIC_KEY` | blank | `pk_test_…` or `pk_live_…`; blank disables card payments |

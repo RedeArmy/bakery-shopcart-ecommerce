@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import type { RouteKit } from '../../../platform/http/route-kit.js';
+import type { JobStatus } from '../../../platform/jobs/job-runner.js';
 import { pageQuery } from '../../../platform/http/serialise.js';
 import type { AuditRepository } from '../application/audit-repository.js';
 
@@ -17,6 +18,7 @@ export function createAuditRouter(
   kit: RouteKit,
   repository: AuditRepository,
   appVersion: string,
+  jobStatus: () => JobStatus[],
 ): Router {
   const router = Router();
   // Consultar la bitácora y la versión es solo del administrador y tiene un límite más estricto (docs/api/conventions.md)
@@ -42,6 +44,19 @@ export function createAuditRouter(
 
   router.get('/admin/system/version', ...administrator, async (_req, res) => {
     res.json({ app: appVersion, ...(await repository.systemVersion()) });
+  });
+
+  // Estado de los trabajos de ESTA instancia: el bloqueo vive en la base de datos, pero el historial de ejecuciones no
+  router.get('/admin/system/jobs', ...administrator, (_req, res) => {
+    res.json(jobStatus());
+  });
+
+  // Lo que la conciliación diaria marca como alerta; vacío cuando los importes y el inventario cuadran
+  router.get('/admin/system/reconciliation', ...administrator, async (req, res) => {
+    const { limit } = z
+      .object({ limit: z.coerce.number().int().min(1).max(500).default(100) })
+      .parse(req.query);
+    res.json(await repository.reconciliation(limit));
   });
 
   return router;
