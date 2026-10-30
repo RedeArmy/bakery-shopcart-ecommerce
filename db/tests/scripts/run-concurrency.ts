@@ -52,22 +52,38 @@ async function cleanUp(pool: sql.ConnectionPool): Promise<void> {
     .input('category', sql.NVarChar(80), CATEGORY_NAME).batch(`
     DISABLE TRIGGER dbo.TR_InventoryMovements_Immutable ON dbo.InventoryMovements;
     DISABLE TRIGGER dbo.TR_AuditLog_Immutable ON dbo.AuditLog;
+    DISABLE TRIGGER dbo.TR_OrderStatusHistory_Immutable ON dbo.OrderStatusHistory;
+    DISABLE TRIGGER dbo.TR_PaymentStatusHistory_Immutable ON dbo.PaymentStatusHistory;
     BEGIN TRY
       DELETE m FROM dbo.InventoryMovements AS m JOIN dbo.Variants AS v ON v.IDVariant = m.IDVariant WHERE v.SKU LIKE @sku;
       DELETE a FROM dbo.AuditLog AS a JOIN dbo.Variants AS v ON a.Module = N'Stock' AND a.EntityKey = CAST(v.IDVariant AS NVARCHAR(40)) WHERE v.SKU LIKE @sku;
+      DELETE rl FROM dbo.ReservationLines AS rl JOIN dbo.Variants AS v ON v.IDVariant = rl.IDVariant WHERE v.SKU LIKE @sku;
+      DELETE r FROM dbo.Reservations AS r JOIN dbo.Users AS u ON u.IDUser = r.IDUser WHERE u.Email LIKE @email;
+      DELETE a FROM dbo.AuditLog AS a JOIN dbo.Orders AS o ON a.Module = N'Orders' AND a.EntityKey = CAST(o.IDOrder AS NVARCHAR(40)) JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
+      DELETE h FROM dbo.PaymentStatusHistory AS h JOIN dbo.Payments AS p ON p.IDPayment = h.IDPayment JOIN dbo.Orders AS o ON o.IDOrder = p.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
+      DELETE h FROM dbo.OrderStatusHistory AS h JOIN dbo.Orders AS o ON o.IDOrder = h.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
+      DELETE d FROM dbo.PaymentDeposits AS d JOIN dbo.Payments AS p ON p.IDPayment = d.IDPayment JOIN dbo.Orders AS o ON o.IDOrder = p.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
+      DELETE p FROM dbo.Payments AS p JOIN dbo.Orders AS o ON o.IDOrder = p.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
+      DELETE cu FROM dbo.CouponUsages AS cu JOIN dbo.Users AS u ON u.IDUser = cu.IDUser WHERE u.Email LIKE @email;
+      DELETE l FROM dbo.OrderLines AS l JOIN dbo.Orders AS o ON o.IDOrder = l.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
+      DELETE o FROM dbo.Orders AS o JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
     END TRY
     BEGIN CATCH
       ENABLE TRIGGER dbo.TR_InventoryMovements_Immutable ON dbo.InventoryMovements;
       ENABLE TRIGGER dbo.TR_AuditLog_Immutable ON dbo.AuditLog;
+      ENABLE TRIGGER dbo.TR_OrderStatusHistory_Immutable ON dbo.OrderStatusHistory;
+      ENABLE TRIGGER dbo.TR_PaymentStatusHistory_Immutable ON dbo.PaymentStatusHistory;
       THROW;
     END CATCH;
     ENABLE TRIGGER dbo.TR_InventoryMovements_Immutable ON dbo.InventoryMovements;
     ENABLE TRIGGER dbo.TR_AuditLog_Immutable ON dbo.AuditLog;
+    ENABLE TRIGGER dbo.TR_OrderStatusHistory_Immutable ON dbo.OrderStatusHistory;
+    ENABLE TRIGGER dbo.TR_PaymentStatusHistory_Immutable ON dbo.PaymentStatusHistory;
 
-    DELETE rl FROM dbo.ReservationLines AS rl JOIN dbo.Variants AS v ON v.IDVariant = rl.IDVariant WHERE v.SKU LIKE @sku;
-    DELETE r FROM dbo.Reservations AS r JOIN dbo.Users AS u ON u.IDUser = r.IDUser WHERE u.Email LIKE @email;
+    DELETE ad FROM dbo.Addresses AS ad JOIN dbo.Users AS u ON u.IDUser = ad.IDUser WHERE u.Email LIKE @email;
     DELETE ci FROM dbo.CartItems AS ci JOIN dbo.Carts AS c ON c.IDCart = ci.IDCart JOIN dbo.Users AS u ON u.IDUser = c.IDUser WHERE u.Email LIKE @email;
     DELETE c FROM dbo.Carts AS c JOIN dbo.Users AS u ON u.IDUser = c.IDUser WHERE u.Email LIKE @email;
+    DELETE FROM dbo.Coupons WHERE Code LIKE N'RACE-%';
     DELETE FROM dbo.Variants WHERE SKU LIKE @sku;
     DELETE p FROM dbo.Products AS p JOIN dbo.Categories AS cat ON cat.IDCategory = p.IDCategory WHERE cat.Name = @category;
     DELETE FROM dbo.Categories WHERE Name = @category;
@@ -481,6 +497,191 @@ async function idempotencyRace(pool: sql.ConnectionPool): Promise<void> {
   check('only one row exists per key', rows.recordset[0]?.Rows, keys.length);
 }
 
+interface OrderAttempt {
+  outcome: 'created' | 'conflict' | 'other';
+  idOrder: number | null;
+  message: string;
+}
+
+async function reserveCart(pool: sql.ConnectionPool, cart: Cart): Promise<number> {
+  const result = await pool
+    .request()
+    .input('IDUser', sql.Int, cart.IDUser)
+    .input('IDCart', sql.Int, cart.IDCart)
+    .output('IDReservation', sql.Int)
+    .execute('dbo.SP_Inventory_ReserveStock');
+  return result.output['IDReservation'] as number;
+}
+
+async function createAddresses(
+  pool: sql.ConnectionPool,
+  tag: string,
+): Promise<Map<number, number>> {
+  const result = await pool.request().input('prefix', sql.NVarChar(40), `race-${tag}-`).query<{
+    IDUser: number;
+    IDAddress: number;
+  }>(`
+    INSERT INTO dbo.Addresses (IDUser, Label, Recipient, Phone, Line1, Municipality, Department)
+    SELECT IDUser, N'Home', N'Race customer', N'55550000', N'Line 1', N'City', N'State'
+    FROM dbo.Users WHERE Email LIKE CONCAT(@prefix, N'%');
+    SELECT a.IDUser, a.IDAddress FROM dbo.Addresses AS a JOIN dbo.Users AS u ON u.IDUser = a.IDUser
+    WHERE u.Email LIKE CONCAT(@prefix, N'%');
+  `);
+  return new Map(result.recordset.map((row) => [row.IDUser, row.IDAddress]));
+}
+
+// A SQL error is a result, not a crash: the guarantees are about what the database answers under contention
+async function placeOrder(
+  pool: sql.ConnectionPool,
+  cart: Cart,
+  reservation: number,
+  address: number,
+  key: string,
+): Promise<OrderAttempt> {
+  try {
+    const result = await pool
+      .request()
+      .input('IDUser', sql.Int, cart.IDUser)
+      .input('IDReservation', sql.Int, reservation)
+      .input('IDAddress', sql.Int, address)
+      .input('RequestedDeliveryDate', sql.Date, new Date(Date.UTC(2099, 0, 1)))
+      .input('IDPaymentMethod', sql.TinyInt, 1)
+      .input('IdempotencyKey', sql.NVarChar(64), key)
+      .output('IDOrder', sql.Int)
+      .output('IDPayment', sql.Int)
+      .output('OrderNumber', sql.NVarChar(20))
+      .output('PaymentExpiresAt', sql.DateTime2(3))
+      .execute('dbo.SP_Orders_CreateOrder');
+    return { outcome: 'created', idOrder: result.output['IDOrder'] as number, message: '' };
+  } catch (error) {
+    const number = (error as { number?: unknown }).number;
+    const message = error instanceof Error ? error.message : String(error);
+    return { outcome: number === 50409 ? 'conflict' : 'other', idOrder: null, message };
+  }
+}
+
+async function scalar(pool: sql.ConnectionPool, query: string): Promise<number> {
+  const result = await pool.request().query<{ Value: number }>(query);
+  return result.recordset[0]?.Value ?? -1;
+}
+
+// Doble clic sobre "confirmar compra": diez solicitudes con la misma llave y la misma reserva crean un solo pedido
+async function orderDoubleClick(pool: sql.ConnectionPool): Promise<void> {
+  console.log('\n10 simultaneous order requests with the same key and reservation');
+  const [variant = 0] = await createVariants(pool, 'odc', [10]);
+  const [cart] = await createCarts(pool, 'odc', 1);
+  if (cart === undefined) throw new Error('The cart was not created.');
+  await addLines(pool, [{ IDCart: cart.IDCart, IDVariant: variant, Quantity: 2 }]);
+  const addresses = await createAddresses(pool, 'odc');
+  const reservation = await reserveCart(pool, cart);
+
+  const attempts = await Promise.all(
+    Array.from({ length: 10 }, () =>
+      placeOrder(pool, cart, reservation, addresses.get(cart.IDUser) ?? 0, 'race-double-click'),
+    ),
+  );
+  const created = attempts.filter((attempt) => attempt.outcome === 'created');
+  console.log(
+    `  created ${created.length}, conflict ${attempts.filter((a) => a.outcome === 'conflict').length}, other ${attempts.filter((a) => a.outcome === 'other').length}`,
+  );
+  check('every request gets an answer', created.length, 10);
+  check(
+    'all of them are the same order',
+    new Set(created.map((attempt) => attempt.idOrder)).size,
+    1,
+  );
+  check(
+    'only one order exists',
+    await scalar(
+      pool,
+      "SELECT Value = COUNT(*) FROM dbo.Orders AS o JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE N'race-odc-%';",
+    ),
+    1,
+  );
+  check(
+    'only one payment exists',
+    await scalar(
+      pool,
+      "SELECT Value = COUNT(*) FROM dbo.Payments AS p JOIN dbo.Orders AS o ON o.IDOrder = p.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE N'race-odc-%';",
+    ),
+    1,
+  );
+  check('the units stay reserved once', await reservedStock(pool, variant), 2);
+  await checkInvariant(pool, 'order double click', [variant]);
+}
+
+// Veinte clientes se disputan el último uso de un cupón: exactamente uno se lleva el descuento y los otros pedidos no se crean
+async function lastCouponUse(pool: sql.ConnectionPool): Promise<void> {
+  const buyers = 20;
+  console.log(`\n${buyers} customers compete for the last use of a coupon`);
+  await pool
+    .request()
+    .batch(
+      "INSERT INTO dbo.Coupons (Code, Type, Value, MinimumAmount, StartsAt, EndsAt, TotalUsageLimit) VALUES (N'RACE-ONE', N'Percentage', 10.00, 0, '2020-01-01', '2099-12-31', 1);",
+    );
+  const [variant = 0] = await createVariants(pool, 'cpn', [50]);
+  const carts = await createCarts(pool, 'cpn', buyers);
+  await addLines(
+    pool,
+    carts.map((cart) => ({ IDCart: cart.IDCart, IDVariant: variant, Quantity: 1 })),
+  );
+  const addresses = await createAddresses(pool, 'cpn');
+  await pool
+    .request()
+    .batch(
+      "UPDATE c SET IDCoupon = (SELECT IDCoupon FROM dbo.Coupons WHERE Code = N'RACE-ONE') FROM dbo.Carts AS c JOIN dbo.Users AS u ON u.IDUser = c.IDUser WHERE u.Email LIKE N'race-cpn-%';",
+    );
+  const reservations = await Promise.all(carts.map((cart) => reserveCart(pool, cart)));
+
+  const attempts = await Promise.all(
+    carts.map((cart, index) =>
+      placeOrder(
+        pool,
+        cart,
+        reservations[index] ?? 0,
+        addresses.get(cart.IDUser) ?? 0,
+        `race-coupon-${index}`,
+      ),
+    ),
+  );
+  const created = attempts.filter((attempt) => attempt.outcome === 'created').length;
+  const exhausted = attempts.filter(
+    (attempt) => attempt.outcome === 'conflict' && attempt.message.startsWith('COUPON_EXHAUSTED'),
+  ).length;
+  console.log(
+    `  created ${created}, coupon exhausted ${exhausted}, other ${buyers - created - exhausted}`,
+  );
+  check('exactly one order takes the last use', created, 1);
+  check('every other order is refused as exhausted', exhausted, buyers - 1);
+  check(
+    'the coupon counts exactly one use',
+    await scalar(pool, "SELECT Value = UsageCount FROM dbo.Coupons WHERE Code = N'RACE-ONE';"),
+    1,
+  );
+  check(
+    'one coupon usage was recorded',
+    await scalar(
+      pool,
+      "SELECT Value = COUNT(*) FROM dbo.CouponUsages AS cu JOIN dbo.Users AS u ON u.IDUser = cu.IDUser WHERE u.Email LIKE N'race-cpn-%';",
+    ),
+    1,
+  );
+  check(
+    'the winner got the discount',
+    await scalar(
+      pool,
+      "SELECT Value = COUNT(*) FROM dbo.Orders AS o JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE N'race-cpn-%' AND o.Discount = 1.00;",
+    ),
+    1,
+  );
+  check(
+    'the refused orders left their stock reserved, untouched',
+    await reservedStock(pool, variant),
+    buyers,
+  );
+  await checkInvariant(pool, 'last coupon use', [variant]);
+}
+
 async function main(): Promise<number> {
   const envFile = join(ROOT, '.env');
   if (existsSync(envFile)) process.loadEnvFile(envFile);
@@ -509,6 +710,8 @@ async function main(): Promise<number> {
       () => crossingCarts(pool),
       () => ledgerEntries(pool),
       () => idempotencyRace(pool),
+      () => orderDoubleClick(pool),
+      () => lastCouponUse(pool),
     ];
     await inSequence(scenarios, (scenario) => scenario());
   } finally {
