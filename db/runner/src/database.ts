@@ -39,6 +39,22 @@ function poolFor(config: ConnectionSettings, database: string): sql.ConnectionPo
   });
 }
 
+/**
+ * Un servidor recién creado con MSSQL_COLLATION acepta conexiones mientras todavía reconstruye sus bases de datos de
+ * sistema (msdb aparece en recuperación). Crear una base de datos en esa ventana hace que la reconstrucción falle y el
+ * servidor se detenga, así que "acepta conexiones" no basta: se espera a que master, model, msdb y tempdb estén en línea.
+ */
+async function assertServerStarted(pool: sql.ConnectionPool): Promise<void> {
+  const result = await pool
+    .request()
+    .query<{ NotOnline: number }>(
+      'SELECT NotOnline = COUNT(*) FROM sys.databases WHERE database_id IN (1, 2, 3, 4) AND state <> 0;',
+    );
+  if ((result.recordset[0]?.NotOnline ?? 0) > 0) {
+    throw new Error('The server is still starting its system databases.');
+  }
+}
+
 /** SQL Server tarda en aceptar conexiones tras arrancar el contenedor: se reintenta en lugar de fallar. */
 export async function connect(
   config: ConnectionSettings,
@@ -47,7 +63,9 @@ export async function connect(
 ): Promise<sql.ConnectionPool> {
   const pool = poolFor(config, database);
   try {
-    return await pool.connect();
+    const connected = await pool.connect();
+    await assertServerStarted(connected);
+    return connected;
   } catch (error) {
     await pool.close().catch(() => undefined);
     if (attempt >= CONNECT_ATTEMPTS) throw error;
