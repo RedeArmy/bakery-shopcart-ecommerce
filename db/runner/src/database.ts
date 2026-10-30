@@ -3,7 +3,7 @@
 import sql from 'mssql';
 import { splitBatches } from './batches.js';
 import { checksumOf } from './checksum.js';
-import type { AppLoginConfig, RunnerConfig } from './config.js';
+import type { AppLoginConfig, ConnectionSettings } from './config.js';
 import { CONTROL_TABLES_SQL } from './control-tables.js';
 import { MigrationError } from './errors.js';
 import { inSequence } from './sequence.js';
@@ -24,15 +24,14 @@ const pause = (ms: number): Promise<void> =>
     setTimeout(done, ms);
   });
 
-function poolFor(config: RunnerConfig, database: string): sql.ConnectionPool {
+function poolFor(config: ConnectionSettings, database: string): sql.ConnectionPool {
   return new sql.ConnectionPool({
     server: config.host,
     port: config.port,
     user: config.user,
     password: config.password,
     database,
-    // El certificado de desarrollo es autofirmado; en producción se sustituye por uno de confianza
-    options: { trustServerCertificate: true, encrypt: true },
+    options: { trustServerCertificate: config.trustServerCertificate, encrypt: true },
     requestTimeout: 300_000,
     // Una sola conexión: el bloqueo de aplicación y las transacciones viven en la misma sesión
     pool: { min: 1, max: 1 },
@@ -41,7 +40,7 @@ function poolFor(config: RunnerConfig, database: string): sql.ConnectionPool {
 
 /** SQL Server tarda en aceptar conexiones tras arrancar el contenedor: se reintenta en lugar de fallar. */
 export async function connect(
-  config: RunnerConfig,
+  config: ConnectionSettings,
   database: string,
   attempt = 1,
 ): Promise<sql.ConnectionPool> {

@@ -19,6 +19,7 @@ All configuration comes from environment variables, validated with zod at start-
 | `DB_HOST` | `db` (compose) | Database host |
 | `DB_PORT` | `1433` | Database port |
 | `DB_NAME` | `ShopCart` | Database name |
+| `DB_TRUST_SERVER_CERTIFICATE` | blank | Whether to trust the server certificate. Blank trusts the self-signed development certificate everywhere except `NODE_ENV=production`; set `false` against a server with a real certificate. The migration runner reads the same variable (default `true`) |
 | `DB_APP_USER` | `shopcart_app` | Application login: `EXECUTE` only |
 | `DB_APP_PASSWORD` | generated | Application login password |
 | `NODE_ENV` | `development` | `development`, `test` or `production` |

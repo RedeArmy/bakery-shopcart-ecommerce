@@ -53,12 +53,13 @@ Environment states used in the register: **Verified** (run and checked), **Pendi
 | V0007 | `V0007__create_payment_tables.sql` | Payments, returns and financial ledger | Schema, additive | High | Applied |
 | V0008 | `V0008__create_platform_tables.sql` | Idempotency, audit, configuration, DDL history | Schema, additive | Low | Applied |
 | V0009 | `V0009__create_triggers_and_permissions.sql` | Triggers and permissions | Schema, behaviour | High | Applied |
+| V0010 | `V0010__add_foreign_key_indexes.sql` | Foreign key support indexes | Schema, additive | Low | Draft |
 
 Risk is the impact of a defect in the migration, not of running it: all nine run on an empty database, take no meaningful locks and move no data. **High** marks the migrations that protect money (V0007) or that can block legitimate writes if wrong (V0009).
 
 ## 5. Entries
 
-Each entry uses the template in section 7. Common fields for all nine entries:
+Each entry uses the template in section 7. Common fields for V0001 to V0009 (V0010 carries its own):
 
 | Field | Value |
 |---|---|
@@ -204,6 +205,25 @@ Each entry uses the template in section 7. Common fields for all nine entries:
 | Tests | `Test_Triggers` (all triggers), `Test_Schema` (DDL capture) |
 | Related decisions | ADR-0002, ADR-0006, ADR-0021 |
 
+### V0010: Foreign key support indexes
+
+| Field | Value |
+|---|---|
+| File | `db/migrations/V0010__add_foreign_key_indexes.sql` |
+| SHA-256 | `06f597c2f15578c9ad27d6d0a59c87bd77d3d68a208164e7ada69a1a828f35d2` |
+| Description | Adds the indexes that back real queries on foreign key columns. A catalogue audit of V0001 to V0009 found 41 foreign keys with no index starting with their column; only seven back a query the system will run, and the rest point to tiny reference tables where an index would never be used. |
+| Objects created | Indexes `IX_Payments_Order`, `IX_ProductImages_Product`, `IX_OrderLines_Variant`, `IX_ReservationLines_Variant`, `IX_Reservations_Cart`, `IX_InventoryMovements_Order` (filtered), `IX_FinancialMovements_Payment` (filtered) |
+| Key rules | None: no constraint or data changes |
+| Depends on | V0002, V0003, V0005, V0006, V0007 |
+| Data migration | None |
+| Online impact | Index builds on empty tables; on a populated database use `ONLINE = ON` where the edition allows it |
+| Compatibility | Fully compatible: indexes do not change behaviour |
+| Rollback | Additive. Compensating change: `DROP INDEX` of any of the seven |
+| Tests | `Test_Schema` (the seven indexes exist) |
+| Author, date | Eder Yafeth Garcia Quiroa, 30 October 2026 |
+| Reviewer | Pending (pull request not opened) |
+| Environments | Local Verified (applied, `db:verify` clean, 66 tests passed); CI Pending; Production Not deployed |
+
 ### Reference seeds
 
 Seeds are idempotent `MERGE` scripts applied after the migrations. They are registered because the code, the API and the tests assume exactly these values. The common fields are the same as above, except the pull request, which is the one that adds them (see the revision history), and the rollback, which is to correct the seed and let the runner apply the new version.
@@ -225,7 +245,7 @@ Tests: `Test_Seeds` compares every table with the expected rows and checks that 
 | Apply from scratch | `npm run db:migrate` | 9 migrations and 5 seeds applied |
 | Idempotent re-run | `npm run db:migrate` | "up to date", nothing applied |
 | Drift check | `npm run db:verify` | Matches the repository |
-| Constraint, trigger, schema and seed tests | `npm run sql:test` | 65 tests, 0 failures |
+| Constraint, trigger, schema and seed tests | `npm run sql:test` | 66 tests, 0 failures (65 before V0010) |
 | File names and vendored files | `npm run sql:lint` | OK |
 
 ## 7. Template for a new entry
@@ -276,3 +296,4 @@ Programmable objects and seeds: a change to an `R####` object needs only the ver
 |---|---|---|
 | 30 October 2026 | First issue: entries for V0001 to V0009 | Eder Yafeth Garcia Quiroa |
 | 30 October 2026 | V0001 to V0009 set to Applied after pull request #18; reference seeds S0001 to S0005 added | Eder Yafeth Garcia Quiroa |
+| 30 October 2026 | V0010 added after the technical audit | Eder Yafeth Garcia Quiroa |

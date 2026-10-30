@@ -9,6 +9,8 @@ export default defineConfig({
       provider: 'v8',
       // Se mide solo el código de producción, no las pruebas ni la configuración
       include: ['src/**/*.ts'],
+      // Mismas exclusiones que SonarCloud: el punto de entrada y los índices que solo reexportan no tienen lógica propia
+      exclude: ['src/main.ts', 'src/**/index.ts'],
     },
   },
 });

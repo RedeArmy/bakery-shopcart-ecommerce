@@ -144,6 +144,16 @@ export function findProblems(
     problems.push(`${error.code}: ${error.message}`);
   }
 
+  // Un objeto registrado cuyo archivo ya no existe sigue vivo en la base: borrarlo exige una migración
+  const objectsOnDisk = new Set(scripts.map((script) => script.object?.name));
+  for (const item of state.objects) {
+    if (!objectsOnDisk.has(item.objectName)) {
+      problems.push(
+        `OBJECT_REMOVED: ${item.objectName} has no file in the repository but still exists`,
+      );
+    }
+  }
+
   for (const item of state.objects) {
     const live = liveDefinitions.get(item.objectName);
     if (live === undefined || live === null) {

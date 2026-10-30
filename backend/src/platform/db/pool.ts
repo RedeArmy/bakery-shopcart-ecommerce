@@ -10,7 +10,16 @@ export interface Database {
 }
 
 export function createDatabase(
-  env: Pick<Env, 'DB_HOST' | 'DB_PORT' | 'DB_NAME' | 'DB_APP_USER' | 'DB_APP_PASSWORD'>,
+  env: Pick<
+    Env,
+    | 'DB_HOST'
+    | 'DB_PORT'
+    | 'DB_NAME'
+    | 'DB_APP_USER'
+    | 'DB_APP_PASSWORD'
+    | 'DB_TRUST_SERVER_CERTIFICATE'
+    | 'NODE_ENV'
+  >,
 ): Database {
   let pool: sql.ConnectionPool | undefined;
 
@@ -21,8 +30,11 @@ export function createDatabase(
       database: env.DB_NAME,
       user: env.DB_APP_USER,
       password: env.DB_APP_PASSWORD,
-      // El contenedor de desarrollo usa un certificado autofirmado
-      options: { encrypt: true, trustServerCertificate: true },
+      // El contenedor de desarrollo usa un certificado autofirmado; en producción solo se confía si se pide expresamente
+      options: {
+        encrypt: true,
+        trustServerCertificate: env.DB_TRUST_SERVER_CERTIFICATE ?? env.NODE_ENV !== 'production',
+      },
       pool: { max: 10, min: 0, idleTimeoutMillis: 30_000 },
       connectionTimeout: 5_000,
     });

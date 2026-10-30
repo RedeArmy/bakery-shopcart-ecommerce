@@ -14,13 +14,15 @@ const envSchema = z.object({
   DB_NAME: z.string().min(1).default('ShopCart'),
   DB_APP_USER: z.string().min(1),
   DB_APP_PASSWORD: z.string().min(1),
+  // Sin valor: se confía en el certificado autofirmado del contenedor de desarrollo, pero nunca en producción
+  DB_TRUST_SERVER_CERTIFICATE: z.preprocess(blankToUndefined, z.stringbool().optional()),
 
   CORS_ORIGINS: z
     .string()
     .min(1)
     .default('http://localhost:8080')
     .transform((value) => value.split(',').map((origin) => origin.trim())),
-  APP_PUBLIC_URL: z.string().url(),
+  APP_PUBLIC_URL: z.url(),
   REQUIRED_SCHEMA_VERSION: z.preprocess(blankToUndefined, z.coerce.number().int().optional()),
 });
 

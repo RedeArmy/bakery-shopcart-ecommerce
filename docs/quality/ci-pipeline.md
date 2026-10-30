@@ -13,8 +13,9 @@ GitHub Actions on Linux, plus one Windows job for native dependencies and checks
 | `secrets` | `gitleaks` over the full history | Stage 0 |
 | `sql-lint` | `npm run sql:lint` | Stage 0 |
 | `compose-validate` | `docker compose config` for the default and all profiles | Stage 0 |
-| `windows-smoke` | Install and unit tests on Windows; placeholder for the CRLF checksum test | Stage 0 |
-| `sql-tests` | Migrate `ShopCart_CI` from scratch, `db:verify`, tSQLt, procedure coverage | Stage 2 (`if: false` until then) |
+| `windows-smoke` | Install, unit tests and `sql:lint` on Windows; the runner tests and the migration register check cover the CRLF checksum | Stage 0 |
+| `sql-tests` | Migrate `ShopCart_CI` from scratch, `db:verify`, tSQLt, procedure coverage | Stage 2 (enabled and required) |
+| `images` | Build the backend, frontend and runner Dockerfiles | Stage 2 audit (not yet required) |
 | `integration` | Testcontainers integration and concurrency tests | Stage 2 (`if: false` until then) |
 
 ## Planned order once everything is enabled

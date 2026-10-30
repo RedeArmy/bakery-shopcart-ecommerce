@@ -168,6 +168,11 @@ describe('findProblems', () => {
     expect(problem).toMatch(/^MIGRATION_DRIFT/);
   });
 
+  it('reports an object whose file was deleted from the repository', () => {
+    const problems = findProblems([], state, new Map([['dbo.SP_Orders_Create', 'abc']]));
+    expect(problems.some((problem) => problem.startsWith('OBJECT_REMOVED'))).toBe(true);
+  });
+
   it('reports an object changed by hand and one that vanished', () => {
     expect(findProblems([file], state, new Map([['dbo.SP_Orders_Create', 'zzz']]))[0]).toMatch(
       /OBJECT_MODIFIED/,

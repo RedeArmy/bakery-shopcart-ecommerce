@@ -78,6 +78,16 @@ describe('loadRunnerConfig', () => {
     expect(() => loadRunnerConfig({ ...base, DB_PORT: '0' })).toThrow(/port/);
   });
 
+  it('trusts the server certificate unless DB_TRUST_SERVER_CERTIFICATE is false', () => {
+    expect(loadRunnerConfig(base).trustServerCertificate).toBe(true);
+    expect(
+      loadRunnerConfig({ ...base, DB_TRUST_SERVER_CERTIFICATE: 'true' }).trustServerCertificate,
+    ).toBe(true);
+    expect(
+      loadRunnerConfig({ ...base, DB_TRUST_SERVER_CERTIFICATE: 'false' }).trustServerCertificate,
+    ).toBe(false);
+  });
+
   it('has no application login unless DB_APP_PASSWORD is set', () => {
     expect(loadRunnerConfig(base).appLogin).toBeUndefined();
     expect(loadRunnerConfig({ ...base, DB_APP_PASSWORD: '' }).appLogin).toBeUndefined();

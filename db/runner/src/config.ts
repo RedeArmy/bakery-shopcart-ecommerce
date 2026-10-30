@@ -4,11 +4,17 @@ export interface AppLoginConfig {
   password: string;
 }
 
-export interface RunnerConfig {
+/** Lo mínimo para abrir una conexión; lo comparten el runner y el ejecutor de tSQLt. */
+export interface ConnectionSettings {
   host: string;
   port: number;
   user: string;
   password: string;
+  /** El certificado de desarrollo es autofirmado; con un servidor real debe ser false */
+  trustServerCertificate: boolean;
+}
+
+export interface RunnerConfig extends ConnectionSettings {
   database: string;
   /** Presente solo si DB_APP_PASSWORD está definida; en el CI no existe y no se crea ningún login */
   appLogin?: AppLoginConfig;
@@ -46,6 +52,7 @@ export function loadRunnerConfig(env: NodeJS.ProcessEnv): RunnerConfig {
     user: env['MIGRATION_USER'] ?? 'sa',
     password,
     database,
+    trustServerCertificate: env['DB_TRUST_SERVER_CERTIFICATE'] !== 'false',
     ...loadAppLogin(env),
   };
 }
