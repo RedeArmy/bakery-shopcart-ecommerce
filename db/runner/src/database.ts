@@ -4,14 +4,20 @@ import sql from 'mssql';
 import { splitBatches } from './batches.js';
 import { checksumOf } from './checksum.js';
 import type { AppLoginConfig, ConnectionSettings } from './config.js';
-import { DATABASE_COLLATION, assessCollation } from './collation.js';
+import {
+  DATABASE_COLLATION,
+  assessCollation,
+  isServerInitialising,
+  type ServerStartup,
+} from './collation.js';
 import { CONTROL_TABLES_SQL } from './control-tables.js';
 import { MigrationError } from './errors.js';
 import { inSequence } from './sequence.js';
 import type { AppliedScript, CurrentObject, DatabaseState } from './plan.js';
 import type { ScriptFile } from './scripts.js';
 
-const CONNECT_ATTEMPTS = 30;
+// 60 intentos de 2 segundos: cubren los unos 40 segundos que tarda el primer arranque del contenedor con margen
+const CONNECT_ATTEMPTS = 60;
 const CONNECT_DELAY_MS = 2000;
 const LOCK_TIMEOUT_MS = 60_000;
 const LEVEL1_TYPES: Readonly<Record<string, string>> = {
@@ -40,18 +46,40 @@ function poolFor(config: ConnectionSettings, database: string): sql.ConnectionPo
 }
 
 /**
- * Un servidor recién creado con MSSQL_COLLATION acepta conexiones mientras todavía reconstruye sus bases de datos de
- * sistema (msdb aparece en recuperación). Crear una base de datos en esa ventana hace que la reconstrucción falle y el
- * servidor se detenga, así que "acepta conexiones" no basta: se espera a que master, model, msdb y tempdb estén en línea.
+ * Espera a que un servidor recién creado termine de arrancar (ver isServerInitialising). Lee el registro del servidor con
+ * xp_readerrorlog, que exige sysadmin: si la consulta falla (por ejemplo, un login sin ese permiso) no se puede saber y se
+ * continúa, porque en ese caso el servidor no es uno recién creado por el repositorio.
  */
 async function assertServerStarted(pool: sql.ConnectionPool): Promise<void> {
-  const result = await pool
-    .request()
-    .query<{ NotOnline: number }>(
-      'SELECT NotOnline = COUNT(*) FROM sys.databases WHERE database_id IN (1, 2, 3, 4) AND state <> 0;',
-    );
-  if ((result.recordset[0]?.NotOnline ?? 0) > 0) {
-    throw new Error('The server is still starting its system databases.');
+  let startup: ServerStartup;
+  try {
+    const result = await pool.request().query<{
+      Started: number;
+      Finished: number;
+      ServerCollation: string;
+      UptimeSeconds: number;
+    }>(`
+      CREATE TABLE #ErrorLog (LogDate DATETIME, ProcessInfo NVARCHAR(50), LogText NVARCHAR(MAX));
+      INSERT INTO #ErrorLog EXEC master.dbo.xp_readerrorlog 0, 1, N'default collation';
+      SELECT Started = CASE WHEN EXISTS (SELECT 1 FROM #ErrorLog WHERE LogText LIKE N'Attempting to change default collation%') THEN 1 ELSE 0 END,
+             Finished = CASE WHEN EXISTS (SELECT 1 FROM #ErrorLog WHERE LogText LIKE N'The default collation was successfully changed%') THEN 1 ELSE 0 END,
+             ServerCollation = CAST(SERVERPROPERTY('Collation') AS NVARCHAR(128)),
+             UptimeSeconds = DATEDIFF(SECOND, (SELECT sqlserver_start_time FROM sys.dm_os_sys_info), SYSDATETIME());
+    `);
+    const row = result.recordset[0];
+    if (row === undefined) return;
+    startup = {
+      collationChangeStarted: row.Started === 1,
+      collationChangeFinished: row.Finished === 1,
+      serverCollation: row.ServerCollation,
+      uptimeSeconds: row.UptimeSeconds,
+    };
+  } catch (error) {
+    if (error instanceof sql.RequestError) return;
+    throw error;
+  }
+  if (isServerInitialising(startup)) {
+    throw new Error('The server is still finishing its first start.');
   }
 }
 
