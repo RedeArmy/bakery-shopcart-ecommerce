@@ -21,6 +21,19 @@ describe('environment validation', () => {
     ).toBeUndefined();
   });
 
+  it('reads DB_TRUST_SERVER_CERTIFICATE as a boolean and treats blank as not set', () => {
+    expect(loadEnv(baseEnv).DB_TRUST_SERVER_CERTIFICATE).toBeUndefined();
+    expect(
+      loadEnv({ ...baseEnv, DB_TRUST_SERVER_CERTIFICATE: '' }).DB_TRUST_SERVER_CERTIFICATE,
+    ).toBeUndefined();
+    expect(
+      loadEnv({ ...baseEnv, DB_TRUST_SERVER_CERTIFICATE: 'false' }).DB_TRUST_SERVER_CERTIFICATE,
+    ).toBe(false);
+    expect(
+      loadEnv({ ...baseEnv, DB_TRUST_SERVER_CERTIFICATE: 'true' }).DB_TRUST_SERVER_CERTIFICATE,
+    ).toBe(true);
+  });
+
   it('fails fast when a required variable is missing', () => {
     expect(() => loadEnv({ APP_PUBLIC_URL: 'http://localhost:8080' })).toThrow(/DB_APP_USER/);
   });

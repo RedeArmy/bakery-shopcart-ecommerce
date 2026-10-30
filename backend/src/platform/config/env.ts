@@ -14,6 +14,8 @@ const envSchema = z.object({
   DB_NAME: z.string().min(1).default('ShopCart'),
   DB_APP_USER: z.string().min(1),
   DB_APP_PASSWORD: z.string().min(1),
+  // Sin valor: se confía en el certificado autofirmado del contenedor de desarrollo, pero nunca en producción
+  DB_TRUST_SERVER_CERTIFICATE: z.preprocess(blankToUndefined, z.stringbool().optional()),
 
   CORS_ORIGINS: z
     .string()

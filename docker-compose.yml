@@ -38,6 +38,8 @@ services:
       DB_HOST: db
       DB_PORT: 1433
       DB_NAME: ${DB_NAME:-ShopCart}
+      # La imagen del runner corre con NODE_ENV=production, pero el contenedor db usa un certificado autofirmado
+      DB_TRUST_SERVER_CERTIFICATE: 'true'
       # Las migraciones necesitan permisos de DDL, que la aplicación no tiene
       MIGRATION_PASSWORD: ${MSSQL_SA_PASSWORD}
       DB_APP_USER: ${DB_APP_USER:-shopcart_app}
@@ -58,6 +60,8 @@ services:
       DB_HOST: db
       DB_PORT: 1433
       DB_NAME: ${DB_NAME:-ShopCart}
+      # El contenedor db de esta pila usa un certificado autofirmado
+      DB_TRUST_SERVER_CERTIFICATE: ${DB_TRUST_SERVER_CERTIFICATE:-true}
       DB_APP_USER: ${DB_APP_USER:-shopcart_app}
       DB_APP_PASSWORD: ${DB_APP_PASSWORD}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}

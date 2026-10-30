@@ -39,12 +39,42 @@ const settings = {
   DB_NAME: 'ShopCart',
   DB_APP_USER: 'shopcart_app',
   DB_APP_PASSWORD: 'secret',
+  DB_TRUST_SERVER_CERTIFICATE: undefined,
+  NODE_ENV: 'development' as const,
+};
+
+const trustOf = async (database: ReturnType<typeof createDatabase>): Promise<unknown> => {
+  const pool = (await database.getPool()) as unknown as {
+    config: { options: { trustServerCertificate: unknown } };
+  };
+  return pool.config.options.trustServerCertificate;
 };
 
 beforeEach(() => {
   driver.failToConnect = false;
   driver.created = 0;
   driver.closed = 0;
+});
+
+describe('database pool certificate trust', () => {
+  it('trusts the development certificate outside production', async () => {
+    expect(await trustOf(createDatabase(settings))).toBe(true);
+  });
+
+  it('does not trust an unknown certificate in production unless asked to', async () => {
+    expect(await trustOf(createDatabase({ ...settings, NODE_ENV: 'production' }))).toBe(false);
+    expect(
+      await trustOf(
+        createDatabase({ ...settings, NODE_ENV: 'production', DB_TRUST_SERVER_CERTIFICATE: true }),
+      ),
+    ).toBe(true);
+  });
+
+  it('lets the setting turn the trust off in development', async () => {
+    expect(await trustOf(createDatabase({ ...settings, DB_TRUST_SERVER_CERTIFICATE: false }))).toBe(
+      false,
+    );
+  });
 });
 
 describe('database pool', () => {

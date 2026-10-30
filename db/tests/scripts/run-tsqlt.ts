@@ -6,8 +6,11 @@ import { fileURLToPath } from 'node:url';
 import sql from 'mssql';
 
 import { verifyDirectory } from '../../../tools/scripts/lib/checksums.js';
-import { splitBatches } from './lib/batches.js';
-import { loadConfig, type TestConfig } from './lib/config.js';
+import { splitBatches } from '../../runner/src/batches.js';
+import { normalise } from '../../runner/src/checksum.js';
+import { connect } from '../../runner/src/database.js';
+import { inSequence } from '../../runner/src/sequence.js';
+import { loadConfig } from './lib/config.js';
 import { buildJUnitXml, summarise, type TestResultRow } from './lib/junit.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -16,59 +19,8 @@ const TEST_DIRECTORY = join(ROOT, 'db/tests/tsqlt');
 
 // tSQLt lanza este número de error cuando alguna prueba falla; no es un fallo de la herramienta
 const TSQLT_FAILURE_ERROR = 50000;
-const CONNECT_ATTEMPTS = 30;
-const CONNECT_DELAY_MS = 2000;
-
-const pause = (ms: number): Promise<void> =>
-  new Promise((done) => {
-    setTimeout(done, ms);
-  });
-
-function poolFor(config: TestConfig, database: string): sql.ConnectionPool {
-  return new sql.ConnectionPool({
-    server: config.host,
-    port: config.port,
-    user: config.user,
-    password: config.password,
-    database,
-    // El servidor de pruebas es desechable y usa un certificado autofirmado
-    options: { trustServerCertificate: true, encrypt: true },
-    requestTimeout: 120_000,
-    pool: { min: 1, max: 1 },
-  });
-}
-
-// Ejecuta las tareas una tras otra y en orden: el orden de los lotes y de los archivos importa
-async function inSequence<T>(
-  items: readonly T[],
-  task: (item: T) => Promise<unknown>,
-): Promise<void> {
-  await items.reduce<Promise<unknown>>(
-    (previous, item) => previous.then(() => task(item)),
-    Promise.resolve(),
-  );
-}
-
-// SQL Server tarda en aceptar conexiones tras arrancar el contenedor: se reintenta en lugar de fallar
-async function connect(
-  config: TestConfig,
-  database: string,
-  attempt = 1,
-): Promise<sql.ConnectionPool> {
-  const pool = poolFor(config, database);
-  try {
-    return await pool.connect();
-  } catch (error) {
-    await pool.close().catch(() => undefined);
-    if (attempt >= CONNECT_ATTEMPTS) throw error;
-    console.log(`Waiting for SQL Server (attempt ${attempt}/${CONNECT_ATTEMPTS})...`);
-    await pause(CONNECT_DELAY_MS);
-    return connect(config, database, attempt + 1);
-  }
-}
-
 async function runScript(pool: sql.ConnectionPool, path: string): Promise<void> {
-  const batches = splitBatches(readFileSync(path, 'utf8'));
+  const batches = splitBatches(normalise(readFileSync(path, 'utf8')));
   await inSequence(batches, (batch) => pool.request().batch(batch));
   console.log(`Ran ${path.slice(ROOT.length + 1)} (${batches.length} batches).`);
 }
@@ -126,9 +78,12 @@ async function main(): Promise<number> {
     return 2;
   }
 
+  // El servidor de pruebas es local y desechable, con certificado autofirmado
+  const connection = { ...config, trustServerCertificate: true };
+
   console.log(`Installing tSQLt in ${config.database} on ${config.host}:${config.port}.`);
 
-  const master = await connect(config, 'master');
+  const master = await connect(connection, 'master');
   try {
     await ensureDatabase(master, config.database);
     await runScript(master, join(INSTALL_DIRECTORY, 'PrepareServer.sql'));
@@ -136,7 +91,7 @@ async function main(): Promise<number> {
     await master.close();
   }
 
-  const pool = await connect(config, config.database);
+  const pool = await connect(connection, config.database);
   try {
     await uninstallIfPresent(pool);
     await runScript(pool, join(INSTALL_DIRECTORY, 'tSQLt.class.sql'));
