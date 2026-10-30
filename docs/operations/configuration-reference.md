@@ -13,7 +13,7 @@ All configuration comes from environment variables, validated with zod at start-
 | `SQL_TEST_PASSWORD` | `MSSQL_SA_PASSWORD` | Password of the `sa` user of the throwaway tSQLt server (`CI_SA_PASSWORD` in CI) |
 | `SQL_TEST_HOST` | `localhost` | Host of the tSQLt server; anything else needs `SQL_TEST_ALLOW_REMOTE=true` |
 | `SQL_TEST_PORT` | `14333` | Port of the tSQLt server (`docker-compose.sql-test.yml` publishes it on the loopback only) |
-| `SQL_TEST_DATABASE` | `ShopCart_CI` | Test database, recreated on every run; the name must end in `_CI` |
+| `SQL_TEST_DATABASE` | `ShopCart_CI` | Test database, created if missing and kept between runs (tSQLt is uninstalled after each run); the name must end in `_CI` |
 | `SQL_TEST_REPORT` | `test-results/tsqlt-junit.xml` | Where the JUnit XML is written |
 | `MSSQL_MEMORY_LIMIT_MB` | `2048` | Memory ceiling of SQL Server |
 | `DB_HOST` | `db` (compose) | Database host |

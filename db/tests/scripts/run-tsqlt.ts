@@ -73,18 +73,19 @@ async function runScript(pool: sql.ConnectionPool, path: string): Promise<void> 
   console.log(`Ran ${path.slice(ROOT.length + 1)} (${batches.length} batches).`);
 }
 
-// tSQLt.class.sql no se puede reinstalar sobre una instalación previa (el ensamblado CLR está en uso),
-// así que cada ejecución parte de una base nueva. Es seguro porque el nombre termina en _CI.
-async function recreateDatabase(pool: sql.ConnectionPool, name: string): Promise<void> {
+async function ensureDatabase(pool: sql.ConnectionPool, name: string): Promise<void> {
   // El nombre ya está validado, pero se pasa como parámetro y se entrecomilla con QUOTENAME de todos modos
   await pool.request().input('name', sql.NVarChar(128), name).query(`
-    DECLARE @quoted NVARCHAR(130) = QUOTENAME(@name);
-    DECLARE @drop NVARCHAR(400) = N'ALTER DATABASE ' + @quoted
-      + N' SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE ' + @quoted + N';';
-    DECLARE @create NVARCHAR(400) = N'CREATE DATABASE ' + @quoted + N';';
-    IF DB_ID(@name) IS NOT NULL EXEC sp_executesql @drop;
-    EXEC sp_executesql @create;
+    DECLARE @create NVARCHAR(400) = N'CREATE DATABASE ' + QUOTENAME(@name) + N';';
+    IF DB_ID(@name) IS NULL EXEC sp_executesql @create;
   `);
+}
+
+// La base de pruebas puede contener el esquema migrado: se conserva y solo se retira tSQLt, porque
+// tSQLt.class.sql no se puede reinstalar sobre una instalación previa (el ensamblado CLR está en uso)
+// y tSQLt nunca debe quedarse en la base de datos (ADR-0023).
+async function uninstallIfPresent(pool: sql.ConnectionPool): Promise<void> {
+  await pool.request().batch("IF SCHEMA_ID(N'tSQLt') IS NOT NULL EXEC tSQLt.Uninstall;");
 }
 
 async function runAllTests(pool: sql.ConnectionPool): Promise<void> {
@@ -129,7 +130,7 @@ async function main(): Promise<number> {
 
   const master = await connect(config, 'master');
   try {
-    await recreateDatabase(master, config.database);
+    await ensureDatabase(master, config.database);
     await runScript(master, join(INSTALL_DIRECTORY, 'PrepareServer.sql'));
   } finally {
     await master.close();
@@ -137,6 +138,7 @@ async function main(): Promise<number> {
 
   const pool = await connect(config, config.database);
   try {
+    await uninstallIfPresent(pool);
     await runScript(pool, join(INSTALL_DIRECTORY, 'tSQLt.class.sql'));
     await inSequence(testFiles(), (file) => runScript(pool, file));
 
@@ -157,6 +159,10 @@ async function main(): Promise<number> {
     // Cero pruebas casi siempre indica un problema de instalación, no un éxito
     return summary.total === 0 || summary.failures + summary.errors > 0 ? 1 : 0;
   } finally {
+    // Un fallo al retirar tSQLt no debe ocultar el resultado de las pruebas
+    await uninstallIfPresent(pool).catch((error: unknown) => {
+      console.error('Could not uninstall tSQLt:', error instanceof Error ? error.message : error);
+    });
     await pool.close();
   }
 }
