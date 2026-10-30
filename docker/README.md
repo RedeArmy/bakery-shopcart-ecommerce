@@ -2,7 +2,7 @@
 
 **Responsibility:** Configuration mounted into the compose services.
 
-**May contain:** nginx, SQL Server and SonarQube files.
+**May contain:** nginx and SonarQube files.
 
 **Must not contain:** Secrets.
 

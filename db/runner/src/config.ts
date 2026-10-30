@@ -1,11 +1,22 @@
+/** Login de la aplicación: solo ejecuta procedimientos y no puede tocar tablas (ADR-0002). */
+export interface AppLoginConfig {
+  user: string;
+  password: string;
+}
+
 export interface RunnerConfig {
   host: string;
   port: number;
   user: string;
   password: string;
   database: string;
+  /** Presente solo si DB_APP_PASSWORD está definida; en el CI no existe y no se crea ningún login */
+  appLogin?: AppLoginConfig;
 }
 
+// QUOTENAME admite como máximo 128 caracteres: la contraseña se incrusta con ella en CREATE LOGIN
+const PASSWORD_MAX_LENGTH = 128;
+const PASSWORD_MIN_LENGTH = 8;
 const DATABASE_NAME = /^[A-Za-z]\w{0,63}$/;
 
 /** Lee la conexión del runner desde el entorno. Las migraciones necesitan DDL, así que usa el login sa. */
@@ -35,5 +46,22 @@ export function loadRunnerConfig(env: NodeJS.ProcessEnv): RunnerConfig {
     user: env['MIGRATION_USER'] ?? 'sa',
     password,
     database,
+    ...loadAppLogin(env),
   };
+}
+
+function loadAppLogin(env: NodeJS.ProcessEnv): { appLogin?: AppLoginConfig } {
+  const appPassword = env['DB_APP_PASSWORD'];
+  if (appPassword === undefined || appPassword === '') return {};
+
+  const user = env['DB_APP_USER'] ?? 'shopcart_app';
+  if (!DATABASE_NAME.test(user)) {
+    throw new Error(`DB_APP_USER "${user}" is not a valid login name.`);
+  }
+  if (appPassword.length < PASSWORD_MIN_LENGTH || appPassword.length > PASSWORD_MAX_LENGTH) {
+    throw new Error(
+      `DB_APP_PASSWORD must have between ${PASSWORD_MIN_LENGTH} and ${PASSWORD_MAX_LENGTH} characters.`,
+    );
+  }
+  return { appLogin: { user, password: appPassword } };
 }
