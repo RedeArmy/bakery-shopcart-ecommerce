@@ -29,6 +29,12 @@ HTTP codes: 400 validation or missing key, 401 missing or expired token, 403 ins
 | `UNAUTHENTICATED` | 401 | The request has no access token |
 | `TOKEN_INVALID` | 401 | The access token is invalid or expired |
 | `FORBIDDEN` | 403 | The role is not allowed to do this |
+| `INVALID_CREDENTIALS` | 401 | Wrong email or password (the same answer for an unknown email) |
+| `ACCOUNT_LOCKED` | 423 | Too many failed attempts; `details.lockedUntil` says until when |
+| `ACCOUNT_DISABLED` | 403 | The account was deactivated |
+| `EMAIL_ALREADY_REGISTERED` | 409 | The email already has an account |
+| `REFRESH_TOKEN_INVALID` | 401 | The refresh token is unknown, expired or its account is inactive |
+| `REFRESH_TOKEN_REUSED` | 401 | A rotated refresh token was presented again; its whole family is revoked |
 | `IDEMPOTENCY_KEY_INVALID` | 400 | The key does not have 8 to 64 letters, digits, hyphens or underscores |
 | `IDEMPOTENCY_SCOPE_MISSING` | 400 | An idempotent request without a session or a guest cart token |
 | `IDEMPOTENCY_KEY_REQUIRED` | 400 | A mutating endpoint was called without `Idempotency-Key` |

@@ -6,7 +6,7 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 
 | Module | Procedures |
 |---|---|
-| Auth (RF-01) | **Built:** `SP_Users_Register`, `SP_Users_GetByEmail`, `SP_Users_SetStatus`, `SP_Users_List`, `SP_Users_RecordFailedAttempt`, `SP_Users_RecordSuccessfulLogin` (added: it resets the lockout counter), `SP_Tokens_Save`, `SP_Tokens_Rotate`, `SP_Tokens_RevokeFamily` |
+| Auth (RF-01) | **Built:** `SP_Users_Register`, `SP_Users_GetByEmail`, `SP_Users_GetById` (profile without the hash, added for the refresh flow), `SP_Users_SetStatus`, `SP_Users_List`, `SP_Users_RecordFailedAttempt`, `SP_Users_RecordSuccessfulLogin` (added: it resets the lockout counter), `SP_Tokens_Save`, `SP_Tokens_Rotate`, `SP_Tokens_RevokeFamily` |
 | Catalogue (RF-02) | **Built:** `SP_Categories_Create/Update/Deactivate/List`, `SP_Products_Create/Update/Deactivate/Get/Search`, `SP_Variants_Create/Update`, `SP_Variants_ChangePrice`, `SP_Variants_SetAttributes` (internal), `SP_Addresses_List/Save` |
 | Inventory (RF-03) | **Built:** `SP_Inventory_RegisterEntry`, `SP_Inventory_AdjustStock`, **`SP_Inventory_ReserveStock`**, `SP_Inventory_ReleaseCartReservation`, **`SP_Inventory_ReleaseExpiredReservations`**, `SP_Inventory_GetLedger` |
 | Cart (RF-04) | **Built:** `SP_Cart_Get`, `SP_Cart_SetItemQuantity`, `SP_Cart_RemoveItem`, `SP_Cart_MergeGuest`, `SP_Cart_ApplyCoupon`, `SP_Cart_RemoveCoupon` |
