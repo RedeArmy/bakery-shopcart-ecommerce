@@ -49,8 +49,6 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM dbo.Roles WHERE IDRole = 3) INSERT INTO dbo.Roles (IDRole, Name) VALUES (3, N'Administrator');
 
     -- La configuración viene de la semilla; se asegura por si la prueba corre sin semillas
-    IF NOT EXISTS (SELECT 1 FROM dbo.Configuration WHERE SettingKey = N'ShippingCost') INSERT INTO dbo.Configuration VALUES (N'ShippingCost', N'25.00');
-    IF NOT EXISTS (SELECT 1 FROM dbo.Configuration WHERE SettingKey = N'FreeShippingFrom') INSERT INTO dbo.Configuration VALUES (N'FreeShippingFrom', N'300.00');
     IF NOT EXISTS (SELECT 1 FROM dbo.Configuration WHERE SettingKey = N'VatRate') INSERT INTO dbo.Configuration VALUES (N'VatRate', N'12');
     IF NOT EXISTS (SELECT 1 FROM dbo.Configuration WHERE SettingKey = N'ReservationMinutes') INSERT INTO dbo.Configuration VALUES (N'ReservationMinutes', N'15');
 

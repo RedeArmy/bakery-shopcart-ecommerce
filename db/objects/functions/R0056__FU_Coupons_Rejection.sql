@@ -18,7 +18,7 @@ RETURN
     ('NotStarted',       50422, N'COUPON_NOT_STARTED: The coupon is not valid yet.'),
     ('Expired',          50422, N'COUPON_EXPIRED: The coupon has expired.'),
     ('Exhausted',        50409, N'COUPON_EXHAUSTED: The coupon has reached its usage limit.'),
-    ('PerCustomerLimit', 50422, N'COUPON_LIMIT_PER_CUSTOMER: You have already used this coupon the allowed number of times.'),
+    ('PerCustomerLimit', 50422, N'COUPON_ALREADY_USED: You have already used this coupon.'),
     ('NoEligibleItems',  50422, N'COUPON_NOT_APPLICABLE: No item of the cart is covered by this coupon.'),
     ('BelowMinimum',     50422, N'COUPON_MINIMUM_NOT_MET: The cart is below the minimum amount of this coupon.')
   ) AS m (Reason, ErrorNumber, Message)

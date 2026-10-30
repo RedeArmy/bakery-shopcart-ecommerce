@@ -47,7 +47,7 @@ BEGIN
 END;
 GO
 
--- Y los totales completos del mismo ejemplo: 22091 + envío 2500 = 24591; IVA 2635; base 21956
+-- Y los totales del mismo ejemplo, sin envío: 24545 - 2454 = 22091; IVA 2367; base 19724
 CREATE PROCEDURE Test_Coupons.[test the design example gives the total the VAT and the taxable base]
 AS
 BEGIN
@@ -59,16 +59,15 @@ BEGIN
     EXEC dbo.SP_Cart_SetItemQuantity @IDUser = @Ana, @IDVariant = @C, @Quantity = 1, @IDCart = @IDCart OUTPUT;
     EXEC dbo.SP_Cart_ApplyCoupon @IDUser = @Ana, @Code = N'welcome10';
 
-    DECLARE @Subtotal BIGINT, @Discount BIGINT, @Shipping BIGINT, @Total BIGINT, @Vat BIGINT, @Base BIGINT;
-    SELECT @Subtotal = SubtotalCents, @Discount = DiscountCents, @Shipping = ShippingCents, @Total = TotalCents, @Vat = VatCents, @Base = BaseCents
+    DECLARE @Subtotal BIGINT, @Discount BIGINT, @Total BIGINT, @Vat BIGINT, @Base BIGINT;
+    SELECT @Subtotal = SubtotalCents, @Discount = DiscountCents, @Total = TotalCents, @Vat = VatCents, @Base = BaseCents
     FROM dbo.FU_Cart_Totals(@IDCart, SYSUTCDATETIME());
 
     EXEC tSQLt.AssertEquals @Expected = 24545, @Actual = @Subtotal;
     EXEC tSQLt.AssertEquals @Expected = 2454, @Actual = @Discount;
-    EXEC tSQLt.AssertEquals @Expected = 2500, @Actual = @Shipping;
-    EXEC tSQLt.AssertEquals @Expected = 24591, @Actual = @Total;
-    EXEC tSQLt.AssertEquals @Expected = 2635, @Actual = @Vat;
-    EXEC tSQLt.AssertEquals @Expected = 21956, @Actual = @Base;
+    EXEC tSQLt.AssertEquals @Expected = 22091, @Actual = @Total;
+    EXEC tSQLt.AssertEquals @Expected = 2367, @Actual = @Vat;   -- 22091 * 12 / 112 = 2366,89
+    EXEC tSQLt.AssertEquals @Expected = 19724, @Actual = @Base;
 END;
 GO
 
@@ -231,7 +230,7 @@ BEGIN
     CREATE TABLE #Cases (Reason VARCHAR(20), ErrorNumber INT, Prefix NVARCHAR(40));
     INSERT INTO #Cases VALUES ('NotFound', 50404, N'COUPON_NOT_FOUND:'), ('Inactive', 50422, N'COUPON_INACTIVE:'), ('NotStarted', 50422, N'COUPON_NOT_STARTED:'),
                               ('Expired', 50422, N'COUPON_EXPIRED:'), ('Exhausted', 50409, N'COUPON_EXHAUSTED:'),
-                              ('PerCustomerLimit', 50422, N'COUPON_LIMIT_PER_CUSTOMER:'), ('NoEligibleItems', 50422, N'COUPON_NOT_APPLICABLE:'),
+                              ('PerCustomerLimit', 50422, N'COUPON_ALREADY_USED:'), ('NoEligibleItems', 50422, N'COUPON_NOT_APPLICABLE:'),
                               ('BelowMinimum', 50422, N'COUPON_MINIMUM_NOT_MET:');
     DECLARE @Wrong INT = (SELECT COUNT(*) FROM #Cases AS k
                           OUTER APPLY dbo.FU_Coupons_Rejection(k.Reason) AS r
@@ -476,7 +475,7 @@ BEGIN
     DECLARE @IDCart INT;
     EXEC dbo.SP_Cart_SetItemQuantity @IDUser = @Ana, @IDVariant = @Sku, @Quantity = 1, @IDCart = @IDCart OUTPUT;
     EXEC dbo.SP_Cart_ApplyCoupon @IDUser = @Ana, @Code = N'welcome10';
-    CREATE TABLE #Cart (IDCart INT, CouponCode NVARCHAR(30), CouponReason VARCHAR(20), Subtotal NVARCHAR(25), Discount NVARCHAR(25), Shipping NVARCHAR(25),
+    CREATE TABLE #Cart (IDCart INT, CouponCode NVARCHAR(30), CouponReason VARCHAR(20), Subtotal NVARCHAR(25), Discount NVARCHAR(25),
                         Total NVARCHAR(25), Vat NVARCHAR(25), TaxableBase NVARCHAR(25), ItemCount INT, HasUnavailableLines BIT, Lines NVARCHAR(MAX));
     INSERT INTO #Cart EXEC dbo.SP_Cart_Get @IDUser = @Ana;
 
@@ -487,7 +486,7 @@ BEGIN
     EXEC tSQLt.AssertEqualsString @Expected = N'WELCOME10', @Actual = @Code;
     EXEC tSQLt.AssertEqualsString @Expected = 'Valid', @Actual = @Reason;
     EXEC tSQLt.AssertEqualsString @Expected = N'50.00', @Actual = @Discount;
-    EXEC tSQLt.AssertEqualsString @Expected = N'450.00', @Actual = @Total;   -- 500.00 - 50.00, envío gratis
+    EXEC tSQLt.AssertEqualsString @Expected = N'450.00', @Actual = @Total;   -- 500.00 - 50.00
 END;
 GO
 
@@ -606,7 +605,7 @@ BEGIN
     EXEC dbo.SP_Cart_SetItemQuantity @IDUser = @Ana, @IDVariant = @Sku, @Quantity = 1, @IDCart = @IDCart OUTPUT;
     EXEC dbo.SP_Cart_ApplyCoupon @IDUser = @Ana, @Code = N'WELCOME10';
     UPDATE dbo.Coupons SET EndsAt = '2020-02-01', StartsAt = '2020-01-01' WHERE Code = N'WELCOME10';
-    CREATE TABLE #Cart (IDCart INT, CouponCode NVARCHAR(30), CouponReason VARCHAR(20), Subtotal NVARCHAR(25), Discount NVARCHAR(25), Shipping NVARCHAR(25),
+    CREATE TABLE #Cart (IDCart INT, CouponCode NVARCHAR(30), CouponReason VARCHAR(20), Subtotal NVARCHAR(25), Discount NVARCHAR(25),
                         Total NVARCHAR(25), Vat NVARCHAR(25), TaxableBase NVARCHAR(25), ItemCount INT, HasUnavailableLines BIT, Lines NVARCHAR(MAX));
     INSERT INTO #Cart EXEC dbo.SP_Cart_Get @IDUser = @Ana;
 
@@ -636,5 +635,73 @@ BEGIN
     DECLARE @LuisHas INT = (SELECT COUNT(*) FROM dbo.Carts WHERE IDCart = @LuisCart AND IDCoupon IS NOT NULL);
     EXEC tSQLt.AssertEquals @Expected = 1, @Actual = @AnaHas;
     EXEC tSQLt.AssertEquals @Expected = 0, @Actual = @LuisHas;
+END;
+GO
+
+-- Como en una tienda de cursos: el código se aceptó, pero entre tanto el cliente lo usó en otro pedido
+CREATE PROCEDURE Test_Coupons.[test a coupon the customer used after applying it stops discounting and says it was already used]
+AS
+BEGIN
+    EXEC Test_Fixtures.CreateBaseData;
+    DECLARE @Customer INT = Test_Shop.UserId(N'fixture.customer@shopcart.test');
+    DECLARE @Wedding INT = Test_Shop.VariantId(N'W-WEDDING');
+    DECLARE @IDOrder INT = (SELECT IDOrder FROM dbo.Orders WHERE OrderNumber = N'FIX-0001');
+    DECLARE @Coupon INT = (SELECT IDCoupon FROM dbo.Coupons WHERE Code = N'WELCOME10');
+    DECLARE @IDCart INT;
+    EXEC dbo.SP_Cart_SetItemQuantity @IDUser = @Customer, @IDVariant = @Wedding, @Quantity = 1, @IDCart = @IDCart OUTPUT;
+    EXEC dbo.SP_Cart_ApplyCoupon @IDUser = @Customer, @Code = N'WELCOME10';
+    INSERT INTO dbo.CouponUsages (IDCoupon, IDUser, IDOrder, DiscountAmount, IsVoided) VALUES (@Coupon, @Customer, @IDOrder, 50.00, 0);
+    CREATE TABLE #Cart (IDCart INT, CouponCode NVARCHAR(30), CouponReason VARCHAR(20), Subtotal NVARCHAR(25), Discount NVARCHAR(25),
+                        Total NVARCHAR(25), Vat NVARCHAR(25), TaxableBase NVARCHAR(25), ItemCount INT, HasUnavailableLines BIT, Lines NVARCHAR(MAX));
+    INSERT INTO #Cart EXEC dbo.SP_Cart_Get @IDUser = @Customer;
+
+    DECLARE @Code NVARCHAR(30) = (SELECT CouponCode FROM #Cart);
+    DECLARE @Reason VARCHAR(20) = (SELECT CouponReason FROM #Cart);
+    DECLARE @Discount NVARCHAR(25) = (SELECT Discount FROM #Cart);
+    DECLARE @Total NVARCHAR(25) = (SELECT Total FROM #Cart);
+    EXEC tSQLt.AssertEqualsString @Expected = N'WELCOME10', @Actual = @Code;
+    EXEC tSQLt.AssertEqualsString @Expected = 'PerCustomerLimit', @Actual = @Reason;
+    EXEC tSQLt.AssertEqualsString @Expected = N'0.00', @Actual = @Discount;
+    EXEC tSQLt.AssertEqualsString @Expected = N'500.00', @Actual = @Total;
+END;
+GO
+
+-- Y si ya lo usó, aplicarlo otra vez se rechaza con el código COUPON_ALREADY_USED
+CREATE PROCEDURE Test_Coupons.[test applying a coupon the customer already used is refused as already used]
+AS
+BEGIN
+    EXEC Test_Fixtures.CreateBaseData;
+    DECLARE @Customer INT = Test_Shop.UserId(N'fixture.customer@shopcart.test');
+    DECLARE @Wedding INT = Test_Shop.VariantId(N'W-WEDDING');
+    DECLARE @IDOrder INT = (SELECT IDOrder FROM dbo.Orders WHERE OrderNumber = N'FIX-0001');
+    DECLARE @Coupon INT = (SELECT IDCoupon FROM dbo.Coupons WHERE Code = N'WELCOME10');
+    DECLARE @IDCart INT;
+    EXEC dbo.SP_Cart_SetItemQuantity @IDUser = @Customer, @IDVariant = @Wedding, @Quantity = 1, @IDCart = @IDCart OUTPUT;
+    INSERT INTO dbo.CouponUsages (IDCoupon, IDUser, IDOrder, DiscountAmount, IsVoided) VALUES (@Coupon, @Customer, @IDOrder, 50.00, 0);
+
+    EXEC tSQLt.ExpectException @ExpectedMessagePattern = N'COUPON_ALREADY_USED:%', @ExpectedErrorNumber = 50422;
+    EXEC dbo.SP_Cart_ApplyCoupon @IDUser = @Customer, @Code = N'WELCOME10';
+END;
+GO
+
+-- Un cupón que se agota después de aplicarse (otro cliente se llevó el último uso) deja de descontar y lo dice
+CREATE PROCEDURE Test_Coupons.[test a coupon that sells out after being applied stops discounting and says it is exhausted]
+AS
+BEGIN
+    DECLARE @Ana INT = Test_Shop.UserId(N'ana@shopcart.test');
+    DECLARE @Wedding INT = Test_Shop.VariantId(N'W-WEDDING');
+    DECLARE @IDCart INT;
+    UPDATE dbo.Coupons SET TotalUsageLimit = 5, UsageCount = 4 WHERE Code = N'FIXED10';
+    EXEC dbo.SP_Cart_SetItemQuantity @IDUser = @Ana, @IDVariant = @Wedding, @Quantity = 1, @IDCart = @IDCart OUTPUT;
+    EXEC dbo.SP_Cart_ApplyCoupon @IDUser = @Ana, @Code = N'FIXED10';
+    UPDATE dbo.Coupons SET UsageCount = 5 WHERE Code = N'FIXED10';
+    CREATE TABLE #Cart (IDCart INT, CouponCode NVARCHAR(30), CouponReason VARCHAR(20), Subtotal NVARCHAR(25), Discount NVARCHAR(25),
+                        Total NVARCHAR(25), Vat NVARCHAR(25), TaxableBase NVARCHAR(25), ItemCount INT, HasUnavailableLines BIT, Lines NVARCHAR(MAX));
+    INSERT INTO #Cart EXEC dbo.SP_Cart_Get @IDUser = @Ana;
+
+    DECLARE @Reason VARCHAR(20) = (SELECT CouponReason FROM #Cart);
+    DECLARE @Discount NVARCHAR(25) = (SELECT Discount FROM #Cart);
+    EXEC tSQLt.AssertEqualsString @Expected = 'Exhausted', @Actual = @Reason;
+    EXEC tSQLt.AssertEqualsString @Expected = N'0.00', @Actual = @Discount;
 END;
 GO

@@ -21,7 +21,7 @@ CREATE PROCEDURE Test_Cart.[test a customer without a cart gets an empty cart an
 AS
 BEGIN
     DECLARE @Ana INT = Test_Shop.UserId(N'ana@shopcart.test');
-    CREATE TABLE #Cart (IDCart INT, CouponCode NVARCHAR(30), CouponReason VARCHAR(20), Subtotal NVARCHAR(25), Discount NVARCHAR(25), Shipping NVARCHAR(25),
+    CREATE TABLE #Cart (IDCart INT, CouponCode NVARCHAR(30), CouponReason VARCHAR(20), Subtotal NVARCHAR(25), Discount NVARCHAR(25),
                         Total NVARCHAR(25), Vat NVARCHAR(25), TaxableBase NVARCHAR(25), ItemCount INT, HasUnavailableLines BIT, Lines NVARCHAR(MAX));
     INSERT INTO #Cart EXEC dbo.SP_Cart_Get @IDUser = @Ana;
 
@@ -182,7 +182,7 @@ GO
 
 -- Totales ------------------------------------------------------------------------------------
 
--- El ejemplo numérico del diseño: A 145.00 + B 45.00 + C 55.45 = 245.45; sin cupón, envío 25.00 porque 245.45 < 300
+-- El ejemplo numérico del diseño: A 145.00 + B 45.00 + C 55.45 = 245.45. No hay envío: el total es el subtotal
 CREATE PROCEDURE Test_Cart.[test the cart totals of the design example without a coupon]
 AS
 BEGIN
@@ -193,39 +193,40 @@ BEGIN
     EXEC dbo.SP_Cart_SetItemQuantity @IDUser = @Ana, @IDVariant = @B, @Quantity = 1, @IDCart = @IDCart OUTPUT;
     EXEC dbo.SP_Cart_SetItemQuantity @IDUser = @Ana, @IDVariant = @C, @Quantity = 1, @IDCart = @IDCart OUTPUT;
 
-    CREATE TABLE #Cart (IDCart INT, CouponCode NVARCHAR(30), CouponReason VARCHAR(20), Subtotal NVARCHAR(25), Discount NVARCHAR(25), Shipping NVARCHAR(25),
+    CREATE TABLE #Cart (IDCart INT, CouponCode NVARCHAR(30), CouponReason VARCHAR(20), Subtotal NVARCHAR(25), Discount NVARCHAR(25),
                         Total NVARCHAR(25), Vat NVARCHAR(25), TaxableBase NVARCHAR(25), ItemCount INT, HasUnavailableLines BIT, Lines NVARCHAR(MAX));
     INSERT INTO #Cart EXEC dbo.SP_Cart_Get @IDUser = @Ana;
 
     DECLARE @Subtotal NVARCHAR(25) = (SELECT Subtotal FROM #Cart);
     DECLARE @Discount NVARCHAR(25) = (SELECT Discount FROM #Cart);
-    DECLARE @Shipping NVARCHAR(25) = (SELECT Shipping FROM #Cart);
     DECLARE @Total NVARCHAR(25) = (SELECT Total FROM #Cart);
     DECLARE @Items INT = (SELECT ItemCount FROM #Cart);
     EXEC tSQLt.AssertEqualsString @Expected = N'245.45', @Actual = @Subtotal;
     EXEC tSQLt.AssertEqualsString @Expected = N'0.00', @Actual = @Discount;
-    EXEC tSQLt.AssertEqualsString @Expected = N'25.00', @Actual = @Shipping;
-    EXEC tSQLt.AssertEqualsString @Expected = N'270.45', @Actual = @Total;
+    EXEC tSQLt.AssertEqualsString @Expected = N'245.45', @Actual = @Total;
     EXEC tSQLt.AssertEquals @Expected = 3, @Actual = @Items;
 END;
 GO
 
-CREATE PROCEDURE Test_Cart.[test shipping is free from the configured amount]
+CREATE PROCEDURE Test_Cart.[test no shipping is added whatever the subtotal]
 AS
 BEGIN
     DECLARE @Ana INT = Test_Shop.UserId(N'ana@shopcart.test');
     DECLARE @IDCart INT;
-    DECLARE @Wedding INT = Test_Shop.VariantId(N'W-WEDDING');
-    EXEC dbo.SP_Cart_SetItemQuantity @IDUser = @Ana, @IDVariant = @Wedding, @Quantity = 1, @IDCart = @IDCart OUTPUT;
-
-    CREATE TABLE #Cart (IDCart INT, CouponCode NVARCHAR(30), CouponReason VARCHAR(20), Subtotal NVARCHAR(25), Discount NVARCHAR(25), Shipping NVARCHAR(25),
+    DECLARE @Cookie INT = Test_Shop.VariantId(N'B-COOKIE'), @Wedding INT = Test_Shop.VariantId(N'W-WEDDING');
+    EXEC dbo.SP_Cart_SetItemQuantity @IDUser = @Ana, @IDVariant = @Cookie, @Quantity = 1, @IDCart = @IDCart OUTPUT;
+    CREATE TABLE #Cart (IDCart INT, CouponCode NVARCHAR(30), CouponReason VARCHAR(20), Subtotal NVARCHAR(25), Discount NVARCHAR(25),
                         Total NVARCHAR(25), Vat NVARCHAR(25), TaxableBase NVARCHAR(25), ItemCount INT, HasUnavailableLines BIT, Lines NVARCHAR(MAX));
-    INSERT INTO #Cart EXEC dbo.SP_Cart_Get @IDUser = @Ana;
 
-    DECLARE @Shipping NVARCHAR(25) = (SELECT Shipping FROM #Cart);
-    DECLARE @Total NVARCHAR(25) = (SELECT Total FROM #Cart);
-    EXEC tSQLt.AssertEqualsString @Expected = N'0.00', @Actual = @Shipping;
-    EXEC tSQLt.AssertEqualsString @Expected = N'500.00', @Actual = @Total;
+    INSERT INTO #Cart EXEC dbo.SP_Cart_Get @IDUser = @Ana;
+    DECLARE @SmallTotal NVARCHAR(25) = (SELECT Total FROM #Cart);
+    DELETE FROM #Cart;
+    EXEC dbo.SP_Cart_SetItemQuantity @IDUser = @Ana, @IDVariant = @Wedding, @Quantity = 1, @IDCart = @IDCart OUTPUT;
+    INSERT INTO #Cart EXEC dbo.SP_Cart_Get @IDUser = @Ana;
+    DECLARE @LargeTotal NVARCHAR(25) = (SELECT Total FROM #Cart);
+
+    EXEC tSQLt.AssertEqualsString @Expected = N'45.00', @Actual = @SmallTotal;
+    EXEC tSQLt.AssertEqualsString @Expected = N'545.00', @Actual = @LargeTotal;
 END;
 GO
 
@@ -236,7 +237,7 @@ BEGIN
     DECLARE @IDCart INT;
     DECLARE @A INT = Test_Shop.VariantId(N'A-CAKE');
     EXEC dbo.SP_Cart_SetItemQuantity @IDUser = @Ana, @IDVariant = @A, @Quantity = 2, @IDCart = @IDCart OUTPUT;
-    CREATE TABLE #Cart (IDCart INT, CouponCode NVARCHAR(30), CouponReason VARCHAR(20), Subtotal NVARCHAR(25), Discount NVARCHAR(25), Shipping NVARCHAR(25),
+    CREATE TABLE #Cart (IDCart INT, CouponCode NVARCHAR(30), CouponReason VARCHAR(20), Subtotal NVARCHAR(25), Discount NVARCHAR(25),
                         Total NVARCHAR(25), Vat NVARCHAR(25), TaxableBase NVARCHAR(25), ItemCount INT, HasUnavailableLines BIT, Lines NVARCHAR(MAX));
 
     INSERT INTO #Cart EXEC dbo.SP_Cart_Get @IDUser = @Ana;

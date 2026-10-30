@@ -30,7 +30,7 @@ BEGIN
   SELECT IDCart = @IDCart,
          CouponCode = cp.Code,
          CouponReason = t.CouponReason,
-         Subtotal = ISNULL(st.Text, N'0.00'), Discount = ISNULL(dt.Text, N'0.00'), Shipping = ISNULL(sh.Text, N'0.00'),
+         Subtotal = ISNULL(st.Text, N'0.00'), Discount = ISNULL(dt.Text, N'0.00'),
          Total = ISNULL(tt.Text, N'0.00'), Vat = ISNULL(vt.Text, N'0.00'), TaxableBase = ISNULL(bt.Text, N'0.00'),
          ItemCount = ISNULL((SELECT SUM(Quantity) FROM dbo.CartItems WHERE IDCart = @IDCart), 0),
          -- Un carrito con una línea que ya no se puede comprar no puede pasar a la reserva: el panel lo avisa antes
@@ -57,7 +57,6 @@ BEGIN
   OUTER APPLY dbo.FU_Cart_Totals(@IDCart, @Now) AS t
   OUTER APPLY dbo.FU_Money_CentsToText(t.SubtotalCents) AS st
   OUTER APPLY dbo.FU_Money_CentsToText(t.DiscountCents) AS dt
-  OUTER APPLY dbo.FU_Money_CentsToText(t.ShippingCents) AS sh
   OUTER APPLY dbo.FU_Money_CentsToText(t.TotalCents) AS tt
   OUTER APPLY dbo.FU_Money_CentsToText(t.VatCents) AS vt
   OUTER APPLY dbo.FU_Money_CentsToText(t.BaseCents) AS bt;
