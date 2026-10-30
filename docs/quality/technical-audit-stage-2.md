@@ -7,7 +7,7 @@
 | Scope | Everything built from Stage 0 to Stage 2: repository tooling, CI, Docker, database (migrations, seeds, runner, tSQLt), backend and frontend skeletons |
 | Baseline | `main` at commit `6588d97` (pull request #19) |
 | Method | Static review of the code, catalogue queries against a migrated SQL Server 2022, dependency audit, execution of every test suite and of the whole compose stack, review of CI and container configuration |
-| Result | **Approved to continue to Stage 3** after the fixes in section 4. Thirteen items fixed, twelve open and registered in section 5; none of them blocks Delivery Phase 1 |
+| Result | **Approved to continue to Stage 3** after the fixes in section 4. Thirteen items fixed, eleven open and registered in section 5; none of them blocks Delivery Phase 1 |
 
 ## 1. Summary
 
@@ -77,7 +77,6 @@ Severity is the impact if it is never addressed; effort is in working hours of o
 | D-10 | Low | Frontend | Branch coverage 67 % and `formatMoney` still missing with its test skipped. | Implement and un-skip | 2 | Stage 7 |
 | D-11 | Low | Dependencies | Major upgrades pending: `mssql` 12, `typescript` 7, `eslint` 10, `vitest` follow-ups, `react` 19. | One pull request per major after Delivery Phase 1 | 8 | after Phase 1 |
 | D-12 | Low | Process | The new `images` job is not a required check yet. | Add it to the ruleset after it has passed once | 0.5 | now |
-| D-13 | Low | Process | `SONAR_TOKEN` is not a Dependabot secret, so the required `sonarcloud` check fails on Dependabot pull requests; branch auto-delete is off. | Repository settings, owner action | 0.5 | now |
 | D-14 | Info | Delivery | Demo data (catalogue, coupons, bank account, accounts, performance volume) is postponed to the end; the report execution plans required by the brief depend on it. | Build with enough days left to document the three plans | 8 | Stage 6 |
 
 ## 6. Risks for Delivery Phase 1 (Monday 2 November, 23:59)

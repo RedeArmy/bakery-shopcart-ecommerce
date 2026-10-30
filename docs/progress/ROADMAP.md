@@ -37,11 +37,12 @@ Stages 2 to 6 now have to fit in the four days before Delivery Phase 1; see the 
 - [ ] Enable the `integration` CI job (Stage 2).
 - [x] Add the `windows-smoke` CRLF checksum test: the runner tests run on Windows in CI and cover CRLF, LF and a byte order mark (Stage 2).
 - [x] Evaluator question about `PendingPayment` answered affirmatively (open question 4).
-- [ ] Dependabot: ignore major versions and group minor and patch updates (before Stage 2).
-- [ ] Enable "Automatically delete head branches" in the repository settings (before Stage 2).
+- [x] Dependabot: ignore major versions and group minor and patch updates; it also watches the frontend and runner Dockerfiles (done in the technical audit).
+- [x] "Automatically delete head branches" stays off: a decision of the owner, who deletes merged branches by hand.
 - [x] Create the `CI_SA_PASSWORD` secret for the `sql-tests` job, as a repository and a Dependabot secret.
-- [ ] Add `SONAR_TOKEN` as a Dependabot secret so the required `sonarcloud` check can pass on Dependabot pull requests (before Stage 2).
-- [ ] Add `sql-tests` to the required checks of the ruleset in GitHub once it has passed on a pull request (the JSON in the repository already lists it), and `integration` when it is enabled (Stage 2).
+- [x] Add `SONAR_TOKEN` as a Dependabot secret so the required `sonarcloud` check can pass on Dependabot pull requests; verified on 30 Oct (the secret is listed and the three open Dependabot pull requests pass `sonarcloud`).
+- [x] `sql-tests` is a required check of the active ruleset (verified against GitHub on 30 Oct).
+- [ ] Add the three `images` contexts to the required checks of the ruleset, and `integration` when it is enabled (Stage 2).
 - [x] Write the core schema (`V0001` to `V0009`) and the reference seeds (`S0001` to `S0005`: roles, order and payment states and transitions, payment methods, movement types, configuration) (Stage 2).
 - [ ] Write the demo seeds (postponed to the end of the project at the user's request): catalogue of about 60 products, coupons `WELCOME10`, `CAKES25`, `SOLDOUT` and `EXPIRED`, a bank account, and the performance data (Stage 2).
 - [ ] Generate the `SEED_*_PASSWORD` variables in `ensure-env` and `.env.example`, and create the demo accounts with a Node seed step that calls `SP_Users_Register` (Stage 2, see [test accounts](../operations/test-accounts.md)).
