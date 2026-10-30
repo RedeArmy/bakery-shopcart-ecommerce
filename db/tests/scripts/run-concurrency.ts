@@ -64,6 +64,11 @@ async function cleanUp(pool: sql.ConnectionPool): Promise<void> {
       DELETE a FROM dbo.AuditLog AS a JOIN dbo.Payments AS p ON a.Module = N'Payments' AND a.EntityKey = CAST(p.IDPayment AS NVARCHAR(40)) JOIN dbo.Orders AS o ON o.IDOrder = p.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
       DELETE pr FROM dbo.PaymentProofs AS pr JOIN dbo.Payments AS p ON p.IDPayment = pr.IDPayment JOIN dbo.Orders AS o ON o.IDOrder = p.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
       DELETE f FROM dbo.FinancialMovements AS f JOIN dbo.Orders AS o ON o.IDOrder = f.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
+      DELETE a FROM dbo.AuditLog AS a JOIN dbo.Refunds AS rf ON a.Module = N'Payments' AND a.EntityName = N'Refund' AND a.EntityKey = CAST(rf.IDRefund AS NVARCHAR(40)) JOIN dbo.Payments AS p ON p.IDPayment = rf.IDPayment JOIN dbo.Orders AS o ON o.IDOrder = p.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
+      DELETE a FROM dbo.AuditLog AS a JOIN dbo.Returns AS rt ON a.Module = N'Orders' AND a.EntityName = N'Return' AND a.EntityKey = CAST(rt.IDReturn AS NVARCHAR(40)) JOIN dbo.Orders AS o ON o.IDOrder = rt.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
+      DELETE rf FROM dbo.Refunds AS rf JOIN dbo.Payments AS p ON p.IDPayment = rf.IDPayment JOIN dbo.Orders AS o ON o.IDOrder = p.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
+      DELETE rl FROM dbo.ReturnLines AS rl JOIN dbo.Returns AS rt ON rt.IDReturn = rl.IDReturn JOIN dbo.Orders AS o ON o.IDOrder = rt.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
+      DELETE rt FROM dbo.Returns AS rt JOIN dbo.Orders AS o ON o.IDOrder = rt.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
       DELETE h FROM dbo.PaymentStatusHistory AS h JOIN dbo.Payments AS p ON p.IDPayment = h.IDPayment JOIN dbo.Orders AS o ON o.IDOrder = p.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
       DELETE h FROM dbo.OrderStatusHistory AS h JOIN dbo.Orders AS o ON o.IDOrder = h.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
       DELETE d FROM dbo.PaymentDeposits AS d JOIN dbo.Payments AS p ON p.IDPayment = d.IDPayment JOIN dbo.Orders AS o ON o.IDOrder = p.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
@@ -876,6 +881,232 @@ async function approveVersusReject(pool: sql.ConnectionPool): Promise<void> {
   await checkInvariant(pool, 'approve versus reject', [variant]);
 }
 
+// Pedido de depósito pagado, con una línea de varias unidades, avanzado hasta el estado pedido
+interface DeliveredOrder {
+  idOrder: number;
+  idPayment: number;
+  idLine: number;
+  idUser: number;
+  variant: number;
+}
+
+async function deliveredOrder(
+  pool: sql.ConnectionPool,
+  tag: string,
+  units: number,
+  stop: 2 | 5,
+): Promise<DeliveredOrder> {
+  await pool
+    .request()
+    .batch(
+      "IF NOT EXISTS (SELECT 1 FROM dbo.BankAccounts WHERE BankName = N'RACE Bank') INSERT INTO dbo.BankAccounts (BankName, AccountType, AccountNumber, HolderName) VALUES (N'RACE Bank', N'Checking', N'0001', N'Race');",
+    );
+  const bank = await scalar(
+    pool,
+    "SELECT Value = IDBankAccount FROM dbo.BankAccounts WHERE BankName = N'RACE Bank';",
+  );
+  const operator = await createOperator(pool);
+  const [variant = 0] = await createVariants(pool, tag, [30]);
+  const [cart] = await createCarts(pool, tag, 1);
+  if (cart === undefined) throw new Error('The cart was not created.');
+  await addLines(pool, [{ IDCart: cart.IDCart, IDVariant: variant, Quantity: units }]);
+  const addresses = await createAddresses(pool, tag);
+  const reservation = await reserveCart(pool, cart);
+  const order = await placeOrder(
+    pool,
+    cart,
+    reservation,
+    addresses.get(cart.IDUser) ?? 0,
+    `race-${tag}`,
+    2,
+    bank,
+  );
+  const idOrder = order.idOrder ?? 0;
+  const idPayment = order.idPayment ?? 0;
+  await confirmPayment(pool, idPayment, `${(units * 10).toString()}.00`);
+  for (let status = 3; status <= stop; status += 1) {
+    await changeStatus(pool, operator, idOrder, status);
+  }
+  const idLine = await scalar(
+    pool,
+    `SELECT Value = IDOrderLine FROM dbo.OrderLines WHERE IDOrder = ${idOrder};`,
+  );
+  return { idOrder, idPayment, idLine, idUser: cart.IDUser, variant };
+}
+
+async function changeStatus(
+  pool: sql.ConnectionPool,
+  actor: number,
+  idOrder: number,
+  status: number,
+): Promise<void> {
+  await pool
+    .request()
+    .input('IDActor', sql.Int, actor)
+    .input('IDOrder', sql.Int, idOrder)
+    .input('NewStatus', sql.TinyInt, status)
+    .execute('dbo.SP_Orders_ChangeStatus');
+}
+
+// 'ok' si se aceptó, 'refused' si perdió la carrera con un 422, otra cosa es inesperada
+async function registerReturn(
+  pool: sql.ConnectionPool,
+  actor: number,
+  idOrder: number,
+  idLine: number,
+): Promise<string> {
+  try {
+    await pool
+      .request()
+      .input('IDActor', sql.Int, actor)
+      .input('IDOrder', sql.Int, idOrder)
+      .input('Reason', sql.NVarChar(250), 'Race return')
+      .input('Lines', sql.NVarChar(sql.MAX), JSON.stringify([{ idOrderLine: idLine, quantity: 1 }]))
+      .output('IDReturn', sql.Int)
+      .output('IDRefund', sql.Int)
+      .output('RefundAmount', sql.Decimal(18, 2))
+      .execute('dbo.SP_Returns_Register');
+    return 'ok';
+  } catch (error) {
+    return (error as { number?: number }).number === 50422
+      ? 'refused'
+      : `error ${(error as { number?: number }).number ?? '?'}`;
+  }
+}
+
+async function cancelOrder(
+  pool: sql.ConnectionPool,
+  actor: number,
+  idOrder: number,
+): Promise<string> {
+  try {
+    await pool
+      .request()
+      .input('IDActor', sql.Int, actor)
+      .input('IDOrder', sql.Int, idOrder)
+      .input('Reason', sql.NVarChar(250), 'Race cancellation')
+      .execute('dbo.SP_Orders_Cancel');
+    return 'ok';
+  } catch (error) {
+    return `error ${(error as { number?: number }).number ?? '?'}`;
+  }
+}
+
+// Veinte devoluciones de una unidad sobre una línea de cinco: se aceptan exactamente cinco, el resto recibe un 422, nada se
+// devuelve de más y los reembolsos suman exactamente el total de la línea
+async function returnRace(pool: sql.ConnectionPool): Promise<void> {
+  const attempts = 20;
+  const units = 5;
+  console.log(`\n${attempts} simultaneous returns of one unit from a line of ${units}`);
+  const operator = await createOperator(pool);
+  const order = await deliveredOrder(pool, 'rtn', units, 5);
+
+  const results = await Promise.all(
+    Array.from({ length: attempts }, () =>
+      registerReturn(pool, operator, order.idOrder, order.idLine),
+    ),
+  );
+  const accepted = results.filter((result) => result === 'ok').length;
+  const refused = results.filter((result) => result === 'refused').length;
+  console.log(`  accepted ${accepted}, refused ${refused}, other ${attempts - accepted - refused}`);
+  check('exactly the units sold are accepted', accepted, units);
+  check('every other return is refused with a 422', refused, attempts - units);
+  check(
+    'the returned units equal the units sold',
+    await scalar(
+      pool,
+      `SELECT Value = ReturnedQuantity FROM dbo.OrderLines WHERE IDOrderLine = ${order.idLine};`,
+    ),
+    units,
+  );
+  check(
+    'the refunds add up to the exact total of the line, in cents',
+    await scalar(
+      pool,
+      `SELECT Value = CAST(SUM(RefundAmount) * 100 AS INT) FROM dbo.ReturnLines WHERE IDOrderLine = ${order.idLine};`,
+    ),
+    units * 1000,
+  );
+  check(
+    'one pending refund per accepted return',
+    await scalar(
+      pool,
+      `SELECT Value = COUNT(*) FROM dbo.Refunds WHERE IDPayment = ${order.idPayment} AND Status = N'Pending';`,
+    ),
+    units,
+  );
+  check(
+    'the order ended returned',
+    await scalar(
+      pool,
+      `SELECT Value = IDOrderStatus FROM dbo.Orders WHERE IDOrder = ${order.idOrder};`,
+    ),
+    8,
+  );
+  check(
+    'the stock went back once per unit',
+    await scalar(
+      pool,
+      `SELECT Value = OnHandStock FROM dbo.Variants WHERE IDVariant = ${order.variant};`,
+    ),
+    30,
+  );
+  check(
+    'the amounts reconcile',
+    await scalar(pool, 'SELECT Value = COUNT(*) FROM dbo.VW_Reconciliation_Amounts;'),
+    0,
+  );
+  await checkInvariant(pool, 'return race', [order.variant]);
+}
+
+// El cliente pulsa "cancelar" varias veces a la vez sobre un pedido pagado: se cancela una vez, el stock vuelve una vez y se
+// abre un único reembolso
+async function cancelRace(pool: sql.ConnectionPool): Promise<void> {
+  const attempts = 10;
+  console.log(`\n${attempts} simultaneous cancellations of one paid order`);
+  const order = await deliveredOrder(pool, 'cnl', 2, 2);
+
+  const results = await Promise.all(
+    Array.from({ length: attempts }, () => cancelOrder(pool, order.idUser, order.idOrder)),
+  );
+  const ok = results.filter((result) => result === 'ok').length;
+  console.log(`  answered ${ok}, other ${attempts - ok}`);
+  check('every request is answered without an error', ok, attempts);
+  check(
+    'the order is cancelled',
+    await scalar(
+      pool,
+      `SELECT Value = IDOrderStatus FROM dbo.Orders WHERE IDOrder = ${order.idOrder};`,
+    ),
+    6,
+  );
+  check(
+    'one refund was opened',
+    await scalar(
+      pool,
+      `SELECT Value = COUNT(*) FROM dbo.Refunds WHERE IDPayment = ${order.idPayment};`,
+    ),
+    1,
+  );
+  check(
+    'the units went back to the stock once',
+    await scalar(
+      pool,
+      `SELECT Value = OnHandStock FROM dbo.Variants WHERE IDVariant = ${order.variant};`,
+    ),
+    30,
+  );
+  check(
+    'one return movement was written',
+    await scalar(
+      pool,
+      `SELECT Value = COUNT(*) FROM dbo.InventoryMovements WHERE IDVariant = ${order.variant} AND IDInventoryMovementType = 4;`,
+    ),
+    1,
+  );
+  await checkInvariant(pool, 'cancel race', [order.variant]);
+}
+
 async function confirmPayment(
   pool: sql.ConnectionPool,
   idPayment: number,
@@ -895,11 +1126,13 @@ async function confirmPayment(
   }
 }
 
+// Varios escenarios necesitan al operador: se crea una vez y los demás reutilizan el mismo
 async function createOperator(pool: sql.ConnectionPool): Promise<number> {
   const result = await pool.request().query<{ IDUser: number }>(`
-    INSERT INTO dbo.Users (IDRole, Email, PasswordHash, FullName)
-    OUTPUT inserted.IDUser
-    VALUES (2, N'race-operator@shopcart.test', N'not-a-real-hash', N'Concurrency operator');
+    IF NOT EXISTS (SELECT 1 FROM dbo.Users WHERE Email = N'race-operator@shopcart.test')
+      INSERT INTO dbo.Users (IDRole, Email, PasswordHash, FullName)
+      VALUES (2, N'race-operator@shopcart.test', N'not-a-real-hash', N'Concurrency operator');
+    SELECT IDUser FROM dbo.Users WHERE Email = N'race-operator@shopcart.test';
   `);
   return result.recordset[0]?.IDUser ?? 0;
 }
@@ -982,6 +1215,8 @@ async function main(): Promise<number> {
       () => lastCouponUse(pool),
       () => paymentConfirmRace(pool),
       () => approveVersusReject(pool),
+      () => returnRace(pool),
+      () => cancelRace(pool),
     ];
     await inSequence(scenarios, (scenario) => scenario());
   } finally {
