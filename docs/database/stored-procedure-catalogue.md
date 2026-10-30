@@ -12,12 +12,12 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 | Cart (RF-04) | **Built:** `SP_Cart_Get`, `SP_Cart_SetItemQuantity`, `SP_Cart_RemoveItem`, `SP_Cart_MergeGuest`, `SP_Cart_ApplyCoupon`, `SP_Cart_RemoveCoupon` |
 | Coupons (RF-05) | **Built:** `SP_Coupons_Create/Update/Deactivate/List`, `SP_Coupons_Validate` |
 | Checkout (RF-06) | **Built:** `SP_Idempotency_Begin/Complete/Fail/PurgeExpired`, **`SP_Orders_CreateOrder`** (built) |
-| Payments | `SP_BankAccounts_ListActive/Save`, `SP_Payments_GetMethodsAndWindow`, `SP_Payments_GetByOrder`, **`SP_Payments_ConfirmPayment`**, **`SP_Payments_RegisterProof`**, `SP_Payments_GetProof`, `SP_Payments_ListPendingDeposits`, **`SP_Payments_ApproveDeposit`**, **`SP_Payments_RejectDeposit`**, **`SP_Payments_ExpirePending`**, `SP_Payments_RegisterOrphanPayment`, **Built:** `SP_Refunds_Mark`, `SP_Refunds_List` (refunds are opened by cancellations, returns and late payments, so there is no separate register procedure) |
+| Payments | **Built (readers):** `SP_BankAccounts_List/Save` (the draft called the first one `ListActive`), `SP_Payments_GetMethodsAndWindow`, `SP_Payments_GetByOrder`, `SP_Payments_GetProof`, `SP_Payments_ListPendingDeposits`. Core: **`SP_Payments_ConfirmPayment`**, **`SP_Payments_RegisterProof`**, **`SP_Payments_ApproveDeposit`**, **`SP_Payments_RejectDeposit`**, **`SP_Payments_ExpirePending`**, `SP_Payments_RegisterOrphanPayment`, **Built:** `SP_Refunds_Mark`, `SP_Refunds_List` (refunds are opened by cancellations, returns and late payments, so there is no separate register procedure) |
 | Payments, card (Phase 2) | `SP_Payments_RegisterExternalCheckout`, `SP_Payments_RegisterCreationFailure`, `SP_Payments_RegisterWebhookEvent`, `SP_Payments_ListPendingCardsToReconcile`, `SP_Webhooks_Purge` |
-| Orders (RF-07) | **Built:** **`SP_Orders_ChangeStatus`**, **`SP_Orders_Cancel`**, **`SP_Returns_Register`**. Pending: `SP_Orders_List`, `SP_Orders_GetDetail` |
+| Orders (RF-07) | **Built:** **`SP_Orders_ChangeStatus`**, **`SP_Orders_Cancel`**, **`SP_Returns_Register`**, `SP_Orders_List`, `SP_Orders_GetDetail` |
 | Dashboard (RF-08) | `SP_Dashboard_SalesByPeriod`, `SP_Dashboard_SalesByCategory`, `SP_Dashboard_TopTenProducts`, `SP_Dashboard_AbandonedCarts` |
-| Audit (RF-09) | `SP_Audit_Record` (built, internal use), `SP_Audit_Query` |
-| System | `SP_System_GetSchemaVersion` (built, `R0100`), `SP_System_ListObjectVersions` |
+| Audit (RF-09) | `SP_Audit_Record` (built, internal use), `SP_Audit_Query` (built) |
+| System | `SP_System_GetSchemaVersion` (built, `R0100`), `SP_System_ListObjectVersions` (built) |
 
 ## Views and functions
 
@@ -85,6 +85,18 @@ Sources: `R0059` (`FU_Orders_RefundableAmount`), `R0062` (`VW_Reconciliation_Amo
 - **`SP_Refunds_Mark`** is for administrators. Marking a refund `Processed` needs the reference of the transfer and writes the money ledger (`Refund`, negative). When the processed refunds equal what was charged, the payment moves to `Refunded`. A late payment that arrived after the order was cancelled never reached the ledger, so its `Charge` is written first and the refund subtracts from it. Repeating the same result is a no-op; a `Failed` refund can be processed later; a processed one cannot change. `SP_Refunds_List` feeds the administrator panel, oldest first, with the amount as text.
 - **`VW_Reconciliation_Amounts`** returns one row per discrepancy and must be empty. It checks the order subtotal and discount against the lines, the approved payment against the order total, the ledger charge and fee against each payment, refunds against what was charged, the ledger refunds against the processed ones, each return against its lines, the returned units against the return lines, a fully returned line against its exact total, and the coupon counters. `npm run sql:concurrency` asserts it is empty after every payment, return and cancellation scenario.
 - **Concurrency, proven with real connections.** Twenty simultaneous returns of one unit from a line of five accept exactly five, refuse fifteen with a 422, leave the stock at its starting level and refund exactly the line total. Ten simultaneous cancellations of one paid order cancel it once, restore the stock once and open one refund. All procedures take the order lock first and then the variants in ascending order.
+
+### Readers for the API (built)
+
+Sources: `R0101`, `R0122`, `R0305`, `R0306`, `R0330` to `R0335`. 29 tSQLt tests in `Test_Readers`.
+
+- **Ownership is decided inside the procedure.** `SP_Orders_List`, `SP_Orders_GetDetail`, `SP_Payments_GetByOrder` and `SP_Payments_GetProof` take `@IDActor` (always the `IDUser` of the verified token) and `@AsStaff`. A customer only sees what is theirs; anything else answers `50404`, the same as a missing row. The order list ignores the search text for a customer, so a customer cannot find another customer's order by number.
+- **Order detail** returns one row with `Lines` and `History` as JSON arrays and every amount as text. **Payment view** returns one row per attempt (newest first) with the bank, the deposit data, the rejection reason, the proofs as JSON and the attempts used against `MaxDepositAttempts`.
+- **Review queue** (`SP_Payments_ListPendingDeposits`) lists deposits under review oldest first, with their age in hours; with another status it works as a history, newest first. The design's `VW_Payments_PendingDeposits` view was dropped in favour of this procedure, which takes the status filter.
+- **Deposit window** (`SP_Payments_GetMethodsAndWindow`) takes the longest lead time of the customer's active cart and says whether the delivery date is allowed and whether a deposit still fits before it. The card is decided by the backend (it depends on the provider credentials).
+- **Bank accounts** (`SP_BankAccounts_List` and `Save`): only an administrator saves; the change is audited.
+- **Audit and versions**: `SP_Audit_Query` pages the immutable log newest first; `SP_System_ListObjectVersions` returns the current version of every programmable object.
+- `SP_Returns_Register` 1.1.0 also returns `@RefundAmountText`, the refund as text with two decimals, so the API never passes an amount through a floating-point number.
 
 ### Idempotency (built)
 

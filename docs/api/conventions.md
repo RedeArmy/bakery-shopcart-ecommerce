@@ -29,6 +29,11 @@ HTTP codes: 400 validation or missing key, 401 missing or expired token, 403 ins
 | `UNAUTHENTICATED` | 401 | The request has no access token |
 | `TOKEN_INVALID` | 401 | The access token is invalid or expired |
 | `FORBIDDEN` | 403 | The role is not allowed to do this |
+| `CART_TOKEN_REQUIRED` | 400 | A cart change without a session or an `X-Cart-Token` header |
+| `CART_TOKEN_INVALID` | 400 | The `X-Cart-Token` header is not a UUID |
+| `CART_EMPTY` | 422 | Checkout was started with an empty cart |
+| `CART_HAS_UNAVAILABLE_LINES` | 409 | A line of the cart can no longer be bought |
+| `NO_PENDING_DEPOSIT` | 422 | A proof was sent for an order with no deposit waiting for it |
 | `INVALID_CREDENTIALS` | 401 | Wrong email or password (the same answer for an unknown email) |
 | `ACCOUNT_LOCKED` | 423 | Too many failed attempts; `details.lockedUntil` says until when |
 | `ACCOUNT_DISABLED` | 403 | The account was deactivated |
@@ -71,7 +76,7 @@ HTTP codes: 400 validation or missing key, 401 missing or expired token, 403 ins
 | `WEBHOOK_SIGNATURE_INVALID` | 401 | Svix signature does not verify |
 | `INTERNAL_ERROR` | 500 | Unexpected failure (only logged with the request id) |
 
-Stored procedures raise `THROW` codes 50400, 50404, 50409 and 50422, which the executor maps to 400, 404, 409 and 422. The Spanish names in the design map to these codes in the [glossary](../glossary.md).
+Stored procedures raise `THROW` codes 50400, 50404, 50409 and 50422, which the executor maps to 400, 404, 409 and 422. When a procedure starts its message with a stable code (`COUPON_EXPIRED: ...`), that code becomes the `code` of the response and the rest becomes the `message`. The Spanish names in the design map to these codes in the [glossary](../glossary.md).
 
 ## Idempotency
 
@@ -128,22 +133,25 @@ Responses answer **429** with the standard error, `Retry-After` and `RateLimit-L
 | `GET /categories`, `GET /products?q=&category=&min=&max=&available=&sort=&page=&size=`, `GET /products/{id}` | Public | 1 | Server-side pagination |
 | `POST/PUT/DELETE /admin/categories`, `/admin/products`, `/admin/variants` | Administrator | 1 | `DELETE` deactivates when sales exist |
 | `PATCH /admin/variants/{id}/price` | Administrator | 1 | Idempotency-Key; audited |
-| `GET /admin/inventory/ledger?variant=`, `POST /admin/inventory/entries`, `POST /admin/inventory/adjustments` | Operator, Administrator | 1 | Reason required; Idempotency-Key |
+| `GET /admin/inventory/ledger?variant=` | Operator, Administrator | 1 | Read only |
+| `POST /admin/inventory/entries`, `POST /admin/inventory/adjustments` | Administrator | 1 | Reason required; Idempotency-Key. The procedures enforce the role |
 | `GET /cart`, `PUT /cart/items/{variantId}`, `DELETE /cart/items/{variantId}` | Public (guest token) or Customer | 1 | Absolute quantity; `X-Cart-Token` for guests |
 | `POST /cart/coupon`, `DELETE /cart/coupon` | Customer | 1 | One coupon per order |
+| `POST /cart/merge` | Customer | 1 | Gives the visitor cart (`guestToken`) to the signed-in customer; repeating it changes nothing |
 | `GET/POST/PUT /addresses` | Customer | 1 | Own addresses only |
 | `GET /checkout/payment-methods?deliveryDate=` | Customer | 1 | Only what is available |
 | `POST /checkout/start` | Customer | 1 | 15-minute reservation |
 | `POST /checkout/confirm` | Customer | 1 | **Idempotency-Key required.** Creates the `PendingPayment` order; returns bank details and deadline, or `checkoutUrl` (card, Phase 2) |
 | `GET /orders`, `GET /orders/{id}` | Customer | 1 | Always filtered by the token's `IDUser` |
 | `GET /orders/{id}/payment` | Customer | 1 | Status, attempts, rejection reason, deadline |
+| `POST /orders/{id}/payment/attempts` | Customer | 1 | Opens another deposit attempt after a rejection. Idempotency-Key |
 | `POST /orders/{id}/payment/proofs` | Customer | 1 | `multipart/form-data`: `referenceNumber`, `depositDate`, `depositedAmount`, `file`. Idempotency-Key |
 | `GET /orders/{id}/payment/proofs/{proofId}` | Customer | 1 | Authenticated download |
 | `POST /orders/{id}/cancel` | Customer, Operator | 1 | Idempotency-Key |
 | `POST /orders/{id}/payment/verify` | Customer | 2 | Reconciles with Recurrente after returning |
 | `POST /orders/{id}/payment/card`, `POST /orders/{id}/payment/deposit` | Customer | 2 | Switch method |
 | `POST /webhooks/recurrente` | Public (Svix signature) | 2 | No JWT or Idempotency-Key (uses `svix-id`) |
-| `GET /admin/orders?status=&customer=&from=&to=&page=` | Operator, Administrator | 1 | |
+| `GET /admin/orders?status=&search=&from=&to=&page=`, `GET /admin/orders/{id}`, `GET /admin/orders/{id}/payment` | Operator, Administrator | 1 | `search` is the order number or the customer email |
 | `PATCH /admin/orders/{id}/status`, `POST /admin/orders/{id}/returns` | Operator, Administrator | 1 | Idempotency-Key |
 | `GET /admin/payments/deposits?status=&from=&to=&page=` | Operator, Administrator | 1 | Review queue, server-side pagination |
 | `GET /admin/payments/{id}/proofs/{proofId}` | Operator, Administrator | 1 | Download |
@@ -152,7 +160,7 @@ Responses answer **429** with the standard error, `Retry-After` and `RateLimit-L
 | `GET /admin/dashboard/sales?granularity=day\|week\|month`, `/sales-by-category`, `/top-products`, `/abandoned-carts` | Administrator | 1 | By `PaidAt` |
 | `GET /admin/audit-log?module=&page=` | Administrator | 1 | |
 | `GET/PATCH /admin/users` | Administrator | 1 | Activate or deactivate |
-| `GET/PUT /admin/bank-accounts` | Administrator | 1 | The seed provides them; CRUD may be Level 3 |
+| `GET/POST /admin/bank-accounts`, `PUT /admin/bank-accounts/{id}` | Administrator | 1 | The seed provides them |
 | `GET /admin/refunds?status=Pending`, `PATCH /admin/refunds/{id}` | Administrator | 1 | Orphan payments and returns to refund |
 | `GET /admin/payments/gateway-status` | Administrator | 2 | Configured or not, mode, last probe. **No keys** |
 | `GET /admin/system/version` | Administrator | 1 | App, schema and procedure versions |
