@@ -73,10 +73,10 @@ Severity is the impact if it is never addressed; effort is in working hours of o
 |---|---|---|---|---|---|---|
 | D-02 | Medium | Security | No `Content-Security-Policy` or HSTS on the pages served by the edge (the API has helmet's). | Add CSP and HSTS at the edge, verify in a browser that the app still loads | 3 | Stage 7 |
 | D-03 | Medium | Testing | Partly addressed: the anti-oversell guarantee is now proven against a real SQL Server by `npm run sql:concurrency` in the `sql-tests` job. Still missing: tests through the backend (Testcontainers), the idempotency guarantee, and the `integration` job, which is off. | Testcontainers suite for the backend slices; enable the `integration` job and require it | 5 | Stage 4 and 5 |
-| D-05 | Medium | Security | No rate-limit or idempotency middleware exists yet; only the edge `limit_req` is active. | Build as designed (ADR-0004, ADR-0010) | 10 | Stage 5 |
+| D-05 | Medium | Security | Partly addressed: the database side of idempotency is built and tested (`SP_Idempotency_*`). Still missing: the Express middleware and the rate-limit middleware; only the edge `limit_req` is active. | Build the middleware as designed (ADR-0004, ADR-0010) | 8 | Stage 5 |
 | D-06 | Medium | Reliability | The expiry and reconciliation jobs do not exist; reservations would never expire. | Job runner with `sp_getapplock` (design §12.8) | 6 | Stage 6 |
 | D-07 | Low | Database | Constraints refer to fixed status identifiers (`IDOrderStatus IN (1, 6)`), coupling migrations to seed values. | Accepted and documented; revisit only if the states change | 0 | none |
-| D-08 | Low | Database | `DdlHistory`, `IdempotentRequests` and `ReceivedWebhooks` have no retention policy. | Purge procedures and a job | 3 | Stage 6 |
+| D-08 | Low | Database | Partly addressed: `SP_Idempotency_PurgeExpired` exists. `DdlHistory` and `ReceivedWebhooks` still have no retention policy, and no job runs the purge. | Purge procedures for the other two tables and the job | 2 | Stage 6 |
 | D-11 | Low | Dependencies | Major upgrades pending: `mssql` 12, `typescript` 7, `eslint` 10, `vitest` follow-ups, `react` 19. | One pull request per major after Delivery Phase 1 | 8 | after Phase 1 |
 | D-14 | Info | Delivery | Demo data (catalogue, coupons, bank account, accounts, performance volume) is postponed to the end; the report execution plans required by the brief depend on it. | Build with enough days left to document the three plans | 8 | Stage 6 |
 
