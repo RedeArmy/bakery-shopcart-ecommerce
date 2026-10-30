@@ -13,6 +13,19 @@ describe('mapSqlError', () => {
     expect(mapSqlError(sqlError(number, 'x')).httpStatus).toBe(httpStatus);
   });
 
+  it('keeps the stable API code a procedure puts before its message', () => {
+    const mapped = mapSqlError(sqlError(50409, 'INSUFFICIENT_STOCK: Only 2 units are available.'));
+    expect(mapped.httpStatus).toBe(409);
+    expect(mapped.code).toBe('INSUFFICIENT_STOCK');
+    expect(mapped.message).toBe('Only 2 units are available.');
+  });
+
+  it('falls back to the generic code when the message has no stable prefix', () => {
+    expect(mapSqlError(sqlError(50422, 'Only a delivered order can be returned.')).code).toBe(
+      'BUSINESS_RULE_VIOLATION',
+    );
+  });
+
   it('maps unknown database errors to a generic 500 without leaking the message', () => {
     const mapped = mapSqlError(sqlError(208, 'Invalid object name dbo.Secrets'));
     expect(mapped.httpStatus).toBe(500);

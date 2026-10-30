@@ -1,10 +1,12 @@
 import { z } from 'zod';
+import { paymentsEnvSchema } from './payments.js';
 
 // Un valor vacío en .env significa "no configurado" (por ejemplo, DB_TRUST_SERVER_CERTIFICATE=)
 const blankToUndefined = (value: unknown): unknown =>
   typeof value === 'string' && value.trim() === '' ? undefined : value;
 
 const envSchema = z.object({
+  ...paymentsEnvSchema.shape,
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
