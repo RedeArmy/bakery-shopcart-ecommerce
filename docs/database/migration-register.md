@@ -53,8 +53,8 @@ Environment states used in the register: **Verified** (run and checked), **Pendi
 | V0007 | `V0007__create_payment_tables.sql` | Payments, returns and financial ledger | Schema, additive | High | Applied |
 | V0008 | `V0008__create_platform_tables.sql` | Idempotency, audit, configuration, DDL history | Schema, additive | Low | Applied |
 | V0009 | `V0009__create_triggers_and_permissions.sql` | Triggers and permissions | Schema, behaviour | High | Applied |
-| V0010 | `V0010__add_foreign_key_indexes.sql` | Foreign key support indexes | Schema, additive | Low | Draft |
-| V0011 | `V0011__add_one_active_reservation_per_cart.sql` | One active reservation per cart | Schema, additive | Low | Draft |
+| V0010 | `V0010__add_foreign_key_indexes.sql` | Foreign key support indexes | Schema, additive | Low | Applied |
+| V0011 | `V0011__add_one_active_reservation_per_cart.sql` | One active reservation per cart | Schema, additive | Low | Applied |
 
 Risk is the impact of a defect in the migration, not of running it: all nine run on an empty database, take no meaningful locks and move no data. **High** marks the migrations that protect money (V0007) or that can block legitimate writes if wrong (V0009).
 
@@ -222,8 +222,9 @@ Each entry uses the template in section 7. Common fields for V0001 to V0009 (V00
 | Rollback | Additive. Compensating change: `DROP INDEX` of any of the seven |
 | Tests | `Test_Schema` (the seven indexes exist) |
 | Author, date | Eder Yafeth Garcia Quiroa, 30 October 2026 |
-| Reviewer | Pending (pull request not opened) |
-| Environments | Local Verified (applied, `db:verify` clean, 66 tests passed); CI Pending; Production Not deployed |
+| Pull request | [#20](https://github.com/RedeArmy/bakery-shopcart-ecommerce/pull/20), squash-merged to `main` on 30 October 2026 |
+| Reviewer | Repository owner. The ruleset requires no approving review while the project has a single maintainer; the approval is the merge with all required checks green |
+| Environments | Local Verified (applied, `db:verify` clean, 66 tests passed); CI Verified (`sql-tests` job of pull request #20, green at merge); Production Not deployed |
 
 ### V0011: One active reservation per cart
 
@@ -241,8 +242,9 @@ Each entry uses the template in section 7. Common fields for V0001 to V0009 (V00
 | Rollback | Additive. Compensating change: `DROP INDEX UX_Reservations_OneActivePerCart` |
 | Tests | `Test_Inventory` (the data refuse a second active reservation) and `npm run sql:concurrency` (20 simultaneous requests leave one) |
 | Author, date | Eder Yafeth Garcia Quiroa, 30 October 2026 |
-| Reviewer | Pending (pull request not opened) |
-| Environments | Local Verified (applied, `db:verify` clean, 101 tests passed, concurrency checks passed five times); CI Pending; Production Not deployed |
+| Pull request | [#28](https://github.com/RedeArmy/bakery-shopcart-ecommerce/pull/28), squash-merged to `main` on 30 October 2026 |
+| Reviewer | Repository owner. The ruleset requires no approving review while the project has a single maintainer; the approval is the merge with all required checks green |
+| Environments | Local Verified (applied, `db:verify` clean, 101 tests passed, concurrency checks passed five times); CI Verified (`sql-tests` job of pull request #28: 213 tests passed and the concurrency checks held); Production Not deployed |
 
 ### Reference seeds
 
@@ -262,10 +264,10 @@ Tests: `Test_Seeds` compares every table with the expected rows and checks that 
 
 | Check | Command | Result on 30 October 2026 |
 |---|---|---|
-| Apply from scratch | `npm run db:migrate` | 9 migrations and 5 seeds applied |
+| Apply from scratch | `npm run db:migrate` | 11 migrations, 5 seeds and 32 programmable objects applied |
 | Idempotent re-run | `npm run db:migrate` | "up to date", nothing applied |
 | Drift check | `npm run db:verify` | Matches the repository |
-| Constraint, trigger, schema and seed tests | `npm run sql:test` | 66 tests, 0 failures (65 before V0010) |
+| Constraint, trigger, schema and seed tests | `npm run sql:test` | 213 tests, 0 failures (66 before the Stage 3 objects) |
 | File names and vendored files | `npm run sql:lint` | OK |
 
 ## 7. Template for a new entry
@@ -317,3 +319,4 @@ Programmable objects and seeds: a change to an `R####` object needs only the ver
 | 30 October 2026 | First issue: entries for V0001 to V0009 | Eder Yafeth Garcia Quiroa |
 | 30 October 2026 | V0001 to V0009 set to Applied after pull request #18; reference seeds S0001 to S0005 added | Eder Yafeth Garcia Quiroa |
 | 30 October 2026 | V0010 added after the technical audit | Eder Yafeth Garcia Quiroa |
+| 30 October 2026 | V0011 added with the stock reservation; V0010 and V0011 set to Applied after pull requests #20 and #28 | Eder Yafeth Garcia Quiroa |
