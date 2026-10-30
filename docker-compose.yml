@@ -45,6 +45,11 @@ services:
       DB_APP_USER: ${DB_APP_USER:-shopcart_app}
       DB_APP_PASSWORD: ${DB_APP_PASSWORD}
     restart: 'no'
+    # Sin privilegios añadidos: la aplicación no necesita capacidades de Linux
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
 
   backend:
     build:
@@ -78,6 +83,10 @@ services:
       RECURRENTE_WEBHOOK_SECRET: ${RECURRENTE_WEBHOOK_SECRET:-}
       RECURRENTE_BASE_URL: ${RECURRENTE_BASE_URL:-https://app.recurrente.com/api}
       PAYMENTS_CARD_ENABLED: ${PAYMENTS_CARD_ENABLED:-true}
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     volumes:
       # Volumen privado para los comprobantes de pago: fuera de cualquier directorio estático
       - payment-proofs:/data/payment-proofs
@@ -103,6 +112,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 6
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
 
   # Borde: único servicio publicado en el equipo. Aplica limit_req y cabeceras de seguridad (ADR-0010)
   nginx:
@@ -121,6 +134,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 6
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
 
   # --- Perfil payments-sandbox: simulador local de Recurrente (se construye en la Etapa 8) -----
   recurrente-simulator:
