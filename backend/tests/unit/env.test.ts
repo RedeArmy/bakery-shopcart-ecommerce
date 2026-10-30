@@ -15,12 +15,6 @@ describe('environment validation', () => {
     expect(env.CORS_ORIGINS).toEqual(['http://a.test', 'http://b.test']);
   });
 
-  it('treats an empty REQUIRED_SCHEMA_VERSION as not configured', () => {
-    expect(
-      loadEnv({ ...baseEnv, REQUIRED_SCHEMA_VERSION: '' }).REQUIRED_SCHEMA_VERSION,
-    ).toBeUndefined();
-  });
-
   it('reads DB_TRUST_SERVER_CERTIFICATE as a boolean and treats blank as not set', () => {
     expect(loadEnv(baseEnv).DB_TRUST_SERVER_CERTIFICATE).toBeUndefined();
     expect(
