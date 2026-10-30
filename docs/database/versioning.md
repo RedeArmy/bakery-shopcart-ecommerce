@@ -71,7 +71,7 @@ The runner creates `SchemaVersion` and `ObjectVersions` itself, idempotently, be
 - A **DDL trigger** captures `CREATE`, `ALTER` and `DROP` of procedures, views and functions, even those made by hand, into `DdlHistory`.
 - **`npm run db:verify`** compares `OBJECT_DEFINITION` of every object with its recorded checksum and detects changes made outside the runner. CI runs it before installing tSQLt.
 - **CI**: if a procedure changed in the diff but its `Version` did not, the pipeline fails. Lint also checks naming and forbidden types.
-- **App ↔ schema compatibility:** the backend declares `REQUIRED_SCHEMA_VERSION`, compares it at start-up with `SP_System_GetSchemaVersion`, and `/health/ready` fails if the database is behind.
+- **App ↔ schema compatibility:** the backend declares `REQUIRED_SCHEMA_VERSION` as a constant in `backend/src/platform/db/schema-version.ts`, in the same commit as the code that needs a newer migration, and a unit test stops it from passing the latest migration on disk. `SP_System_GetSchemaVersion` returns the number of the last migration applied successfully; the backend reads it on every readiness probe until the requirement is met, remembers the result (migrations only move forward) and logs once when the state changes. `/health/ready` answers 503 with `schema: outdated` while the database is behind, and the probe never exposes version numbers.
 - **`GET /api/v1/admin/system/version`** returns the app version, schema version and procedure versions.
 
 ## Breaking changes

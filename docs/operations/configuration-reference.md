@@ -31,7 +31,6 @@ All configuration comes from environment variables, validated with zod at start-
 | `REFRESH_TTL` | `7d` | Refresh token lifetime |
 | `CORS_ORIGINS` | `http://localhost:8080` | Comma-separated allow-list |
 | `APP_PUBLIC_URL` | `http://localhost:8080` | Public shop URL (gateway `success_url` and `cancel_url`) |
-| `REQUIRED_SCHEMA_VERSION` | blank | Minimum schema version required at start-up (set from Stage 2) |
 | `PAYMENT_PROOFS_DIR` | `/data/payment-proofs` | Private directory for proofs (named volume) |
 | `PAYMENT_PROOF_MAX_BYTES` | `5242880` | Maximum proof size (5 MB) |
 | `RECURRENTE_PUBLIC_KEY` | blank | `pk_test_…` or `pk_live_…`; blank disables card payments |

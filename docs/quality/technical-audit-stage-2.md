@@ -7,7 +7,7 @@
 | Scope | Everything built from Stage 0 to Stage 2: repository tooling, CI, Docker, database (migrations, seeds, runner, tSQLt), backend and frontend skeletons |
 | Baseline | `main` at commit `6588d97` (pull request #19) |
 | Method | Static review of the code, catalogue queries against a migrated SQL Server 2022, dependency audit, execution of every test suite and of the whole compose stack, review of CI and container configuration |
-| Result | **Approved to continue to Stage 3** after the fixes in section 4. Eleven items fixed, fourteen open and registered in section 5; none of them blocks Delivery Phase 1 |
+| Result | **Approved to continue to Stage 3** after the fixes in section 4. Twelve items fixed, thirteen open and registered in section 5; none of them blocks Delivery Phase 1 |
 
 ## 1. Summary
 
@@ -58,6 +58,7 @@ The foundation is sound: the database is built only through versioned scripts, t
 | F-09 | Low | Security | Containers kept default Linux capabilities and could gain privileges. | `cap_drop: ALL` and `no-new-privileges` on the runner, backend, frontend and edge; the stack was started and is healthy |
 | F-10 | Low | Process | Dependabot proposed major upgrades that broke `main` twice and ignored two of the Dockerfiles. | Majors ignored (done by hand with tests), frontend and runner Dockerfiles watched |
 | F-11 | Low | Quality | The migration register could drift silently from the files, and the backend coverage figure disagreed with SonarCloud's exclusions. | `sql:lint` now fails when a migration or seed is missing from the register or its checksum differs (this also exercises the CRLF normalisation on Windows); coverage exclusions aligned |
+| F-12 | Medium | Operability | `/health/ready` checked the connection only and `REQUIRED_SCHEMA_VERSION` was read but never used, so a backend could take traffic against an outdated schema (was D-01). | `SP_System_GetSchemaVersion` and a readiness check that compares it with a version declared in code; 503 with `schema: outdated` until the migrations run, no version numbers in the response, one log line per state change |
 
 ## 5. Debt register (open)
 
@@ -65,7 +66,6 @@ Severity is the impact if it is never addressed; effort is in working hours of o
 
 | ID | Severity | Area | Description | Recommended action | Effort | Target |
 |---|---|---|---|---|---|---|
-| D-01 | Medium | Operability | `/health/ready` checks the connection only; `REQUIRED_SCHEMA_VERSION` is read but unused, so a backend can start against an outdated schema. | `SP_System_GetSchemaVersion` and compare at start-up and in readiness | 2 | Stage 3 |
 | D-02 | Medium | Security | No `Content-Security-Policy` or HSTS on the pages served by the edge (the API has helmet's). | Add CSP and HSTS at the edge, verify in a browser that the app still loads | 3 | Stage 7 |
 | D-03 | Medium | Testing | No integration or concurrency tests yet; the `integration` job is off. The anti-oversell and idempotency guarantees are proven in one session only. | Testcontainers suite with 100 parallel reservations; enable the job and require it | 8 | Stage 3 and 4 |
 | D-04 | Medium | Database | The database collation is the server default, so accent and case behaviour of unique emails and names depends on the instance. | Decide the collation, set it explicitly in `CREATE DATABASE` and record an ADR | 2 | Stage 3 |

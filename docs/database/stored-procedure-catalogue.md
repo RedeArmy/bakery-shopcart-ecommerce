@@ -17,7 +17,7 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 | Orders (RF-07) | **`SP_Orders_ChangeStatus`**, **`SP_Orders_Cancel`**, `SP_Orders_List`, `SP_Orders_GetDetail`, **`SP_Returns_Register`** |
 | Dashboard (RF-08) | `SP_Dashboard_SalesByPeriod`, `SP_Dashboard_SalesByCategory`, `SP_Dashboard_TopTenProducts`, `SP_Dashboard_AbandonedCarts` |
 | Audit (RF-09) | `SP_Audit_Record` (internal use), `SP_Audit_Query` |
-| System | `SP_System_GetSchemaVersion`, `SP_System_ListObjectVersions` |
+| System | `SP_System_GetSchemaVersion` (built, `R0100`), `SP_System_ListObjectVersions` |
 
 ## Views and functions
 
