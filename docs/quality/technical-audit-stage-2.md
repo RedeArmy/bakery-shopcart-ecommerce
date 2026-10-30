@@ -7,7 +7,7 @@
 | Scope | Everything built from Stage 0 to Stage 2: repository tooling, CI, Docker, database (migrations, seeds, runner, tSQLt), backend and frontend skeletons |
 | Baseline | `main` at commit `6588d97` (pull request #19) |
 | Method | Static review of the code, catalogue queries against a migrated SQL Server 2022, dependency audit, execution of every test suite and of the whole compose stack, review of CI and container configuration |
-| Result | **Approved to continue to Stage 3** after the fixes in section 4. Thirteen items fixed, eleven open and registered in section 5; none of them blocks Delivery Phase 1 |
+| Result | **Approved to continue to Stage 3** after the fixes in section 4. Sixteen items fixed, eight open and registered in section 5; none of them blocks Delivery Phase 1 |
 
 ## 1. Summary
 
@@ -60,6 +60,9 @@ The foundation is sound: the database is built only through versioned scripts, t
 | F-11 | Low | Quality | The migration register could drift silently from the files, and the backend coverage figure disagreed with SonarCloud's exclusions. | `sql:lint` now fails when a migration or seed is missing from the register or its checksum differs (this also exercises the CRLF normalisation on Windows); coverage exclusions aligned |
 | F-12 | Medium | Operability | `/health/ready` checked the connection only and `REQUIRED_SCHEMA_VERSION` was read but never used, so a backend could take traffic against an outdated schema (was D-01). | `SP_System_GetSchemaVersion` and a readiness check that compares it with a version declared in code; 503 with `schema: outdated` until the migrations run, no version numbers in the response, one log line per state change |
 | F-13 | Medium | Database | The collation was the instance default, so unique text and ordering could behave differently per server (was D-04). | `Latin1_General_100_CI_AS_SC` ([ADR-0025](../adr/0025-database-collation.md)), created explicitly, enforced on every run, set on every server the repository starts, and covered by tests |
+| F-14 | Low | Process | The `images` job was not a required check (was D-12). | The three `images` contexts are required by the active ruleset, verified live |
+| F-15 | Low | Backend | The deadlock retry in the procedure executor had no back-off (was D-09). | Full-jitter exponential delay (25 ms base, 200 ms cap) with injectable `sleep` and `random`, covered by unit tests |
+| F-16 | Low | Frontend | `formatMoney` was missing and its test skipped (was D-10). | Implemented from the decimal string without a `number`, rejects anything but two decimals, six tests; frontend branch coverage 75 %, the rest is the entry point `main.tsx` |
 
 ## 5. Debt register (open)
 
@@ -73,10 +76,7 @@ Severity is the impact if it is never addressed; effort is in working hours of o
 | D-06 | Medium | Reliability | The expiry and reconciliation jobs do not exist; reservations would never expire. | Job runner with `sp_getapplock` (design §12.8) | 6 | Stage 6 |
 | D-07 | Low | Database | Constraints refer to fixed status identifiers (`IDOrderStatus IN (1, 6)`), coupling migrations to seed values. | Accepted and documented; revisit only if the states change | 0 | none |
 | D-08 | Low | Database | `DdlHistory`, `IdempotentRequests` and `ReceivedWebhooks` have no retention policy. | Purge procedures and a job | 3 | Stage 6 |
-| D-09 | Low | Backend | The deadlock retry in the procedure executor has no back-off. | Add jitter | 1 | Stage 4 |
-| D-10 | Low | Frontend | Branch coverage 67 % and `formatMoney` still missing with its test skipped. | Implement and un-skip | 2 | Stage 7 |
 | D-11 | Low | Dependencies | Major upgrades pending: `mssql` 12, `typescript` 7, `eslint` 10, `vitest` follow-ups, `react` 19. | One pull request per major after Delivery Phase 1 | 8 | after Phase 1 |
-| D-12 | Low | Process | The new `images` job is not a required check yet. | Add it to the ruleset after it has passed once | 0.5 | now |
 | D-14 | Info | Delivery | Demo data (catalogue, coupons, bank account, accounts, performance volume) is postponed to the end; the report execution plans required by the brief depend on it. | Build with enough days left to document the three plans | 8 | Stage 6 |
 
 ## 6. Risks for Delivery Phase 1 (Monday 2 November, 23:59)
