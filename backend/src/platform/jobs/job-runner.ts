@@ -190,11 +190,10 @@ export function createJobRunner(options: {
     async runNow(name) {
       const state = states.get(name);
       if (state === undefined) throw new RangeError(`Unknown job: ${name}`);
-      if (state.inFlight === undefined) {
-        state.inFlight = execute(state).finally(() => {
-          state.inFlight = undefined;
-        });
-      }
+      // Si ya hay una ejecución en curso se comparte; si no, se inicia una
+      state.inFlight ??= execute(state).finally(() => {
+        state.inFlight = undefined;
+      });
       await state.inFlight;
       return { ...state.status };
     },
