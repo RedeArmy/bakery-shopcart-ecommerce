@@ -12,6 +12,7 @@ import { createUsersModule } from './modules/users/index.js';
 import type { Env } from './platform/config/env.js';
 import { createExecutor } from './platform/db/executor.js';
 import { createSqlIdempotencyStore } from './platform/db/idempotency-store.js';
+import { createSqlJobs } from './platform/db/jobs-store.js';
 import { createDatabase } from './platform/db/pool.js';
 import type { Database } from './platform/db/pool.js';
 import {
@@ -24,6 +25,9 @@ import { createReadiness } from './platform/http/readiness.js';
 import type { ReadinessReport } from './platform/http/readiness.js';
 import type { RouteKit } from './platform/http/route-kit.js';
 import { createIdempotency } from './platform/idempotency/idempotency.js';
+import { buildJobs } from './platform/jobs/job-definitions.js';
+import { createJobRunner } from './platform/jobs/job-runner.js';
+import type { JobRunner } from './platform/jobs/job-runner.js';
 import { createLogger } from './platform/logging/logger.js';
 import type { Logger } from './platform/logging/logger.js';
 import {
@@ -42,6 +46,8 @@ export interface Container {
   database: Database;
   /** La misma comprobación que usa /health/ready; main.ts la ejecuta al arrancar para dejar constancia en el registro */
   checkReadiness: () => Promise<ReadinessReport>;
+  /** Trabajos de fondo; main.ts los arranca y los detiene en el apagado */
+  jobs: JobRunner;
 }
 
 export interface ContainerOptions {
@@ -104,6 +110,16 @@ export function buildContainer(env: Env, options: ContainerOptions = {}): Contai
     limitRefresh: rateLimit(POLICIES.refresh),
   });
 
+  const jobs = createJobRunner({
+    jobs: buildJobs(createSqlJobs(execute), {
+      expireEverySeconds: env.JOB_EXPIRE_SECONDS,
+      purgeEveryHours: env.JOB_PURGE_HOURS,
+      reconcileEveryHours: env.JOB_RECONCILE_HOURS,
+    }),
+    logger,
+    clock,
+  });
+
   const routers = [
     auth.router,
     createCatalogueModule(kit).router,
@@ -115,7 +131,8 @@ export function buildContainer(env: Env, options: ContainerOptions = {}): Contai
     createPaymentsModule(kit, createLocalDiskStorage(env.PAYMENT_PROOFS_DIR)).router,
     createInventoryModule(kit).router,
     createCouponsModule(kit).router,
-    createAuditModule(kit, process.env['npm_package_version'] ?? 'unknown').router,
+    createAuditModule(kit, process.env['npm_package_version'] ?? 'unknown', () => jobs.status())
+      .router,
   ];
 
   const app = createApp({
@@ -124,5 +141,5 @@ export function buildContainer(env: Env, options: ContainerOptions = {}): Contai
     health: { checkReadiness },
     api: { routers, globalLimit: rateLimit(POLICIES.global) },
   });
-  return { app, logger, database, checkReadiness };
+  return { app, logger, database, checkReadiness, jobs };
 }

@@ -363,6 +363,12 @@ const cases: Case[] = [
     'dbo.SP_Audit_Query',
     ['Module', 'EntityKey', 'From', 'To', 'PageNumber', 'PageSize'],
   ],
+  [
+    'reconciliation',
+    (e) => createSqlAuditRepository(e).reconciliation(100),
+    'dbo.SP_Reconciliation_List',
+    ['Limit'],
+  ],
   // Pedidos
   [
     'orders list',

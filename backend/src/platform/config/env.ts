@@ -31,6 +31,21 @@ const envSchema = z.object({
   JWT_REFRESH_PEPPER: z.string().min(24),
   ACCESS_TOKEN_MINUTES: z.coerce.number().int().positive().default(15),
   REFRESH_TOKEN_DAYS: z.coerce.number().int().positive().default(7),
+
+  // Trabajos de fondo (vencimiento, purga, conciliación). Un valor vacío del .env significa "el predeterminado"
+  JOBS_ENABLED: z.preprocess(blankToUndefined, z.stringbool().default(true)),
+  JOB_EXPIRE_SECONDS: z.preprocess(
+    blankToUndefined,
+    z.coerce.number().int().min(10).max(3600).default(60),
+  ),
+  JOB_PURGE_HOURS: z.preprocess(
+    blankToUndefined,
+    z.coerce.number().int().min(1).max(168).default(24),
+  ),
+  JOB_RECONCILE_HOURS: z.preprocess(
+    blankToUndefined,
+    z.coerce.number().int().min(1).max(168).default(24),
+  ),
 });
 
 export type Env = z.infer<typeof envSchema>;

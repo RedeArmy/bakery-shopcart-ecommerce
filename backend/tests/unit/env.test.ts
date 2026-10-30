@@ -30,6 +30,22 @@ describe('environment validation', () => {
     ).toBe(true);
   });
 
+  it('configures the jobs: enabled every minute by default, blank means default and the limits are enforced', () => {
+    const defaults = loadEnv(baseEnv);
+    expect([
+      defaults.JOBS_ENABLED,
+      defaults.JOB_EXPIRE_SECONDS,
+      defaults.JOB_PURGE_HOURS,
+      defaults.JOB_RECONCILE_HOURS,
+    ]).toEqual([true, 60, 24, 24]);
+    const blank = loadEnv({ ...baseEnv, JOBS_ENABLED: '', JOB_EXPIRE_SECONDS: ' ' });
+    expect([blank.JOBS_ENABLED, blank.JOB_EXPIRE_SECONDS]).toEqual([true, 60]);
+    expect(loadEnv({ ...baseEnv, JOBS_ENABLED: 'false' }).JOBS_ENABLED).toBe(false);
+    expect(loadEnv({ ...baseEnv, JOB_EXPIRE_SECONDS: '30' }).JOB_EXPIRE_SECONDS).toBe(30);
+    expect(() => loadEnv({ ...baseEnv, JOB_EXPIRE_SECONDS: '1' })).toThrow(/JOB_EXPIRE_SECONDS/);
+    expect(() => loadEnv({ ...baseEnv, JOB_PURGE_HOURS: '0' })).toThrow(/JOB_PURGE_HOURS/);
+  });
+
   it('fails fast when a required variable is missing', () => {
     expect(() => loadEnv({ APP_PUBLIC_URL: 'http://localhost:8080' })).toThrow(/DB_APP_USER/);
   });

@@ -29,5 +29,12 @@ export function createSqlAuditRepository(execute: ProcedureExecutor): AuditRepos
         objects: objects.rows.map((row) => camelRow(row)),
       };
     },
+
+    async reconciliation(limit: number): Promise<Row[]> {
+      const result = await execute<Row>('dbo.SP_Reconciliation_List', [
+        { name: 'Limit', type: sql.Int, value: limit },
+      ]);
+      return result.rows.map((row) => camelRow(row));
+    },
   };
 }

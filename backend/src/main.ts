@@ -3,7 +3,7 @@ import { loadEnv } from './platform/config/env.js';
 
 // Punto de entrada del proceso: solo arranca el servidor y gestiona el apagado ordenado
 const env = loadEnv();
-const { app, logger, database, checkReadiness } = buildContainer(env);
+const { app, logger, database, checkReadiness, jobs } = buildContainer(env);
 
 const server = app.listen(env.PORT, () => {
   logger.info({ port: env.PORT }, 'ShopCart API listening');
@@ -11,6 +11,9 @@ const server = app.listen(env.PORT, () => {
   checkReadiness().catch((error: unknown) => {
     logger.error({ err: error }, 'Start-up readiness check failed');
   });
+  // Los trabajos corren en este mismo proceso; si hay varias réplicas, el bloqueo de la base de datos deja correr a una sola
+  if (env.JOBS_ENABLED) jobs.start();
+  else logger.warn('Background jobs are disabled in this instance (JOBS_ENABLED=false)');
 });
 
 // Docker espera 10 s tras SIGTERM antes de enviar SIGKILL: el límite propio evita quedar colgado en una conexión abierta
@@ -29,8 +32,10 @@ const shutdown = (signal: string): void => {
   }, SHUTDOWN_TIMEOUT_MS).unref();
 
   server.close(() => {
-    database
-      .close()
+    // Primero se espera al trabajo en curso: cerrar el pool bajo sus pies lo dejaría a medias
+    jobs
+      .stop()
+      .then(() => database.close())
       .catch((error: unknown) => {
         logger.error({ err: error }, 'Error closing the database pool');
       })
