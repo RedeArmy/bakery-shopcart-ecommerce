@@ -384,6 +384,116 @@ BEGIN
 END;
 GO
 
+-- Fusión y existencia (RF-04): se ejecuta al iniciar sesión, así que ajusta las cantidades y nunca lanza ----------------------
+
+CREATE PROCEDURE Test_Cart.[test merging adds the quantities only up to the stock available to the customer]
+AS
+BEGIN
+    DECLARE @Ana INT = Test_Shop.UserId(N'ana@shopcart.test'), @Luis INT = Test_Shop.UserId(N'luis@shopcart.test');
+    DECLARE @Cake INT = Test_Shop.VariantId(N'A-CAKE');
+    DECLARE @UserCart INT, @GuestCart INT, @LuisCart INT, @Merged INT, @IDReservation INT;
+    EXEC dbo.SP_Cart_SetItemQuantity @IDUser = @Luis, @IDVariant = @Cake, @Quantity = 3, @IDCart = @LuisCart OUTPUT;
+    EXEC dbo.SP_Inventory_ReserveStock @IDUser = @Luis, @IDCart = @LuisCart, @IDReservation = @IDReservation OUTPUT;
+    EXEC dbo.SP_Cart_SetItemQuantity @IDUser = @Ana, @IDVariant = @Cake, @Quantity = 4, @IDCart = @UserCart OUTPUT;
+    EXEC dbo.SP_Cart_SetItemQuantity @GuestToken = '11111111-1111-1111-1111-111111111111', @IDVariant = @Cake, @Quantity = 5, @IDCart = @GuestCart OUTPUT;
+
+    EXEC dbo.SP_Cart_MergeGuest @IDUser = @Ana, @GuestToken = '11111111-1111-1111-1111-111111111111', @IDCart = @Merged OUTPUT;
+
+    -- 10 en existencia, 3 reservadas por Luis: Ana puede pedir 7 aunque 4 + 5 sumen 9
+    DECLARE @Quantity INT = (SELECT Quantity FROM dbo.CartItems WHERE IDCart = @UserCart AND IDVariant = @Cake);
+    EXEC tSQLt.AssertEquals @Expected = 7, @Actual = @Quantity;
+END;
+GO
+
+CREATE PROCEDURE Test_Cart.[test merging never lowers a quantity the customer already had]
+AS
+BEGIN
+    DECLARE @Ana INT = Test_Shop.UserId(N'ana@shopcart.test');
+    DECLARE @Cake INT = Test_Shop.VariantId(N'A-CAKE');
+    DECLARE @UserCart INT, @GuestCart INT, @Merged INT;
+    EXEC dbo.SP_Cart_SetItemQuantity @IDUser = @Ana, @IDVariant = @Cake, @Quantity = 8, @IDCart = @UserCart OUTPUT;
+    EXEC dbo.SP_Cart_SetItemQuantity @GuestToken = '11111111-1111-1111-1111-111111111111', @IDVariant = @Cake, @Quantity = 2, @IDCart = @GuestCart OUTPUT;
+    UPDATE dbo.Variants SET OnHandStock = 3 WHERE IDVariant = @Cake;
+
+    EXEC dbo.SP_Cart_MergeGuest @IDUser = @Ana, @GuestToken = '11111111-1111-1111-1111-111111111111', @IDCart = @Merged OUTPUT;
+
+    DECLARE @Quantity INT = (SELECT Quantity FROM dbo.CartItems WHERE IDCart = @UserCart AND IDVariant = @Cake);
+    DECLARE @Flag INT = (SELECT COUNT(*) FROM dbo.CartItems AS ci JOIN dbo.Variants AS v ON v.IDVariant = ci.IDVariant
+                         WHERE ci.IDCart = @UserCart AND v.OnHandStock - v.ReservedStock < ci.Quantity);
+    EXEC tSQLt.AssertEquals @Expected = 8, @Actual = @Quantity;
+    EXEC tSQLt.AssertEquals @Expected = 1, @Actual = @Flag;
+END;
+GO
+
+CREATE PROCEDURE Test_Cart.[test merging caps a new line and leaves out the one that is sold out]
+AS
+BEGIN
+    DECLARE @Ana INT = Test_Shop.UserId(N'ana@shopcart.test');
+    DECLARE @Cake INT = Test_Shop.VariantId(N'A-CAKE'), @Cookie INT = Test_Shop.VariantId(N'B-COOKIE'), @Cupcake INT = Test_Shop.VariantId(N'C-CUPCAKE');
+    DECLARE @UserCart INT, @GuestCart INT, @Merged INT;
+    EXEC dbo.SP_Cart_SetItemQuantity @IDUser = @Ana, @IDVariant = @Cake, @Quantity = 1, @IDCart = @UserCart OUTPUT;
+    EXEC dbo.SP_Cart_SetItemQuantity @GuestToken = '11111111-1111-1111-1111-111111111111', @IDVariant = @Cookie, @Quantity = 6, @IDCart = @GuestCart OUTPUT;
+    EXEC dbo.SP_Cart_SetItemQuantity @GuestToken = '11111111-1111-1111-1111-111111111111', @IDVariant = @Cupcake, @Quantity = 2, @IDCart = @GuestCart OUTPUT;
+    UPDATE dbo.Variants SET OnHandStock = 4 WHERE IDVariant = @Cookie;
+    UPDATE dbo.Variants SET OnHandStock = 0 WHERE IDVariant = @Cupcake;
+
+    EXEC dbo.SP_Cart_MergeGuest @IDUser = @Ana, @GuestToken = '11111111-1111-1111-1111-111111111111', @IDCart = @Merged OUTPUT;
+
+    DECLARE @CookieQuantity INT = (SELECT Quantity FROM dbo.CartItems WHERE IDCart = @UserCart AND IDVariant = @Cookie);
+    DECLARE @CupcakeLines INT = (SELECT COUNT(*) FROM dbo.CartItems WHERE IDCart = @UserCart AND IDVariant = @Cupcake);
+    DECLARE @CakeQuantity INT = (SELECT Quantity FROM dbo.CartItems WHERE IDCart = @UserCart AND IDVariant = @Cake);
+    EXEC tSQLt.AssertEquals @Expected = 4, @Actual = @CookieQuantity;
+    EXEC tSQLt.AssertEquals @Expected = 0, @Actual = @CupcakeLines;
+    EXEC tSQLt.AssertEquals @Expected = 1, @Actual = @CakeQuantity;
+END;
+GO
+
+CREATE PROCEDURE Test_Cart.[test a guest cart adopted by a customer without cart is adjusted to the stock]
+AS
+BEGIN
+    DECLARE @Ana INT = Test_Shop.UserId(N'ana@shopcart.test');
+    DECLARE @Cookie INT = Test_Shop.VariantId(N'B-COOKIE'), @Cupcake INT = Test_Shop.VariantId(N'C-CUPCAKE'), @Cake INT = Test_Shop.VariantId(N'A-CAKE');
+    DECLARE @GuestCart INT, @Merged INT;
+    EXEC dbo.SP_Cart_SetItemQuantity @GuestToken = '11111111-1111-1111-1111-111111111111', @IDVariant = @Cookie, @Quantity = 8, @IDCart = @GuestCart OUTPUT;
+    EXEC dbo.SP_Cart_SetItemQuantity @GuestToken = '11111111-1111-1111-1111-111111111111', @IDVariant = @Cupcake, @Quantity = 2, @IDCart = @GuestCart OUTPUT;
+    EXEC dbo.SP_Cart_SetItemQuantity @GuestToken = '11111111-1111-1111-1111-111111111111', @IDVariant = @Cake, @Quantity = 3, @IDCart = @GuestCart OUTPUT;
+    UPDATE dbo.Variants SET OnHandStock = 5 WHERE IDVariant = @Cookie;
+    UPDATE dbo.Variants SET OnHandStock = 0 WHERE IDVariant = @Cupcake;
+
+    EXEC dbo.SP_Cart_MergeGuest @IDUser = @Ana, @GuestToken = '11111111-1111-1111-1111-111111111111', @IDCart = @Merged OUTPUT;
+
+    DECLARE @CookieQuantity INT = (SELECT Quantity FROM dbo.CartItems WHERE IDCart = @Merged AND IDVariant = @Cookie);
+    DECLARE @CupcakeLines INT = (SELECT COUNT(*) FROM dbo.CartItems WHERE IDCart = @Merged AND IDVariant = @Cupcake);
+    DECLARE @CakeQuantity INT = (SELECT Quantity FROM dbo.CartItems WHERE IDCart = @Merged AND IDVariant = @Cake);
+    DECLARE @Owner INT = (SELECT IDUser FROM dbo.Carts WHERE IDCart = @Merged);
+    EXEC tSQLt.AssertEquals @Expected = 5, @Actual = @CookieQuantity;
+    EXEC tSQLt.AssertEquals @Expected = 0, @Actual = @CupcakeLines;
+    EXEC tSQLt.AssertEquals @Expected = 3, @Actual = @CakeQuantity;
+    EXEC tSQLt.AssertEquals @Expected = @Ana, @Actual = @Owner;
+END;
+GO
+
+CREATE PROCEDURE Test_Cart.[test the available stock function adds back only the reservation of the same cart]
+AS
+BEGIN
+    DECLARE @Ana INT = Test_Shop.UserId(N'ana@shopcart.test'), @Luis INT = Test_Shop.UserId(N'luis@shopcart.test');
+    DECLARE @Cake INT = Test_Shop.VariantId(N'A-CAKE');
+    DECLARE @AnaCart INT, @LuisCart INT, @IDReservation INT;
+    EXEC dbo.SP_Cart_SetItemQuantity @IDUser = @Ana, @IDVariant = @Cake, @Quantity = 4, @IDCart = @AnaCart OUTPUT;
+    EXEC dbo.SP_Cart_SetItemQuantity @IDUser = @Luis, @IDVariant = @Cake, @Quantity = 2, @IDCart = @LuisCart OUTPUT;
+    EXEC dbo.SP_Inventory_ReserveStock @IDUser = @Ana, @IDCart = @AnaCart, @IDReservation = @IDReservation OUTPUT;
+
+    DECLARE @Own INT = (SELECT Available FROM dbo.FU_Cart_AvailableStock(@AnaCart, @Cake));
+    DECLARE @Other INT = (SELECT Available FROM dbo.FU_Cart_AvailableStock(@LuisCart, @Cake));
+    DECLARE @NoCart INT = (SELECT Available FROM dbo.FU_Cart_AvailableStock(NULL, @Cake));
+    DECLARE @Unknown INT = (SELECT COUNT(*) FROM dbo.FU_Cart_AvailableStock(@AnaCart, -1));
+    EXEC tSQLt.AssertEquals @Expected = 10, @Actual = @Own;
+    EXEC tSQLt.AssertEquals @Expected = 6, @Actual = @Other;
+    EXEC tSQLt.AssertEquals @Expected = 6, @Actual = @NoCart;
+    EXEC tSQLt.AssertEquals @Expected = 0, @Actual = @Unknown;
+END;
+GO
+
 CREATE PROCEDURE Test_Cart.[test the cart totals function returns nothing for a cart that does not exist]
 AS
 BEGIN

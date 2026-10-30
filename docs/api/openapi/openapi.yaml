@@ -946,6 +946,7 @@ paths:
       tags:
         - Cart
       summary: Give the visitor cart to the signed-in customer
+      description: 'Never fails for lack of stock, because it runs at sign-in: quantities are added up to 99 and up to the stock available, a quantity the customer already had is never lowered, and a line that is sold out is left out.'
       operationId: mergeGuestCart
       security:
         - bearerAuth: []
