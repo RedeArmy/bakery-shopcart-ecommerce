@@ -2,7 +2,12 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { DATABASE_COLLATION, assessCollation } from '../src/collation.js';
+import {
+  DATABASE_COLLATION,
+  STARTUP_GRACE_SECONDS,
+  assessCollation,
+  isServerInitialising,
+} from '../src/collation.js';
 
 describe('DATABASE_COLLATION', () => {
   // Se incrusta en CREATE DATABASE sin parámetros: solo puede contener letras, dígitos y guion bajo
@@ -59,5 +64,66 @@ describe('assessCollation', () => {
     const findings = assessCollation({ database: 'a', server: 'b' }, 'ShopCart');
     expect(findings.error).toBeDefined();
     expect(findings.warning).toBeDefined();
+  });
+});
+
+describe('isServerInitialising', () => {
+  const settled = {
+    collationChangeStarted: true,
+    collationChangeFinished: true,
+    serverCollation: DATABASE_COLLATION,
+    uptimeSeconds: 600,
+  };
+
+  it('is ready once the collation change has finished', () => {
+    expect(isServerInitialising(settled)).toBe(false);
+  });
+
+  it('is still starting while the collation change has begun but not finished', () => {
+    expect(isServerInitialising({ ...settled, collationChangeFinished: false })).toBe(true);
+  });
+
+  // La propiedad ya muestra el collation nuevo cuando el cambio EMPIEZA: no basta para dar el servidor por listo
+  it('does not trust the collation property while the change is running', () => {
+    expect(
+      isServerInitialising({ ...settled, collationChangeFinished: false, uptimeSeconds: 5 }),
+    ).toBe(true);
+  });
+
+  it('waits for a young server that still has another collation, because the change may be about to start', () => {
+    const young = {
+      collationChangeStarted: false,
+      collationChangeFinished: false,
+      serverCollation: 'SQL_Latin1_General_CP1_CI_AS',
+      uptimeSeconds: 8,
+    };
+    expect(isServerInitialising(young)).toBe(true);
+  });
+
+  it('stops waiting after the grace period for a server that deliberately keeps another collation', () => {
+    const configured = {
+      collationChangeStarted: false,
+      collationChangeFinished: false,
+      serverCollation: 'SQL_Latin1_General_CP1_CI_AS',
+      uptimeSeconds: STARTUP_GRACE_SECONDS,
+    };
+    expect(isServerInitialising(configured)).toBe(false);
+  });
+
+  it('does not wait for a restarted server whose collation already matches', () => {
+    expect(
+      isServerInitialising({
+        collationChangeStarted: false,
+        collationChangeFinished: false,
+        serverCollation: DATABASE_COLLATION,
+        uptimeSeconds: 3,
+      }),
+    ).toBe(false);
+  });
+
+  it('compares collation names without regard to case', () => {
+    expect(
+      isServerInitialising({ ...settled, serverCollation: DATABASE_COLLATION.toUpperCase() }),
+    ).toBe(false);
   });
 });

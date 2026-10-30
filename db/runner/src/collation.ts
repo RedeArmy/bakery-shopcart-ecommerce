@@ -34,3 +34,35 @@ export function assessCollation(
   }
   return findings;
 }
+
+/** Lo que el servidor dice de su propio arranque; se lee de SQL Server y se decide aquí, sin conexión, para poder probarlo. */
+export interface ServerStartup {
+  /** El registro del servidor contiene "Attempting to change default collation" */
+  collationChangeStarted: boolean;
+  /** El registro del servidor contiene "The default collation was successfully changed" */
+  collationChangeFinished: boolean;
+  serverCollation: string;
+  uptimeSeconds: number;
+}
+
+/**
+ * Un servidor recién creado con MSSQL_COLLATION acepta conexiones y ejecuta, ya dentro del proceso, el cambio de collation
+ * por defecto (unos 10 segundos). Crear una base de datos en esa ventana hace que el cambio falle con el error 3434 y que el
+ * servidor se detenga. Ni "responde a una consulta" ni "msdb en línea" ni el valor de SERVERPROPERTY('Collation') (que ya
+ * muestra el collation nuevo cuando el cambio EMPIEZA) indican que terminó: solo lo dice el registro del servidor.
+ */
+export const STARTUP_GRACE_SECONDS = 120;
+
+export function isServerInitialising(
+  startup: ServerStartup,
+  expected: string = DATABASE_COLLATION,
+): boolean {
+  // El cambio ya empezó y todavía no terminó
+  if (startup.collationChangeStarted && !startup.collationChangeFinished) return true;
+  // Un servidor joven con otro collation puede estar a punto de empezar el cambio (el registro aún no lo dice). Pasada la
+  // gracia se asume que es un servidor configurado a propósito con otro collation: la base de datos se crea con el suyo.
+  return (
+    startup.serverCollation.toLowerCase() !== expected.toLowerCase() &&
+    startup.uptimeSeconds < STARTUP_GRACE_SECONDS
+  );
+}

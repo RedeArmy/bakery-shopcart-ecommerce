@@ -41,6 +41,11 @@ HTTP codes: 400 validation or missing key, 401 missing or expired token, 403 ins
 | `AMOUNT_MISMATCH` | 422 | The received amount differs from the order total |
 | `COUPON_EXPIRED` | 422 | The coupon is outside its validity dates |
 | `COUPON_MINIMUM_NOT_MET` | 422 | The cart is below the coupon minimum |
+| `COUPON_NOT_FOUND` | 404 | The code does not exist |
+| `COUPON_INACTIVE` | 422 | The coupon was withdrawn |
+| `COUPON_NOT_STARTED` | 422 | The coupon is not valid yet |
+| `COUPON_ALREADY_USED` | 422 | The customer already used the coupon the allowed number of times |
+| `COUPON_NOT_APPLICABLE` | 422 | No item of the cart is covered by the coupon |
 | `INVALID_STATE_TRANSITION` | 422 | The order or payment transition is not allowed |
 | `RETURN_QUANTITY_EXCEEDED` | 422 | More units than were sold on the line |
 | `IDEMPOTENCY_KEY_REUSED` | 422 | The key was used with a different body |

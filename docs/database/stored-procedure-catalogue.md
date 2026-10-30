@@ -9,8 +9,8 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 | Auth (RF-01) | **Built:** `SP_Users_Register`, `SP_Users_GetByEmail`, `SP_Users_SetStatus`, `SP_Users_List`, `SP_Users_RecordFailedAttempt`, `SP_Users_RecordSuccessfulLogin` (added: it resets the lockout counter), `SP_Tokens_Save`, `SP_Tokens_Rotate`, `SP_Tokens_RevokeFamily` |
 | Catalogue (RF-02) | **Built:** `SP_Categories_Create/Update/Deactivate/List`, `SP_Products_Create/Update/Deactivate/Get/Search`, `SP_Variants_Create/Update`, `SP_Variants_ChangePrice`, `SP_Variants_SetAttributes` (internal), `SP_Addresses_List/Save` |
 | Inventory (RF-03) | **Built:** `SP_Inventory_RegisterEntry`, `SP_Inventory_AdjustStock`, **`SP_Inventory_ReserveStock`**, `SP_Inventory_ReleaseCartReservation`, **`SP_Inventory_ReleaseExpiredReservations`**, `SP_Inventory_GetLedger` |
-| Cart (RF-04) | `SP_Cart_Get`, `SP_Cart_SetItemQuantity`, `SP_Cart_RemoveItem`, `SP_Cart_MergeGuest`, `SP_Cart_ApplyCoupon`, `SP_Cart_RemoveCoupon` |
-| Coupons (RF-05) | `SP_Coupons_Create/Update/Deactivate/List`, `SP_Coupons_Validate` |
+| Cart (RF-04) | **Built:** `SP_Cart_Get`, `SP_Cart_SetItemQuantity`, `SP_Cart_RemoveItem`, `SP_Cart_MergeGuest`, `SP_Cart_ApplyCoupon`, `SP_Cart_RemoveCoupon` |
+| Coupons (RF-05) | **Built:** `SP_Coupons_Create/Update/Deactivate/List`, `SP_Coupons_Validate` |
 | Checkout (RF-06) | `SP_Idempotency_Begin/Complete/Fail/PurgeExpired`, **`SP_Orders_CreateOrder`** |
 | Payments | `SP_BankAccounts_ListActive/Save`, `SP_Payments_GetMethodsAndWindow`, `SP_Payments_GetByOrder`, **`SP_Payments_ConfirmPayment`**, **`SP_Payments_RegisterProof`**, `SP_Payments_GetProof`, `SP_Payments_ListPendingDeposits`, **`SP_Payments_ApproveDeposit`**, **`SP_Payments_RejectDeposit`**, **`SP_Payments_ExpirePending`**, `SP_Payments_RegisterOrphanPayment`, `SP_Refunds_Register/List/Mark` |
 | Payments, card (Phase 2) | `SP_Payments_RegisterExternalCheckout`, `SP_Payments_RegisterCreationFailure`, `SP_Payments_RegisterWebhookEvent`, `SP_Payments_ListPendingCardsToReconcile`, `SP_Webhooks_Purge` |
@@ -32,8 +32,12 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 | `VW_Dashboard_SalesByCategory` | Sales per category net of returns |
 | `VW_Dashboard_TopTenProducts` | Best sellers (filtered by period in the procedure) |
 | `VW_Carts_Abandoned` | Active carts with items and activity older than the configured threshold |
-| `FU_Catalogue_CurrentPrice(@IDVariant)` | Current price |
-| `FU_Coupons_DiscountCalculation(@IDCart, @IDCoupon)` | Discount per line with largest-remainder allocation |
+| `FU_Catalogue_CurrentPrice(@IDVariant)` | Built. Current price in integer cents and whether the variant can be bought (variant and product active) |
+| `FU_Coupons_DiscountCalculation(@IDCart, @IDCoupon)` | Built. Discount per cart line with largest-remainder allocation; the lines add up to the total exactly. Does not check validity |
+| `FU_Coupons_Status(@IDCoupon, @IDUser, @EligibleCents, @Now)` | Built. Why a coupon can or cannot be applied: `Valid`, `NotFound`, `Inactive`, `NotStarted`, `Expired`, `Exhausted`, `PerCustomerLimit`, `NoEligibleItems`, `BelowMinimum`, in that order of precedence |
+| `FU_Coupons_Rejection(@Reason)` | Built. The error number and the message (starting with the stable API code) for each rejection reason; no row for `Valid` |
+| `FU_Cart_Totals(@IDCart, @Now)` | Built. Subtotal, discount, total, VAT and taxable base in integer cents, plus the coupon reason. There is no shipping: the brief does not ask for it. `SP_Orders_CreateOrder` will reuse it, so the cart preview and the order can never disagree |
+| `FU_Money_CentsToText(@Cents)` | Built. The only conversion from cents to the two-decimal text that amounts use in the API (ADR-0020) |
 | `FU_Money_HalfEvenDivision(@N, @D)` | **The only rounding policy** (half-even). `NULL` outside its domain (`@N >= 0`, `@D > 0`) |
 | `FU_Users_ActiveAdministrator(@IDUser)` | One row when the account is an active administrator; the second line of defence behind the role middleware for every catalogue write |
 | `FU_Money_VatIncluded(@TotalCents, @VatRate)` | VAT included in a total (`VatCents`) and the taxable base (`BaseCents` by subtraction, so base + VAT = total) |
@@ -42,6 +46,20 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 | `FU_Orders_RefundableAmount(@IDOrderLine, @Quantity)` | Proportional refund closing exactly on the last unit |
 
 ## Critical procedures in brief
+
+### Cart and coupons (built)
+
+Sources: `R0048`, `R0053` to `R0057` (functions), `R0200` to `R0205` (cart) and `R0210` to `R0214` (coupons). 63 tSQLt tests in `Test_Cart` and `Test_Coupons`, plus the helper class `Test_Shop` (a sample shop with the prices of the design's numeric example).
+
+- **The cart stores no price and no total.** `SP_Cart_Get` computes everything from `FU_Cart_Totals` and returns one row with `Lines` as a JSON array and every amount as two-decimal text. With no cart it returns a row with a `NULL` `IDCart` and zero totals, and creates nothing, so visitors who only look do not fill the table with empty carts.
+- **Absolute quantities (ADR-0013).** `SP_Cart_SetItemQuantity` sets a quantity from 1 to 99 and creates the cart if needed; repeating a request leaves the same state. A customer is identified by the account and a visitor by the guest token, never both. First-cart creation is serialised with an application lock, because a unique-index violation inside the transaction would make it unusable.
+- **Editing the cart releases its active reservation.** A reservation describes the cart as it was; if the customer changes it, the units are returned, so stock is neither held for something the customer no longer wants nor left unreserved for what they added. The procedures take the same row lock on the cart as `SP_Inventory_ReserveStock`.
+- **Merging a guest cart** (`SP_Cart_MergeGuest`) gives the guest cart to a customer who had none, or adds the quantities (capped at 99, the customer's inscription wins) and discards the guest cart. It is idempotent.
+- **No shipping.** The brief does not mention it, so the cart total is the subtotal minus the discount. **VAT** is separated from that total with `FU_Money_VatIncluded`. `Orders.Shipping` and the `ShippingCost` and `FreeShippingFrom` settings stay in the schema for when shipping is added; `SP_Orders_CreateOrder` will write zero.
+- **Coupons.** The discount is a single half-even division over the eligible amount (percentage) or the fixed value capped at the eligible amount, then split across the eligible lines by largest remainder. A category coupon covers the category and its subcategories. The minimum amount is compared with the **eligible** subtotal, not the whole cart. The design example is a test: 10 % of Q245.45 is Q24.54 (a tie that goes to the even cent) split as 14.50, 4.50 and 5.54, for a total of Q220.91 with VAT Q23.67.
+- **A coupon only discounts while it is applicable today, and the cart says why when it is not.** One that expires, sells out or is used by the customer after being applied stops discounting, but the cart keeps it and reports the reason in `CouponReason` (`Expired`, `Exhausted`, `PerCustomerLimit`...), so the panel can show "this coupon has expired" or "you already used this coupon" instead of silently changing the total.
+- **Rejections carry the API code**, including `COUPON_ALREADY_USED` when the customer has spent the coupon and `COUPON_EXPIRED` when it is out of date. `SP_Cart_ApplyCoupon` raises 50422 (409 for an exhausted coupon, 404 for an unknown one) with a message that starts with `COUPON_EXPIRED:`, `COUPON_MINIMUM_NOT_MET:` and so on. `SP_Coupons_Validate` does not raise: it returns the reason and the discount that would apply, because an invalid code is the usual case while the customer types.
+- **Usage counting is not here yet.** `UsageCount` and `CouponUsages` are written by `SP_Orders_CreateOrder` (next block); the status function already reads them.
 
 ### Stock ledger (built)
 
@@ -90,7 +108,7 @@ One transaction (`XACT_ABORT ON`):
 2. Validate the address is the user's and `RequestedDeliveryDate >= today + MAX(LeadTimeDays)` of the products.
 3. Recompute amounts from `FU_Catalogue_CurrentPrice` and `FU_Coupons_DiscountCalculation` in integer cents. **The backend sends no amounts.**
 4. **Concurrent coupon:** conditional `UPDATE` of `UsageCount` (`WHERE UsageCount < TotalUsageLimit`); zero rows affected raises 409. The per-customer limit is validated with `sp_getapplock('Coupon:<id>:<user>')` and a `COUNT` over `CouponUsages WHERE IsVoided = 0`.
-5. Insert `Orders` in `PendingPayment` with total `MAX(0, …) + shipping`, and `OrderLines` with snapshots and largest-remainder discount allocation.
+5. Insert `Orders` in `PendingPayment` with total `MAX(0, …)` (no shipping: `Shipping` is written as zero), and `OrderLines` with snapshots and largest-remainder discount allocation.
 6. Payment deadline: **card** `now + ReservationMinutes`; **deposit** `FU_Payments_DepositWindow`. If `MinutesAvailable < MinDepositHours × 60`, raise `422 DEPOSIT_UNAVAILABLE_FOR_DATE`.
 7. Insert `Payments` (`Pending`, with `IdempotencyKey`) and, for a deposit, `PaymentDeposits` with the chosen account.
 8. Link the reservation to the order and set its `ExpiresAt` equal to the payment's. **No ledger movement and no physical stock decrement.**
