@@ -42,46 +42,23 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 
 ## Critical procedures in brief
 
-### `SP_Inventory_ReserveStock`: anti-oversell
+### `SP_Inventory_ReserveStock`: anti-oversell (built)
 
-```sql
-CREATE OR ALTER PROCEDURE dbo.SP_Inventory_ReserveStock
-  @IDUser INT, @IDCart INT, @IDReservation INT OUTPUT
-AS
-BEGIN
-  SET NOCOUNT ON; SET XACT_ABORT ON;
-  DECLARE @Minutes INT = (SELECT CAST(SettingValue AS INT) FROM dbo.Configuration WHERE SettingKey = 'ReservationMinutes');
-  BEGIN TRAN;
-    -- 1. Pertenencia (anti-IDOR dentro de la base de datos)
-    IF NOT EXISTS (SELECT 1 FROM dbo.Carts WHERE IDCart = @IDCart AND IDUser = @IDUser AND Status = 'Active')
-      THROW 50404, 'Cart not found.', 1;
-    IF NOT EXISTS (SELECT 1 FROM dbo.CartItems WHERE IDCart = @IDCart)
-      THROW 50422, 'The cart is empty.', 1;
+Source: `db/objects/procedures/R0111__SP_Inventory_ReserveStock.sql`, with `R0110` (`SP_Inventory_ReleaseCartReservation`) and `R0112` (`SP_Inventory_ReleaseExpiredReservations`).
 
-    -- 2. Libera una reserva previa del mismo carrito (reintento de checkout)
-    EXEC dbo.SP_Inventory_ReleaseCartReservation @IDCart = @IDCart;
+`SP_Inventory_ReserveStock(@IDUser, @IDCart, @Now = NULL, @IDReservation OUTPUT, @ExpiresAt OUTPUT)` reserves every line of the cart or none of them:
 
-    -- 3. Un solo UPDATE condicional: o se aparta todo o nada.
-    --    UPDLOCK serializa a quienes compiten por la misma variante; el segundo reevalúa con el valor ya actualizado.
-    UPDATE v SET ReservedStock = v.ReservedStock + ci.Quantity
-    FROM dbo.Variants v WITH (UPDLOCK, ROWLOCK)
-    JOIN dbo.CartItems ci ON ci.IDVariant = v.IDVariant
-    WHERE ci.IDCart = @IDCart AND v.IsActive = 1
-      AND (v.OnHandStock - v.ReservedStock) >= ci.Quantity;
+1. Validates the parameters (`50400`), the reservation window in `Configuration` (`50422`), the cart belongs to the user and is `Active` (`50404`, the same answer as a missing cart) and is not empty (`50422`).
+2. Takes `UPDLOCK` on the cart row, so two requests for the same cart (double click, retry) are serialised. `UX_Reservations_OneActivePerCart` (V0011) is the second line of defence in the data.
+3. Locks the variants it will touch **in ascending `IDVariant` order**. Without that order, two carts holding the same variants in a different order wait for each other in a circle: 60 crossing carts lost 44 deadlocks even with five retries. With it, none do.
+4. Releases the previous reservation of the cart (a checkout retry), then runs one conditional `UPDATE` that adds the quantities to `ReservedStock` where `OnHandStock - ReservedStock >= Quantity` and the variant is active. If it touches fewer rows than the cart has lines, it raises `50409` and `XACT_ABORT` rolls everything back.
+5. Inserts the `Active` reservation with `ExpiresAt = @Now + ReservationMinutes` and its lines.
 
-    IF @@ROWCOUNT <> (SELECT COUNT(*) FROM dbo.CartItems WHERE IDCart = @IDCart)
-      THROW 50409, 'One or more units are no longer available.', 1;   -- rollback total
+The clock enters as `@Now` so tests are deterministic. `CK_Variants_ReservedVsOnHand` remains the last safety net.
 
-    INSERT dbo.Reservations (IDCart, IDUser, Status, ExpiresAt)
-      VALUES (@IDCart, @IDUser, 'Active', DATEADD(MINUTE, @Minutes, SYSUTCDATETIME()));
-    SET @IDReservation = SCOPE_IDENTITY();
-    INSERT dbo.ReservationLines (IDReservation, IDVariant, Quantity)
-      SELECT @IDReservation, IDVariant, Quantity FROM dbo.CartItems WHERE IDCart = @IDCart;
-  COMMIT;
-END;
-```
+`SP_Inventory_ReleaseCartReservation(@IDUser, @IDCart)` returns the units of the cart's `Active` reservation that has no order and marks it `Released`; it takes the user because it is callable on its own and must not release another customer's cart. `SP_Inventory_ReleaseExpiredReservations(@Now = NULL)` does the same for every reservation without an order whose `ExpiresAt` has passed (status `Expired`) and returns `ReleasedReservations`; the job runner that calls it every 60 seconds is still pending (D-06). Both claim the reservation with a single `UPDATE` so concurrent runs never return the same units twice, and a reservation linked to an order is never touched (its window follows the payment).
 
-The `CK_Variants_ReservedVsOnHand` check is the safety net if a future procedure is faulty. Deadlocks between multi-item carts are mitigated by the set-based update and by the backend retry on error 1205.
+Proof: 18 tSQLt tests (`Test_Inventory`) and `npm run sql:concurrency`, which runs in CI against a real SQL Server: 100 buyers for 1 unit give exactly 1 success; 100 for 10 give exactly 10; 20 simultaneous requests for one cart hold the units once; a cart with one unavailable line holds nothing; 60 crossing carts reserve exactly the 40 that fit with no deadlock.
 
 ### `SP_Orders_CreateOrder`: atomic, born as `PendingPayment`
 

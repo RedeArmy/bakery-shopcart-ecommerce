@@ -58,6 +58,7 @@ erDiagram
 | `V0007` | `PaymentMethods`, `PaymentStatuses`, `PaymentStatusTransitions`, `BankAccounts`, `Payments`, `PaymentStatusHistory`, `PaymentDeposits`, `PaymentProofs`, `ReceivedWebhooks`, `Returns`, `ReturnLines`, `Refunds`, `FinancialMovements` |
 | `V0008` | `IdempotentRequests`, `AuditLog`, `Configuration`, `DdlHistory` (`SchemaVersion` and `ObjectVersions` are created by the runner) |
 | `V0009` | Triggers (immutability, valid transitions, frozen amounts, DDL capture) and permissions |
+| `V0011` | `UX_Reservations_OneActivePerCart`: a cart holds at most one active reservation without an order |
 | `R*` | Functions, views and procedures with a version header |
 | `S*` | Idempotent seeds |
 

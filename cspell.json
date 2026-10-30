@@ -55,6 +55,8 @@
   ],
   "words": [
     "HSTS",
+    "TRANCOUNT",
+    "OPENJSON",
     "Dockerfiles",
     "MSAL",
     "stringbool",
