@@ -18,8 +18,10 @@
       "parameters": {
         "required_approving_review_count": 0,
         "dismiss_stale_reviews_on_push": true,
+        "required_reviewers": [],
         "require_code_owner_review": false,
         "require_last_push_approval": false,
+        "require_extra_approval_for_unattributed_changes": true,
         "required_review_thread_resolution": true,
         "allowed_merge_methods": ["squash", "rebase"]
       }
@@ -39,7 +41,10 @@
           { "context": "sql-tests" },
           { "context": "compose-validate" },
           { "context": "windows-smoke" },
-          { "context": "sonarcloud" }
+          { "context": "sonarcloud" },
+          { "context": "images (backend, backend/Dockerfile)" },
+          { "context": "images (frontend, frontend/Dockerfile)" },
+          { "context": "images (db-runner, db/runner/Dockerfile)" }
         ]
       }
     }
