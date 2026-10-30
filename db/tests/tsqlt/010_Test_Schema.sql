@@ -108,6 +108,27 @@ BEGIN
 END;
 GO
 
+-- Los índices de V0010 respaldan las consultas por clave foránea de las tablas transaccionales
+CREATE PROCEDURE Test_Schema.[test the foreign keys that back real queries are indexed]
+AS
+BEGIN
+    DECLARE @Missing NVARCHAR(MAX) = (
+        SELECT STRING_AGG(expected.IndexName, N', ')
+        FROM (VALUES
+            (N'Payments', N'IX_Payments_Order'), (N'ProductImages', N'IX_ProductImages_Product'),
+            (N'OrderLines', N'IX_OrderLines_Variant'), (N'ReservationLines', N'IX_ReservationLines_Variant'),
+            (N'Reservations', N'IX_Reservations_Cart'), (N'InventoryMovements', N'IX_InventoryMovements_Order'),
+            (N'FinancialMovements', N'IX_FinancialMovements_Payment')
+        ) AS expected (TableName, IndexName)
+        WHERE NOT EXISTS (
+            SELECT 1 FROM sys.indexes AS i
+            WHERE i.object_id = OBJECT_ID(N'dbo.' + expected.TableName) AND i.name = expected.IndexName));
+
+    SET @Missing = ISNULL(@Missing, N'');
+    EXEC tSQLt.AssertEqualsString @Expected = N'', @Actual = @Missing;
+END;
+GO
+
 -- La captura de DDL no debe registrar los objetos de tSQLt, que viven fuera de dbo
 CREATE PROCEDURE Test_Schema.[test the DDL trigger records a procedure created in dbo]
 AS
