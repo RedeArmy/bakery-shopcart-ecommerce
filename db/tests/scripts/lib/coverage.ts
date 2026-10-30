@@ -1,3 +1,46 @@
+interface Chunk {
+  /** Texto que se conserva del fragmento leído */
+  text: string;
+  /** Posición donde continúa la lectura */
+  next: number;
+}
+
+// Una comilla doble dentro de la cadena ('') es una comilla escapada, no el cierre
+function readString(sql: string, start: number): Chunk {
+  let end = start + 1;
+  while (end < sql.length) {
+    if (sql.charAt(end) !== "'") {
+      end += 1;
+    } else if (sql.charAt(end + 1) === "'") {
+      end += 2;
+    } else {
+      break;
+    }
+  }
+  return { text: sql.slice(start, end + 1), next: end + 1 };
+}
+
+function readLineComment(sql: string, start: number): Chunk {
+  const end = sql.indexOf('\n', start);
+  return { text: '', next: end === -1 ? sql.length : end };
+}
+
+// Se deja un espacio para que los dos lados del comentario no se peguen en una sola palabra
+function readBlockComment(sql: string, start: number): Chunk {
+  const end = sql.indexOf('*/', start + 2);
+  return { text: ' ', next: end === -1 ? sql.length : end + 2 };
+}
+
+function readChunk(sql: string, index: number): Chunk {
+  const char = sql.charAt(index);
+  const next = sql.charAt(index + 1);
+
+  if (char === "'") return readString(sql, index);
+  if (char === '-' && next === '-') return readLineComment(sql, index);
+  if (char === '/' && next === '*') return readBlockComment(sql, index);
+  return { text: char, next: index + 1 };
+}
+
 /**
  * Quita los comentarios de un script T-SQL (bloque y de línea) respetando las cadenas.
  * Un recorrido de un solo paso en lugar de expresiones regulares: es lineal y no tiene retroceso.
@@ -8,28 +51,9 @@ export function stripSqlComments(sql: string): string {
   let index = 0;
 
   while (index < sql.length) {
-    const char = sql.charAt(index);
-    const next = sql.charAt(index + 1);
-
-    if (char === "'") {
-      // Una comilla doble dentro de la cadena ('') es una comilla escapada, no el cierre
-      let end = index + 1;
-      while (end < sql.length && !(sql.charAt(end) === "'" && sql.charAt(end + 1) !== "'")) {
-        end += sql.charAt(end) === "'" ? 2 : 1;
-      }
-      result += sql.slice(index, end + 1);
-      index = end + 1;
-    } else if (char === '-' && next === '-') {
-      const end = sql.indexOf('\n', index);
-      index = end === -1 ? sql.length : end;
-    } else if (char === '/' && next === '*') {
-      const end = sql.indexOf('*/', index + 2);
-      index = end === -1 ? sql.length : end + 2;
-      result += ' ';
-    } else {
-      result += char;
-      index += 1;
-    }
+    const chunk = readChunk(sql, index);
+    result += chunk.text;
+    index = chunk.next;
   }
   return result;
 }
