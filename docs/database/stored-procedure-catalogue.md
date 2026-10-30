@@ -15,7 +15,7 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 | Payments | **Built (readers):** `SP_BankAccounts_List/Save` (the draft called the first one `ListActive`), `SP_Payments_GetMethodsAndWindow`, `SP_Payments_GetByOrder`, `SP_Payments_GetProof`, `SP_Payments_ListPendingDeposits`. Core: **`SP_Payments_ConfirmPayment`**, **`SP_Payments_RegisterProof`**, **`SP_Payments_ApproveDeposit`**, **`SP_Payments_RejectDeposit`**, **`SP_Payments_ExpirePending`**, `SP_Payments_RegisterOrphanPayment`, **Built:** `SP_Refunds_Mark`, `SP_Refunds_List` (refunds are opened by cancellations, returns and late payments, so there is no separate register procedure) |
 | Payments, card (Phase 2) | `SP_Payments_RegisterExternalCheckout`, `SP_Payments_RegisterCreationFailure`, `SP_Payments_RegisterWebhookEvent`, `SP_Payments_ListPendingCardsToReconcile`, `SP_Webhooks_Purge` |
 | Orders (RF-07) | **Built:** **`SP_Orders_ChangeStatus`**, **`SP_Orders_Cancel`**, **`SP_Returns_Register`**, `SP_Orders_List`, `SP_Orders_GetDetail` |
-| Dashboard (RF-08) | `SP_Dashboard_SalesByPeriod`, `SP_Dashboard_SalesByCategory`, `SP_Dashboard_TopTenProducts`, `SP_Dashboard_AbandonedCarts` |
+| Dashboard (RF-08) | **Built:** `SP_Dashboard_Summary`, `SP_Dashboard_SalesByPeriod`, `SP_Dashboard_SalesByCategory`, `SP_Dashboard_TopProducts` (the draft called it `TopTenProducts`; it takes a limit), `SP_Dashboard_AbandonedCarts` |
 | Audit (RF-09) | `SP_Audit_Record` (built, internal use), `SP_Audit_Query` (built) |
 | Jobs | **Built:** `SP_Jobs_ExpirePayments`, `SP_Jobs_PurgeExpired`, `SP_Jobs_ReconcileAmounts`, `SP_Reconciliation_List` |
 | System | `SP_System_GetSchemaVersion` (built, `R0100`), `SP_System_ListObjectVersions` (built) |
@@ -30,9 +30,9 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 | `VW_Payments_PendingDeposits` | Review queue with age in hours |
 | `VW_Payments_CardReconciliation` | Open card payments past their nominal expiry (Phase 2) |
 | `VW_Reconciliation_Amounts` | Built. Money checks from [money handling](money-handling.md#conservation-and-reconciliation). Must return zero rows |
-| `VW_Dashboard_SalesByCategory` | Sales per category net of returns |
-| `VW_Dashboard_TopTenProducts` | Best sellers (filtered by period in the procedure) |
-| `VW_Carts_Abandoned` | Active carts with items and activity older than the configured threshold |
+| `VW_Dashboard_SoldOrders` | Built. One row per order that counts as a sale (`PaidAt` set, not cancelled), with the returned amount and the net, in integer cents |
+| `VW_Dashboard_SoldLines` | Built. One row per line of those orders, with the category frozen on the line, the returned units and the net. It replaces the draft views `VW_Dashboard_SalesByCategory` and `VW_Dashboard_TopTenProducts`: a row per line with `PaidAt` can be filtered by period and grouped by whoever reads it |
+| `VW_Carts_Abandoned` | Built. Active carts with items, their estimated value and `AbandonedAt` (last activity plus `AbandonedCartHours`); the procedure compares it with its own clock |
 | `FU_Catalogue_CurrentPrice(@IDVariant)` | Built. Current price in integer cents and whether the variant can be bought (variant and product active) |
 | `FU_Coupons_DiscountCalculation(@IDCart, @IDCoupon)` | Built. Discount per cart line with largest-remainder allocation; the lines add up to the total exactly. Does not check validity |
 | `FU_Coupons_Status(@IDCoupon, @IDUser, @EligibleCents, @Now)` | Built. Why a coupon can or cannot be applied: `Valid`, `NotFound`, `Inactive`, `NotStarted`, `Expired`, `Exhausted`, `PerCustomerLimit`, `NoEligibleItems`, `BelowMinimum`, in that order of precedence |
@@ -43,7 +43,7 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 | `FU_Users_ActiveAdministrator(@IDUser)` | One row when the account is an active administrator; the second line of defence behind the role middleware for every catalogue write |
 | `FU_Money_VatIncluded(@TotalCents, @VatRate)` | VAT included in a total (`VatCents`) and the taxable base (`BaseCents` by subtraction, so base + VAT = total) |
 | `FU_Payments_DepositWindow(@DeliveryDate, @LeadTimeDays, @Now)` | Built. Deposit deadline `MIN(DepositReservationHours, delivery − lead time)` with the delivery read at 00:00 Guatemala time, and the minutes available (negative when it is already too late) |
-| `FU_Dashboard_SalesByPeriod(@From, @To, @Granularity)` | Sales by day, week or month in GTQ and order count, by `PaidAt` |
+| `FU_Dashboard_SalesByPeriod(@From, @To, @Granularity)` | Built. Orders, gross, returned, net and average ticket per day, week or month, with the empty periods as zeros, by `PaidAt` in Guatemala time. Helpers: `FU_Dashboard_PeriodStart` (Monday weeks) and `FU_Dashboard_Range` (defaults and UTC bounds) |
 | `FU_Orders_RefundableAmount(@IDOrderLine, @Quantity)` | Built. Refund in cents for N units of a line, half to even, closing exactly on the last unit; NULL when the quantity is not valid |
 
 ## Critical procedures in brief
@@ -106,6 +106,20 @@ Sources: `R0340` to `R0343`. 9 tSQLt tests in `Test_Jobs`, plus two scenarios in
 - **One lock per job.** `SP_Jobs_ExpirePayments`, `SP_Jobs_PurgeExpired` and `SP_Jobs_ReconcileAmounts` take `sp_getapplock` (`Job:<Name>`, `Exclusive`, owner `Session`, timeout 0). Whoever does not get it returns `@Outcome = 'Skipped'` without waiting; whoever does returns `'Ran'` with the counts. A failure releases the lock in the `CATCH` and is raised unchanged. The design draft used a *transaction* lock; a session lock was chosen because `SP_Payments_ExpirePending` handles each order in its own transaction (see the [backend design](../architecture/03-backend-lld.md#jobs)).
 - **Reconciliation.** `SP_Jobs_ReconcileAmounts` counts the discrepancies of the money and inventory views. If there is any, it writes an audit entry (module `Reconciliation`) with the counts and the first 20 rows of each view as JSON. `SP_Reconciliation_List` returns the current discrepancies for the administrator panel, because the application login cannot read the views.
 - `SP_Inventory_ReleaseExpiredReservations` 1.1.0 also returns its count in `@Released`, so the job procedure does not have to capture a result set.
+
+### Dashboard (built)
+
+Sources: `R0063` to `R0065` (views), `R0066` to `R0068` (functions) and `R0350` to `R0354` (procedures). 23 tSQLt tests in `Test_Dashboard`.
+
+- **What counts as a sale** ([ADR-0009](../adr/0009-definition-of-completed-order-for-reports.md)). An order with `PaidAt` set that is not `Cancelled`; a `PendingPayment` order never counts. Returns are subtracted from the order they belong to (the sum of `Returns.RefundAmount`), so an order returned in full is still a sale with a net of zero. Everything is grouped by `PaidAt`.
+- **Guatemala days.** The range and the periods are days of Guatemala (UTC-6): a sale paid at 23:30 local belongs to that day even if it is already the next one in UTC. The range is converted to UTC bounds and compared with `PaidAt` directly, so `IX_Orders_PaidAt` is used. Weeks start on Monday and do not depend on `DATEFIRST`.
+- **Defaults and limits.** Without dates the reports cover the last 30 days up to today in Guatemala, decided in SQL. The series accepts at most 400 periods; the other reports accept at most ten years.
+- **Series.** `SP_Dashboard_SalesByPeriod` returns one row per period, oldest first, with the periods without sales as zeros so the chart is continuous.
+- **Average ticket.** The net sale divided by the paid orders, rounded half to even once with `FU_Money_HalfEvenDivision` (so 100.225 is 100.22 and not 100.23).
+- **Categories and best sellers.** Read the category frozen on each order line. Units are the units sold minus the returned ones; the nets of all the categories add up to the net sale of the period, which a test checks against the summary. Best sellers group by product (two sizes of the same cake add up) and sort by units, then net amount, then product, so the result is always the same; a product with every unit returned does not appear. The limit goes from 1 to 50 (10 by default).
+- **Summary.** One row with the sales of the range and three counters of the present moment that do not depend on it: orders waiting for payment, deposits under review and abandoned carts.
+- **Abandoned carts.** Active, with items and a last activity older than `AbandonedCartHours` (24). Most valuable first (current prices, no coupon), paged, with the customer's name and email; a visitor appears without them.
+- Amounts leave as text with two decimals; the backend adds nothing up.
 
 ### Idempotency (built)
 

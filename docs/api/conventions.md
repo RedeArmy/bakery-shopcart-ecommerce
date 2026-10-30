@@ -157,7 +157,7 @@ Responses answer **429** with the standard error, `Retry-After` and `RateLimit-L
 | `GET /admin/payments/{id}/proofs/{proofId}` | Operator, Administrator | 1 | Download |
 | `POST /admin/payments/{id}/approve`, `POST /admin/payments/{id}/reject` | Operator, Administrator | 1 | `reject` requires `{ reason }`. Idempotency-Key |
 | `GET/POST/PUT/DELETE /admin/coupons` | Administrator | 1 | |
-| `GET /admin/dashboard/sales?granularity=day\|week\|month`, `/sales-by-category`, `/top-products`, `/abandoned-carts` | Administrator | 1 | By `PaidAt` |
+| `GET /admin/dashboard/summary`, `/sales?granularity=day\|week\|month`, `/sales-by-category`, `/top-products?limit=`, `/abandoned-carts?page=&size=` | Administrator | 1 | Dates are Guatemala days (`from`, `to`; default: the last 30 days). By `PaidAt`, net of returns; 30 requests per minute |
 | `GET /admin/audit-log?module=&page=` | Administrator | 1 | |
 | `GET/PATCH /admin/users` | Administrator | 1 | Activate or deactivate |
 | `GET/POST /admin/bank-accounts`, `PUT /admin/bank-accounts/{id}` | Administrator | 1 | The seed provides them |
