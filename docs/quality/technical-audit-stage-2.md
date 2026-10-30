@@ -19,7 +19,7 @@ The foundation is sound: the database is built only through versioned scripts, t
 | Security | Good, with open items | Zero production vulnerabilities after this audit; least-privilege application login proven by test; no CSP at the edge yet (D-02) |
 | Reliability | Good | Idempotent runner with a lock, one transaction per script, graceful shutdown now bounded, container hardening |
 | Maintainability | Good | Duplicated helpers removed; logic split into pure modules with 98 % to 100 % line coverage in the database tooling |
-| Testability | Good for the database, thin elsewhere | No integration or concurrency tests yet (D-03) |
+| Testability | Good for the database, thin elsewhere | Reservation concurrency proven in CI; backend integration tests still missing (D-03) |
 | Operability | Good | One command starts the stack, the runner realigns the login, runbook covers the failures seen |
 | Documentation | Strong | Controlled migration register, now checked by CI against the files |
 
@@ -71,7 +71,7 @@ Severity is the impact if it is never addressed; effort is in working hours of o
 | ID | Severity | Area | Description | Recommended action | Effort | Target |
 |---|---|---|---|---|---|---|
 | D-02 | Medium | Security | No `Content-Security-Policy` or HSTS on the pages served by the edge (the API has helmet's). | Add CSP and HSTS at the edge, verify in a browser that the app still loads | 3 | Stage 7 |
-| D-03 | Medium | Testing | No integration or concurrency tests yet; the `integration` job is off. The anti-oversell and idempotency guarantees are proven in one session only. | Testcontainers suite with 100 parallel reservations; enable the job and require it | 8 | Stage 3 and 4 |
+| D-03 | Medium | Testing | Partly addressed: the anti-oversell guarantee is now proven against a real SQL Server by `npm run sql:concurrency` in the `sql-tests` job. Still missing: tests through the backend (Testcontainers), the idempotency guarantee, and the `integration` job, which is off. | Testcontainers suite for the backend slices; enable the `integration` job and require it | 5 | Stage 4 and 5 |
 | D-05 | Medium | Security | No rate-limit or idempotency middleware exists yet; only the edge `limit_req` is active. | Build as designed (ADR-0004, ADR-0010) | 10 | Stage 5 |
 | D-06 | Medium | Reliability | The expiry and reconciliation jobs do not exist; reservations would never expire. | Job runner with `sp_getapplock` (design §12.8) | 6 | Stage 6 |
 | D-07 | Low | Database | Constraints refer to fixed status identifiers (`IDOrderStatus IN (1, 6)`), coupling migrations to seed values. | Accepted and documented; revisit only if the states change | 0 | none |
