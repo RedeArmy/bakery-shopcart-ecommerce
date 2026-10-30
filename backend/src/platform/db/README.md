@@ -2,7 +2,7 @@
 
 **Responsibility:** Connection pool, the single stored-procedure executor and SQL error mapping.
 
-**May contain:** Typed parameters and deadlock retry.
+**May contain:** Typed parameters and deadlock retry with random back-off.
 
 **Must not contain:** Inline SQL of any kind.
 

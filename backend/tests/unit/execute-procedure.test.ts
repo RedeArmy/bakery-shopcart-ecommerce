@@ -1,6 +1,6 @@
 import sql from 'mssql';
 import { describe, expect, it, vi } from 'vitest';
-import { createProcedureExecutor } from '../../src/platform/db/execute-procedure.js';
+import { backoffDelay, createProcedureExecutor } from '../../src/platform/db/execute-procedure.js';
 import type { Database } from '../../src/platform/db/pool.js';
 import { AppError } from '../../src/shared-kernel/index.js';
 
@@ -25,6 +25,8 @@ function buildDatabase(outcomes: (() => unknown)[]) {
   } as unknown as Database;
   return { database, inputs, outputs, execute };
 }
+
+const noSleep = () => Promise.resolve();
 
 describe('procedure executor', () => {
   it('sends typed parameters and returns the rows and the output values', async () => {
@@ -52,10 +54,35 @@ describe('procedure executor', () => {
       () => ({ recordset: [], output: {} }),
     ]);
 
-    const result = await createProcedureExecutor(database)('dbo.SP_Orders_CreateOrder');
+    const result = await createProcedureExecutor(database, { sleep: noSleep })(
+      'dbo.SP_Orders_CreateOrder',
+    );
 
     expect(result.rows).toEqual([]);
     expect(execute).toHaveBeenCalledTimes(2);
+  });
+
+  it('waits a random, growing delay between deadlock retries', async () => {
+    const { database } = buildDatabase([
+      () => {
+        throw sqlError(1205);
+      },
+      () => {
+        throw sqlError(1205);
+      },
+      () => ({ recordset: [], output: {} }),
+    ]);
+    const waits: number[] = [];
+
+    await createProcedureExecutor(database, {
+      sleep: (milliseconds) => {
+        waits.push(milliseconds);
+        return Promise.resolve();
+      },
+      random: () => 0.5,
+    })('dbo.SP_Orders_CreateOrder');
+
+    expect(waits).toEqual([12, 25]);
   });
 
   it('gives up after three deadlocks and reports a database error', async () => {
@@ -72,7 +99,7 @@ describe('procedure executor', () => {
     ]);
 
     await expect(
-      createProcedureExecutor(database)('dbo.SP_Orders_CreateOrder'),
+      createProcedureExecutor(database, { sleep: noSleep })('dbo.SP_Orders_CreateOrder'),
     ).rejects.toMatchObject({
       httpStatus: 500,
       code: 'DATABASE_ERROR',
@@ -94,5 +121,17 @@ describe('procedure executor', () => {
     expect(failure).toBeInstanceOf(AppError);
     expect(failure).toMatchObject({ httpStatus: 409, code: 'CONFLICT' });
     expect(execute).toHaveBeenCalledOnce();
+  });
+});
+
+describe('backoffDelay', () => {
+  it('stays between zero and the exponential ceiling', () => {
+    expect(backoffDelay(0, () => 0)).toBe(0);
+    expect(backoffDelay(0, () => 0.999)).toBe(24);
+    expect(backoffDelay(1, () => 0.999)).toBe(49);
+  });
+
+  it('never exceeds the cap however many attempts have been made', () => {
+    expect(backoffDelay(10, () => 0.999)).toBe(199);
   });
 });

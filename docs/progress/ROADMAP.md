@@ -11,7 +11,7 @@
 | [ ] 4 | Cart, coupons, `CreateOrder`, `ConfirmPayment`, deposit flow, idempotency, returns, financial ledger, audit log; tSQLt suites | Fri 30 Oct | Phase 1 | 3 | States, immutability, coupons, payments and permissions suites green; `sp-coverage` passes; reconciliation views return 0 rows |
 | [ ] 5 | Backend slices, JWT with rotating refresh, idempotency and rate-limit middleware, secure proof upload, review queue, OpenAPI | Sat 31 Oct | Phase 1 | 4 | Endpoints match the contract; 401/403/404 behaviour verified; sixth login in a minute answers 429 |
 | [ ] 6 | Dashboard, jobs (expiry, reconciliation), concurrency/idempotency/IDOR/money tests, README final review, freeze | Sun 1 Nov | **Phase 1, Mon 2 Nov 23:59** | 5 | All Phase 1 checklist items in the [definition of done](../quality/definition-of-done.md); tag `release: phase 1` with hours to spare |
-| [ ] 7 | Frontend: auth, catalogue, cart, checkout and deposit, admin and review queue, dashboard, responsive | 3 to 5 Nov | Phase 2 | 6 | Role-based routes, loading/empty/error states, transparent refresh; implement `formatMoney` and un-skip its test |
+| [ ] 7 | Frontend: auth, catalogue, cart, checkout and deposit, admin and review queue, dashboard, responsive | 3 to 5 Nov | Phase 2 | 6 | Role-based routes, loading/empty/error states, transparent refresh |
 | [ ] 8 | Card payments: Recurrente adapter, webhook, verification, reconciliation job, simulator; validate unverified API points with test keys | 6 to 7 Nov | Phase 2 | 6 | Card purchase works against the simulator; open questions 5 resolved |
 | [ ] 9 | Method switching, refunds, SonarQube, Schemathesis, Playwright, extras, defence rehearsal | Sun 8 Nov | Phase 2 | 7, 8 | End-to-end scenarios green; quality profile runs |
 | [ ] 10 | Final polish and push | Mon 9 Nov | **Phase 2, Mon 9 Nov 23:59** | 9 | Clean-machine run from the README only; tag `release: phase 2` |
@@ -29,7 +29,7 @@ Stages 2 to 6 now have to fit in the four days before Delivery Phase 1; see the 
 
 ## Tracked follow-ups
 
-- [ ] `formatMoney` in `frontend/src/shared/lib/money` and its skipped test (Stage 7).
+- [x] `formatMoney` in `frontend/src/shared/lib/money` with its tests.
 - [x] Write the migration runner in `db/runner` (`npm run db:migrate` and `db:verify`, Stage 2, branch `feat/stage-2-migration-runner`).
 - [x] Replace the `db-migrate` placeholder with the runner image (`db/runner/Dockerfile`); the whole compose stack was built and started with it (Stage 2).
 - [x] Enable the `sql-tests` CI job: `run-tsqlt.ts` now uninstalls tSQLt instead of dropping the database, and the `sql:coverage` step waits for `sp-coverage.ts` (Stage 2).
@@ -42,7 +42,8 @@ Stages 2 to 6 now have to fit in the four days before Delivery Phase 1; see the 
 - [x] Create the `CI_SA_PASSWORD` secret for the `sql-tests` job, as a repository and a Dependabot secret.
 - [x] Add `SONAR_TOKEN` as a Dependabot secret so the required `sonarcloud` check can pass on Dependabot pull requests; verified on 30 Oct (the secret is listed and the three open Dependabot pull requests pass `sonarcloud`).
 - [x] `sql-tests` is a required check of the active ruleset (verified against GitHub on 30 Oct).
-- [ ] Add the three `images` contexts to the required checks of the ruleset, and `integration` when it is enabled (Stage 2).
+- [x] Add the three `images` contexts to the required checks of the ruleset.
+- [ ] Add `integration` to the required checks when it is enabled (Stage 3 and 4).
 - [x] Write the core schema (`V0001` to `V0009`) and the reference seeds (`S0001` to `S0005`: roles, order and payment states and transitions, payment methods, movement types, configuration) (Stage 2).
 - [ ] Write the demo seeds (postponed to the end of the project at the user's request): catalogue of about 60 products, coupons `WELCOME10`, `CAKES25`, `SOLDOUT` and `EXPIRED`, a bank account, and the performance data (Stage 2).
 - [ ] Generate the `SEED_*_PASSWORD` variables in `ensure-env` and `.env.example`, and create the demo accounts with a Node seed step that calls `SP_Users_Register` (Stage 2, see [test accounts](../operations/test-accounts.md)).
