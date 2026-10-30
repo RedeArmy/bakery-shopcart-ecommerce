@@ -54,7 +54,16 @@ This deletes the SQL Server data and the payment proofs volumes.
 
 ## Jobs and locks
 
-Jobs run inside the API process and take `sp_getapplock`, so running two replicas is safe. A request stuck `InProgress` for more than 60 seconds is considered abandoned.
+Jobs run inside the API process. Each `SP_Jobs_*` procedure takes a session `sp_getapplock`, so running two replicas is safe: the second one answers `Skipped`. A request stuck `InProgress` for more than 60 seconds is considered abandoned.
+
+| What you see | What it means |
+|---|---|
+| `Job ran` at `info` with `expiredOrders` or `releasedReservations` above zero | Normal: unpaid orders were cancelled and their stock returned |
+| `Job failed` at `error`, repeated | The procedure raised an error (usually the database was unreachable). The job stays scheduled; read `GET /admin/system/jobs` for `lastError` and `consecutiveFailures` |
+| `Reconciliation found discrepancies` at `error` | Money or stock does not add up. Read `GET /admin/system/reconciliation` and the audit log entry of module `Reconciliation` before anything else |
+| Reservations never expire | `JOBS_ENABLED=false`, or the process cannot reach the database. To free them by hand: `EXEC dbo.SP_Jobs_ExpirePayments` |
+
+To stop the jobs of one instance (for example while restoring a backup) set `JOBS_ENABLED=false` and restart it; the other replicas keep running them.
 
 ## Reconciliation
 

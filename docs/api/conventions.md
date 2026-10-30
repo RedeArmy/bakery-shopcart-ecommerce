@@ -164,4 +164,6 @@ Responses answer **429** with the standard error, `Retry-After` and `RateLimit-L
 | `GET /admin/refunds?status=Pending`, `PATCH /admin/refunds/{id}` | Administrator | 1 | Orphan payments and returns to refund |
 | `GET /admin/payments/gateway-status` | Administrator | 2 | Configured or not, mode, last probe. **No keys** |
 | `GET /admin/system/version` | Administrator | 1 | App, schema and procedure versions |
+| `GET /admin/system/jobs` | Administrator | 1 | State of each background job **in the instance that answers** |
+| `GET /admin/system/reconciliation` | Administrator | 1 | Current money and inventory discrepancies; empty when everything adds up |
 | `GET /health/live`, `/health/ready` | Public | 1 | `ready` checks the database and schema version |

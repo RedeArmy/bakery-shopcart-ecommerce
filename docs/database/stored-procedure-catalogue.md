@@ -17,6 +17,7 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 | Orders (RF-07) | **Built:** **`SP_Orders_ChangeStatus`**, **`SP_Orders_Cancel`**, **`SP_Returns_Register`**, `SP_Orders_List`, `SP_Orders_GetDetail` |
 | Dashboard (RF-08) | `SP_Dashboard_SalesByPeriod`, `SP_Dashboard_SalesByCategory`, `SP_Dashboard_TopTenProducts`, `SP_Dashboard_AbandonedCarts` |
 | Audit (RF-09) | `SP_Audit_Record` (built, internal use), `SP_Audit_Query` (built) |
+| Jobs | **Built:** `SP_Jobs_ExpirePayments`, `SP_Jobs_PurgeExpired`, `SP_Jobs_ReconcileAmounts`, `SP_Reconciliation_List` |
 | System | `SP_System_GetSchemaVersion` (built, `R0100`), `SP_System_ListObjectVersions` (built) |
 
 ## Views and functions
@@ -97,6 +98,14 @@ Sources: `R0101`, `R0122`, `R0305`, `R0306`, `R0330` to `R0335`. 29 tSQLt tests 
 - **Bank accounts** (`SP_BankAccounts_List` and `Save`): only an administrator saves; the change is audited.
 - **Audit and versions**: `SP_Audit_Query` pages the immutable log newest first; `SP_System_ListObjectVersions` returns the current version of every programmable object.
 - `SP_Returns_Register` 1.1.0 also returns `@RefundAmountText`, the refund as text with two decimals, so the API never passes an amount through a floating-point number.
+
+### Jobs (built)
+
+Sources: `R0340` to `R0343`. 9 tSQLt tests in `Test_Jobs`, plus two scenarios in `npm run sql:concurrency`.
+
+- **One lock per job.** `SP_Jobs_ExpirePayments`, `SP_Jobs_PurgeExpired` and `SP_Jobs_ReconcileAmounts` take `sp_getapplock` (`Job:<Name>`, `Exclusive`, owner `Session`, timeout 0). Whoever does not get it returns `@Outcome = 'Skipped'` without waiting; whoever does returns `'Ran'` with the counts. A failure releases the lock in the `CATCH` and is raised unchanged. The design draft used a *transaction* lock; a session lock was chosen because `SP_Payments_ExpirePending` handles each order in its own transaction (see the [backend design](../architecture/03-backend-lld.md#jobs)).
+- **Reconciliation.** `SP_Jobs_ReconcileAmounts` counts the discrepancies of the money and inventory views. If there is any, it writes an audit entry (module `Reconciliation`) with the counts and the first 20 rows of each view as JSON. `SP_Reconciliation_List` returns the current discrepancies for the administrator panel, because the application login cannot read the views.
+- `SP_Inventory_ReleaseExpiredReservations` 1.1.0 also returns its count in `@Released`, so the job procedure does not have to capture a result set.
 
 ### Idempotency (built)
 
@@ -251,7 +260,9 @@ Properties defended: a repeated webhook or approval is a no-op; a concurrent con
 - **`SP_Orders_Cancel`** (Customer on their own order, in `PendingPayment`, `Paid` or `InPreparation`): see [state machines](../architecture/04-state-machines.md).
 - **`SP_Returns_Register`**: per line validates `Quantity <= Quantity − ReturnedQuantity`. The refund uses `FU_Orders_RefundableAmount`; on the last pending unit it refunds `LineTotal − previously refunded`, so the sum closes to the cent. It restores stock through the ledger, moves the order to `PartiallyReturned` or `Returned` and creates a pending `Refund`.
 
-### Expiry (job every 60 s with `sp_getapplock`)
+### Expiry (job every 60 s with `sp_getapplock`, built)
+
+`SP_Jobs_ExpirePayments(@Now, @BatchSize, outputs @Outcome, @ExpiredOrders, @ReleasedReservations)` takes the session lock `Job:ExpirePayments` and runs the two procedures below; see [Jobs](#jobs-built).
 
 1. **`SP_Payments_ExpirePending`:** `Pending` payments past `ExpiresAt` become `Expired`; their `PendingPayment` order becomes `Cancelled`; the reservation is released and the coupon voided. `UnderReview` payments **never** expire.
 2. **Card (Phase 2):** before expiring, the backend queries `GET /api/checkouts/:id`; if Recurrente says `paid`, it confirms instead of expiring. Two minutes of grace after the deadline.

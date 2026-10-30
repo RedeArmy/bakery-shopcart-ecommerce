@@ -148,15 +148,21 @@ export interface FileStoragePort {
 
 ## Jobs
 
+The runner (`platform/jobs`) lives in the API process. Each job is a stored procedure (`SP_Jobs_*`) that takes its own lock and does the work, so the TypeScript side only decides **when** to call it.
+
 | Job | Frequency | Phase | What it does |
 |---|---|---|---|
-| `expirePayments` | 60 s | 1 | `SP_Payments_ExpirePending`, then release reservations without an order |
-| `purges` | daily | 1 | Orphan files, `SP_Idempotency_PurgeExpired`, `SP_Webhooks_Purge` (30 days) |
+| `expirePayments` | 60 s | 1 | `SP_Jobs_ExpirePayments`: `SP_Payments_ExpirePending`, then `SP_Inventory_ReleaseExpiredReservations` for the carts that reserved and never confirmed |
+| `purgeExpired` | daily | 1 | `SP_Jobs_PurgeExpired`: `SP_Idempotency_PurgeExpired`. The purges of `DdlHistory` and `ReceivedWebhooks` (D-08) join it when they have a procedure |
+| `reconcileAmounts` | daily | 1 | `SP_Jobs_ReconcileAmounts`: counts the rows of `VW_Reconciliation_Amounts` and `VW_Inventory_Reconciliation`; any row writes an audit entry and the job logs an error |
 | `reconcileCards` | 2 min | 2 | For pending card payments, `GET /api/checkouts/:id`; confirms when `paid` |
 | `probeGateway` | 5 min | 2 | `registry.refresh()` |
-| `reconcileAmounts` | daily | 1 | Checks `VW_Reconciliation_Amounts`; alerts and audits when rows appear |
 
-All jobs take `sp_getapplock` so only one instance runs.
+**Single execution across replicas.** Every `SP_Jobs_*` procedure starts with `sp_getapplock` (`Exclusive`, owner `Session`, timeout 0) on `Job:<Name>`. A second instance does not wait: it answers `Skipped` and tries again at its next turn. The lock is a *session* lock and not a transaction lock on purpose: `SP_Payments_ExpirePending` cancels each order in its own transaction, so that one failure does not undo the rest, and a transaction lock would force one transaction around everything. A procedure call holds a single connection from start to finish, so a session lock is safe with a pooled client, it is released in a `CATCH` when the job fails and, if the process dies, the connection closes and SQL Server releases it by itself.
+
+**Runner behaviour.** A job is scheduled again when the previous run **finishes** (fixed delay), so inside one process it never overlaps itself. A failure is logged and the job stays scheduled: a database that was down for a minute must not stop reservations from expiring for good. A job that finds work logs it at `info`; one with nothing to do logs at `debug`. The runner stops with the process (`SIGTERM` waits for the run in progress). `GET /admin/system/jobs` shows the state of each job **in the instance that answers**; `GET /admin/system/reconciliation` lists the current discrepancies.
+
+Settings: `JOBS_ENABLED`, `JOB_EXPIRE_SECONDS`, `JOB_PURGE_HOURS` and `JOB_RECONCILE_HOURS` ([configuration reference](../operations/configuration-reference.md)).
 
 ## Idempotency middleware
 
