@@ -30,6 +30,7 @@ All documents are British English. The only Spanish files are the root `README.m
 | [er-diagram](database/er-diagram.md) | Entity-relationship diagram and migration order |
 | [naming-standard](database/naming-standard.md) | Naming rules for every object |
 | [versioning](database/versioning.md) | Migrations, objects, seeds, runner, drift detection |
+| [migration-register](database/migration-register.md) | Controlled register of every migration: content, checksum, risk, rollback, tests, approval |
 | [stored-procedure-catalogue](database/stored-procedure-catalogue.md) | Every procedure, view and function |
 | [money-handling](database/money-handling.md) | Half-even policy, formulas, worked example |
 

@@ -54,6 +54,12 @@
     "/^.*<!--\\s*spelling-ignore\\s*-->.*$/gm"
   ],
   "words": [
+    "Eder",
+    "Yafeth",
+    "Quiroa",
+    "ISJSON",
+    "EVENTDATA",
+    "msdownload",
     "Objeto",
     "Cambio",
     "SNAME",
