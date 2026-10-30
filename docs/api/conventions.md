@@ -26,6 +26,11 @@ HTTP codes: 400 validation or missing key, 401 missing or expired token, 403 ins
 |---|---|---|
 | `VALIDATION_ERROR` | 400 | A request failed schema validation (`details` lists the issues) |
 | `INVALID_JSON` | 400 | Malformed JSON body |
+| `UNAUTHENTICATED` | 401 | The request has no access token |
+| `TOKEN_INVALID` | 401 | The access token is invalid or expired |
+| `FORBIDDEN` | 403 | The role is not allowed to do this |
+| `IDEMPOTENCY_KEY_INVALID` | 400 | The key does not have 8 to 64 letters, digits, hyphens or underscores |
+| `IDEMPOTENCY_SCOPE_MISSING` | 400 | An idempotent request without a session or a guest cart token |
 | `IDEMPOTENCY_KEY_REQUIRED` | 400 | A mutating endpoint was called without `Idempotency-Key` |
 | `INVALID_AMOUNT` | 400 | Amount does not match `^\d{1,16}\.\d{2}$` |
 | `NOT_FOUND` | 404 | Does not exist, or belongs to someone else |

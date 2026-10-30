@@ -8,6 +8,8 @@ const env = loadEnv({
   DB_APP_USER: 'shopcart_app',
   DB_APP_PASSWORD: 'secret',
   APP_PUBLIC_URL: 'http://localhost:8080',
+  JWT_ACCESS_SECRET: 'a-test-secret-of-sufficient-length',
+  JWT_REFRESH_PEPPER: 'a-test-pepper-of-sufficient-length',
 });
 
 describe('composition root', () => {
