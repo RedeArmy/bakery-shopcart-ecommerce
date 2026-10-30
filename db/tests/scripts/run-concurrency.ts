@@ -72,6 +72,7 @@ async function cleanUp(pool: sql.ConnectionPool): Promise<void> {
     DELETE p FROM dbo.Products AS p JOIN dbo.Categories AS cat ON cat.IDCategory = p.IDCategory WHERE cat.Name = @category;
     DELETE FROM dbo.Categories WHERE Name = @category;
     DELETE FROM dbo.Users WHERE Email LIKE @email;
+    DELETE FROM dbo.IdempotentRequests WHERE Scope LIKE N'G:race-%';
   `);
 }
 
@@ -353,6 +354,133 @@ async function ledgerEntries(pool: sql.ConnectionPool): Promise<void> {
   await checkReconciliation(pool, 'ledger entries', [variant]);
 }
 
+interface BeginRow {
+  Outcome: string;
+  HttpStatus: number | null;
+  ResponseBody: string | null;
+}
+
+const IDEMPOTENCY_HASH = 'a'.repeat(64);
+const IDEMPOTENCY_SCOPE = 'G:race-idempotency';
+const IDEMPOTENCY_ROUTE = '/checkout/confirm';
+
+// Un error de la llamada se cuenta como resultado 'Error' y no aborta la prueba: un duplicado que SQL Server rechaza con
+// una violación del índice único también significa que dos solicitudes pasaron a la vez
+async function beginIdempotent(
+  pool: sql.ConnectionPool,
+  key: string,
+  hash: string,
+): Promise<BeginRow> {
+  try {
+    const result = await pool
+      .request()
+      .input('Scope', sql.NVarChar(64), IDEMPOTENCY_SCOPE)
+      .input('Method', sql.NVarChar(7), 'POST')
+      .input('Route', sql.NVarChar(200), IDEMPOTENCY_ROUTE)
+      .input('IdempotencyKey', sql.NVarChar(64), key)
+      .input('RequestHash', sql.Char(64), hash)
+      .execute<BeginRow>('dbo.SP_Idempotency_Begin');
+    return result.recordset[0] ?? { Outcome: 'Error', HttpStatus: null, ResponseBody: null };
+  } catch {
+    return { Outcome: 'Error', HttpStatus: null, ResponseBody: null };
+  }
+}
+
+function countOutcome(rows: readonly BeginRow[], outcome: string): number {
+  return rows.filter((row) => row.Outcome === outcome).length;
+}
+
+async function completeIdempotent(pool: sql.ConnectionPool, key: string): Promise<void> {
+  await pool
+    .request()
+    .input('Scope', sql.NVarChar(64), IDEMPOTENCY_SCOPE)
+    .input('Method', sql.NVarChar(7), 'POST')
+    .input('Route', sql.NVarChar(200), IDEMPOTENCY_ROUTE)
+    .input('IdempotencyKey', sql.NVarChar(64), key)
+    .input('HttpStatus', sql.SmallInt, 201)
+    .input('ResponseBody', sql.NVarChar(sql.MAX), `{"key":"${key}"}`)
+    .output('Stored', sql.Bit)
+    .execute('dbo.SP_Idempotency_Complete');
+}
+
+// Veinte llaves con cinco solicitudes simultáneas cada una (cien conexiones a la vez): por cada llave exactamente una se
+// ejecuta y las otras esperan; al completarse, todas reproducen la misma respuesta. Es el INSERT atómico del ADR-0004.
+// Varias llaves a la vez, y no una sola, para que las colisiones sean seguras de provocar.
+async function idempotencyRace(pool: sql.ConnectionPool): Promise<void> {
+  const keys = Array.from({ length: 20 }, (_, index) => `race-key-${index}`);
+  const callersPerKey = 5;
+  console.log(`\n${keys.length} idempotency keys with ${callersPerKey} simultaneous requests each`);
+
+  const first = await Promise.all(
+    keys.flatMap((key) =>
+      Array.from({ length: callersPerKey }, () =>
+        beginIdempotent(pool, key, IDEMPOTENCY_HASH).then((row) => ({ key, row })),
+      ),
+    ),
+  );
+  const rowsOf = (key: string) =>
+    first.filter((entry) => entry.key === key).map((entry) => entry.row);
+  const executedOnce = keys.filter((key) => countOutcome(rowsOf(key), 'New') === 1).length;
+  const waiting = first.filter((entry) => entry.row.Outcome === 'InProgress').length;
+  console.log(
+    `  keys executed once ${executedOnce} of ${keys.length}, waiting ${waiting}, errors ${countOutcome(
+      first.map((e) => e.row),
+      'Error',
+    )}`,
+  );
+  check('every key is allowed to execute exactly once', executedOnce, keys.length);
+  check(
+    'all the other requests are told it is in progress',
+    waiting,
+    keys.length * (callersPerKey - 1),
+  );
+  check(
+    'no request fails with a duplicate error',
+    countOutcome(
+      first.map((e) => e.row),
+      'Error',
+    ),
+    0,
+  );
+
+  await Promise.all(keys.map((key) => completeIdempotent(pool, key)));
+
+  const replays = await Promise.all(
+    keys.flatMap((key) =>
+      Array.from({ length: callersPerKey }, () =>
+        beginIdempotent(pool, key, IDEMPOTENCY_HASH).then((row) => ({ key, row })),
+      ),
+    ),
+  );
+  check(
+    'once completed, every retry replays',
+    replays.filter((e) => e.row.Outcome === 'Replay').length,
+    keys.length * callersPerKey,
+  );
+  check(
+    'every replay carries the exact response stored for its key',
+    replays.every((e) => e.row.HttpStatus === 201 && e.row.ResponseBody === `{"key":"${e.key}"}`),
+    true,
+  );
+
+  const mismatches = await Promise.all(
+    keys.map((key) => beginIdempotent(pool, key, 'b'.repeat(64))),
+  );
+  check(
+    'the same key with another body is always a mismatch',
+    countOutcome(mismatches, 'Mismatch'),
+    keys.length,
+  );
+
+  const rows = await pool
+    .request()
+    .input('Scope', sql.NVarChar(64), IDEMPOTENCY_SCOPE)
+    .query<{ Rows: number }>(
+      'SELECT Rows = COUNT(*) FROM dbo.IdempotentRequests WHERE Scope = @Scope;',
+    );
+  check('only one row exists per key', rows.recordset[0]?.Rows, keys.length);
+}
+
 async function main(): Promise<number> {
   const envFile = join(ROOT, '.env');
   if (existsSync(envFile)) process.loadEnvFile(envFile);
@@ -380,6 +508,7 @@ async function main(): Promise<number> {
       () => allOrNothing(pool),
       () => crossingCarts(pool),
       () => ledgerEntries(pool),
+      () => idempotencyRace(pool),
     ];
     await inSequence(scenarios, (scenario) => scenario());
   } finally {

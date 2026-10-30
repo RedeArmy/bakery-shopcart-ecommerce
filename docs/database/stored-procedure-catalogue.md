@@ -11,7 +11,7 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 | Inventory (RF-03) | **Built:** `SP_Inventory_RegisterEntry`, `SP_Inventory_AdjustStock`, **`SP_Inventory_ReserveStock`**, `SP_Inventory_ReleaseCartReservation`, **`SP_Inventory_ReleaseExpiredReservations`**, `SP_Inventory_GetLedger` |
 | Cart (RF-04) | **Built:** `SP_Cart_Get`, `SP_Cart_SetItemQuantity`, `SP_Cart_RemoveItem`, `SP_Cart_MergeGuest`, `SP_Cart_ApplyCoupon`, `SP_Cart_RemoveCoupon` |
 | Coupons (RF-05) | **Built:** `SP_Coupons_Create/Update/Deactivate/List`, `SP_Coupons_Validate` |
-| Checkout (RF-06) | `SP_Idempotency_Begin/Complete/Fail/PurgeExpired`, **`SP_Orders_CreateOrder`** |
+| Checkout (RF-06) | **Built:** `SP_Idempotency_Begin/Complete/Fail/PurgeExpired`, **`SP_Orders_CreateOrder`** |
 | Payments | `SP_BankAccounts_ListActive/Save`, `SP_Payments_GetMethodsAndWindow`, `SP_Payments_GetByOrder`, **`SP_Payments_ConfirmPayment`**, **`SP_Payments_RegisterProof`**, `SP_Payments_GetProof`, `SP_Payments_ListPendingDeposits`, **`SP_Payments_ApproveDeposit`**, **`SP_Payments_RejectDeposit`**, **`SP_Payments_ExpirePending`**, `SP_Payments_RegisterOrphanPayment`, `SP_Refunds_Register/List/Mark` |
 | Payments, card (Phase 2) | `SP_Payments_RegisterExternalCheckout`, `SP_Payments_RegisterCreationFailure`, `SP_Payments_RegisterWebhookEvent`, `SP_Payments_ListPendingCardsToReconcile`, `SP_Webhooks_Purge` |
 | Orders (RF-07) | **`SP_Orders_ChangeStatus`**, **`SP_Orders_Cancel`**, `SP_Orders_List`, `SP_Orders_GetDetail`, **`SP_Returns_Register`** |
@@ -46,6 +46,26 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 | `FU_Orders_RefundableAmount(@IDOrderLine, @Quantity)` | Proportional refund closing exactly on the last unit |
 
 ## Critical procedures in brief
+
+### Idempotency (built)
+
+Sources: `R0220` to `R0223`. 22 tSQLt tests in `Test_Idempotency`, plus a race in `npm run sql:concurrency`. This is the first level of ADR-0004; the unique indexes of each table are the second.
+
+- **`SP_Idempotency_Begin(@Scope, @Method, @Route, @IdempotencyKey, @RequestHash, @Now, @AbandonedAfterSeconds = 60)`** returns one row with the `Outcome` the middleware acts on:
+
+  | Outcome | Meaning | The middleware answers |
+  |---|---|---|
+  | `New` | A new key, an expired key not yet purged, or a key whose earlier attempt failed | Executes the operation |
+  | `TakenOver` | The request was in progress for 60 seconds or more: its instance probably died | Executes the operation |
+  | `Replay` | Completed with the same body | The stored status and body, with `Idempotent-Replayed: true` |
+  | `InProgress` | Running, with `RetryAfterSeconds` left before it counts as abandoned | 409 with `Retry-After` |
+  | `Mismatch` | The same key with another body, in any state | 422 `IDEMPOTENCY_KEY_REUSED` |
+
+- **Atomic by lock, not by luck.** The lookup uses `UPDLOCK, HOLDLOCK`, which takes a range lock on the key whether or not the row exists, so two simultaneous requests cannot both see "no row". Without `HOLDLOCK` the second one hits the unique index and fails; the concurrency check (20 keys, 5 simultaneous requests each) catches that.
+- **`SP_Idempotency_Complete`** stores the status and the body of a 2xx or a deterministic 4xx. A 5xx is refused with 50400: it must stay retryable. The body must be valid JSON or absent (a `204`). Completing twice keeps the first response and returns `@Stored = 0`, so a slow instance cannot overwrite the answer another instance already gave. An unknown key is 50404.
+- **`SP_Idempotency_Fail`** marks an in-progress request as `Failed`, so the same key and body can be retried at once instead of waiting 60 seconds. It never touches a completed request and is harmless when repeated or for an unknown key.
+- **`SP_Idempotency_PurgeExpired`** deletes expired keys in batches (default 1000, at most 100 batches per run), each batch its own transaction so requests keep passing between them. It also removes requests that were left in progress: after 24 hours they are abandoned beyond doubt. The daily job that calls it is still pending (D-06).
+- The scope is `U:<IDUser>` or `G:<GuestToken>` and is compared exactly (a lowercase prefix is refused), so one customer's key never collides with another's. Retention comes from the `IdempotencyKeyHours` setting (24 when absent).
 
 ### Cart and coupons (built)
 

@@ -174,7 +174,8 @@ BEGIN
            (N'SOLDOUT', N'FixedAmount', 5, 0, '2020-01-01', '2099-12-31', 2, 2, 1),
            (N'MIN200', N'FixedAmount', 5, 200.00, '2020-01-01', '2099-12-31', NULL, 0, 1);
 
-    CREATE TABLE #Cases (Code NVARCHAR(30), Eligible BIGINT, Expected VARCHAR(20));
+    -- COLLATE DATABASE_DEFAULT: una tabla temporal toma el collation de tempdb, que puede diferir del de la base de datos
+    CREATE TABLE #Cases (Code NVARCHAR(30) COLLATE DATABASE_DEFAULT, Eligible BIGINT, Expected VARCHAR(20) COLLATE DATABASE_DEFAULT);
     INSERT INTO #Cases VALUES (N'FIXED10', 5000, 'Valid'), (N'OFF', 5000, 'Inactive'), (N'FUTURE', 5000, 'NotStarted'), (N'EXPIRED', 5000, 'Expired'),
                               (N'SOLDOUT', 5000, 'Exhausted'), (N'FIXED10', 0, 'NoEligibleItems'), (N'MIN200', 19999, 'BelowMinimum'), (N'MIN200', 20000, 'Valid');
 
@@ -227,7 +228,8 @@ GO
 CREATE PROCEDURE Test_Coupons.[test every rejection reason maps to its error number and a message with the api code]
 AS
 BEGIN
-    CREATE TABLE #Cases (Reason VARCHAR(20), ErrorNumber INT, Prefix NVARCHAR(40));
+    -- COLLATE DATABASE_DEFAULT: una tabla temporal toma el collation de tempdb, que puede diferir del de la base de datos
+    CREATE TABLE #Cases (Reason VARCHAR(20) COLLATE DATABASE_DEFAULT, ErrorNumber INT, Prefix NVARCHAR(40) COLLATE DATABASE_DEFAULT);
     INSERT INTO #Cases VALUES ('NotFound', 50404, N'COUPON_NOT_FOUND:'), ('Inactive', 50422, N'COUPON_INACTIVE:'), ('NotStarted', 50422, N'COUPON_NOT_STARTED:'),
                               ('Expired', 50422, N'COUPON_EXPIRED:'), ('Exhausted', 50409, N'COUPON_EXHAUSTED:'),
                               ('PerCustomerLimit', 50422, N'COUPON_ALREADY_USED:'), ('NoEligibleItems', 50422, N'COUPON_NOT_APPLICABLE:'),
