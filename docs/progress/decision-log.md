@@ -54,6 +54,7 @@ One dated line per decision, newest last. Architectural decisions link to their 
 | 2026-10-29 | The commitlint body line-length rule is switched off, because GUI Git clients do not wrap long lines | none |
 | 2026-10-29 | Health checks use `127.0.0.1` instead of `localhost`, because Alpine resolves `localhost` to IPv6 while nginx listens on IPv4 | none |
 | 2026-10-29 | The runner creates `SchemaVersion` and `ObjectVersions` itself (idempotently) and `ObjectVersions` gains `DefinitionChecksum`, so `db:verify` can detect objects changed by hand without depending on how SQL Server stores the text | [ADR-0003](../adr/0003-own-forward-only-migration-runner-in-node.md) |
+| 2026-10-30 | Reference seeds keep the transition tables equal to the declared set (a removed transition is deleted), while the configuration seed inserts only missing keys and never overwrites a tuned value | none |
 | 2026-10-30 | `Carts.GuestToken` is unique through a filtered unique index and not a `UNIQUE` constraint, because SQL Server treats `NULL` values as equal in a constraint and the design's version would allow only one signed-in cart in the whole table (found by the constraint tests) | none |
 | 2026-10-30 | Triggers stay in the migration `V0009`, as in the design, and `InventoryMovements`, `OrderStatusHistory` and `PaymentStatusHistory` get insert-only triggers like the audit log and the financial ledger | none |
 | 2026-10-28 | Demo coupon codes are `WELCOME10` and `CAKES25` (the prompt wins over the design's Spanish codes) | none |

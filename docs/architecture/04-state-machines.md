@@ -41,7 +41,7 @@ Side effects by transition:
 
 | Transition | Effects |
 |---|---|
-| `PendingPayment → Cancelled` | Payment `Cancelled`; reservation `Released` and `ReservedStock` decremented; coupon usage voided and `CurrentUses` decremented. **No inventory movement**, because no physical exit happened |
+| `PendingPayment → Cancelled` | Payment `Cancelled`; reservation `Released` and `ReservedStock` decremented; coupon usage voided and `UsageCount` decremented. **No inventory movement**, because no physical exit happened |
 | `Paid`/`InPreparation → Cancelled` | Inventory movement of type Return (`+Quantity`) per line, `OnHandStock` restored, pending `Refund` created |
 | Returns (`Delivered`) | Per line: `Quantity <= Quantity − ReturnedQuantity`; refund from `FU_Orders_RefundableAmount`; stock restored in the ledger; state `PartiallyReturned` or `Returned` |
 
@@ -85,6 +85,6 @@ A payment `UnderReview` does **not** expire by time: an Operator resolves it.
 | One open attempt per order | `UX_Payments_OneOpenAttempt` on `IDOrder` where status is 1 or 2 |
 | One approved payment per order | `UX_Payments_OneApproved` |
 | One accounting charge per payment | `UX_FinancialMovements_OneChargePerPayment` |
-| One inventory exit per order and variant | `UX_InventoryMovements_OneOutPerOrder` |
+| One inventory exit per order and variant | `UX_InventoryMovements_OneExitPerOrder` |
 | The same bank slip cannot back two live payments | `UX_PaymentDeposits_Reference` (filtered on `IsCurrent = 1`) |
 | Amounts never change | `TR_Orders_AmountsImmutable`, `TR_OrderLines_PricesImmutable`, `TR_Payments_AmountImmutable` |

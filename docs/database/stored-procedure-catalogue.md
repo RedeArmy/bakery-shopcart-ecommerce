@@ -49,7 +49,7 @@ CREATE OR ALTER PROCEDURE dbo.SP_Inventory_ReserveStock
 AS
 BEGIN
   SET NOCOUNT ON; SET XACT_ABORT ON;
-  DECLARE @Minutes INT = (SELECT CAST(Value AS INT) FROM dbo.Configuration WHERE [Key] = 'ReservationMinutes');
+  DECLARE @Minutes INT = (SELECT CAST(SettingValue AS INT) FROM dbo.Configuration WHERE SettingKey = 'ReservationMinutes');
   BEGIN TRAN;
     -- 1. Pertenencia (anti-IDOR dentro de la base de datos)
     IF NOT EXISTS (SELECT 1 FROM dbo.Carts WHERE IDCart = @IDCart AND IDUser = @IDUser AND Status = 'Active')
@@ -89,7 +89,7 @@ One transaction (`XACT_ABORT ON`):
 1. Validate the reservation is `Active`, not expired and owned by the user (409 if expired).
 2. Validate the address is the user's and `RequestedDeliveryDate >= today + MAX(LeadTimeDays)` of the products.
 3. Recompute amounts from `FU_Catalogue_CurrentPrice` and `FU_Coupons_DiscountCalculation` in integer cents. **The backend sends no amounts.**
-4. **Concurrent coupon:** conditional `UPDATE` of `CurrentUses` (`WHERE CurrentUses < MaxTotalUses`); zero rows affected raises 409. The per-customer limit is validated with `sp_getapplock('Coupon:<id>:<user>')` and a `COUNT` over `CouponUsages WHERE IsVoided = 0`.
+4. **Concurrent coupon:** conditional `UPDATE` of `UsageCount` (`WHERE UsageCount < TotalUsageLimit`); zero rows affected raises 409. The per-customer limit is validated with `sp_getapplock('Coupon:<id>:<user>')` and a `COUNT` over `CouponUsages WHERE IsVoided = 0`.
 5. Insert `Orders` in `PendingPayment` with total `MAX(0, …) + shipping`, and `OrderLines` with snapshots and largest-remainder discount allocation.
 6. Payment deadline: **card** `now + ReservationMinutes`; **deposit** `FU_Payments_DepositWindow`. If `MinutesAvailable < MinDepositHours × 60`, raise `422 DEPOSIT_UNAVAILABLE_FOR_DATE`.
 7. Insert `Payments` (`Pending`, with `IdempotencyKey`) and, for a deposit, `PaymentDeposits` with the chosen account.

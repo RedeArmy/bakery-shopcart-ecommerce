@@ -9,7 +9,7 @@ A double click or a network retry must never create two orders or two charges. S
 
 ## Decision
 
-Defence in depth. Level one is a generic middleware: mutating `POST` and `PATCH` endpoints require an `Idempotency-Key`; `SP_Idempotency_Begin` inserts atomically against a unique key `(scope, method, route, key)`; a completed request replays the stored response with `Idempotent-Replayed: true`, an in-flight one answers 409 with `Retry-After`, and the same key with a different body answers 422. 5xx responses are not stored. Level two is the database: `UQ_Payments_Key`, `UX_Payments_OneOpenAttempt`, `UX_Payments_OneApproved`, `UX_Payments_ExternalReference`, `UX_PaymentDeposits_Reference`, `UQ_CouponUsages_Order`, `UX_FinancialMovements_OneChargePerPayment` and `UX_InventoryMovements_OneOutPerOrder` prevent duplicates even if the middleware fails.
+Defence in depth. Level one is a generic middleware: mutating `POST` and `PATCH` endpoints require an `Idempotency-Key`; `SP_Idempotency_Begin` inserts atomically against a unique key `(scope, method, route, key)`; a completed request replays the stored response with `Idempotent-Replayed: true`, an in-flight one answers 409 with `Retry-After`, and the same key with a different body answers 422. 5xx responses are not stored. Level two is the database: `UQ_Payments_IdempotencyKey`, `UX_Payments_OneOpenAttempt`, `UX_Payments_OneApproved`, `UX_Payments_ExternalReference`, `UX_PaymentDeposits_Reference`, `UQ_CouponUsages_Order`, `UX_FinancialMovements_OneChargePerPayment` and `UX_InventoryMovements_OneExitPerOrder` prevent duplicates even if the middleware fails.
 
 ## Consequences
 
