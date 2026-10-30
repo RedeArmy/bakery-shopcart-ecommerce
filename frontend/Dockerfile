@@ -17,7 +17,7 @@ COPY frontend frontend
 RUN npm run build --workspace=frontend
 
 # --- Etapa 2: servidor estático sin privilegios ------------------------------------------------
-FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
+FROM nginxinc/nginx-unprivileged:1.31-alpine AS runtime
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/frontend/dist /usr/share/nginx/html
 EXPOSE 8080
