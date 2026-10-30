@@ -54,7 +54,7 @@ More detail in [docs/architecture](docs/architecture/01-system-overview.md) and 
 
 ## 4. Technical decisions
 
-Decisions are recorded as ADRs (24 in total). The ones that shape everything:
+Decisions are recorded as ADRs (25 in total). The ones that shape everything:
 
 | Decision | ADR |
 |---|---|

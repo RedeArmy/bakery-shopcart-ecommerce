@@ -8,6 +8,8 @@ services:
     environment:
       ACCEPT_EULA: 'Y'
       MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+      # Mismo collation que la base de datos del proyecto (ADR-0025)
+      MSSQL_COLLATION: Latin1_General_100_CI_AS_SC
     ports:
       # Solo en el bucle local y en un puerto distinto del de la pila principal
       - '127.0.0.1:${SQL_TEST_PORT:-14333}:1433'

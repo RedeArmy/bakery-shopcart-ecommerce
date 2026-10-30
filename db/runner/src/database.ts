@@ -4,6 +4,7 @@ import sql from 'mssql';
 import { splitBatches } from './batches.js';
 import { checksumOf } from './checksum.js';
 import type { AppLoginConfig, ConnectionSettings } from './config.js';
+import { DATABASE_COLLATION, assessCollation } from './collation.js';
 import { CONTROL_TABLES_SQL } from './control-tables.js';
 import { MigrationError } from './errors.js';
 import { inSequence } from './sequence.js';
@@ -56,11 +57,40 @@ export async function connect(
   }
 }
 
+/**
+ * Crea la base de datos con el collation del proyecto si no existe (ADR-0025). El collation es una constante del
+ * código y no un parámetro: CREATE DATABASE no admite parámetros en COLLATE y el valor nunca viene de fuera.
+ */
 export async function ensureDatabase(master: sql.ConnectionPool, name: string): Promise<void> {
   await master.request().input('name', sql.NVarChar(128), name).query(`
-    DECLARE @create NVARCHAR(400) = N'CREATE DATABASE ' + QUOTENAME(@name) + N';';
+    DECLARE @create NVARCHAR(500) = N'CREATE DATABASE ' + QUOTENAME(@name) + N' COLLATE ${DATABASE_COLLATION};';
     IF DB_ID(@name) IS NULL EXEC sp_executesql @create;
   `);
+}
+
+/**
+ * Comprueba que la base de datos conectada usa el collation del proyecto. Si no, aborta: un collation distinto
+ * cambia qué filas cuentan como duplicadas y cómo se ordena el texto, y no se corrige a posteriori.
+ */
+export async function enforceCollation(
+  pool: sql.ConnectionPool,
+  databaseName: string,
+): Promise<void> {
+  const result = await pool.request().query<{
+    DatabaseCollation: string;
+    ServerCollation: string;
+  }>(`
+    SELECT
+      CAST(DATABASEPROPERTYEX(DB_NAME(), 'Collation') AS NVARCHAR(128)) AS DatabaseCollation,
+      CAST(SERVERPROPERTY('Collation') AS NVARCHAR(128)) AS ServerCollation;
+  `);
+  const row = result.recordset[0];
+  const findings = assessCollation(
+    { database: row?.DatabaseCollation ?? 'unknown', server: row?.ServerCollation ?? 'unknown' },
+    databaseName,
+  );
+  if (findings.warning !== undefined) console.warn(`warning: ${findings.warning}`);
+  if (findings.error !== undefined) throw new MigrationError('COLLATION_MISMATCH', findings.error);
 }
 
 /** Impide que dos runners migren a la vez (por ejemplo, dos arranques de compose). */

@@ -7,7 +7,7 @@
 | Scope | Everything built from Stage 0 to Stage 2: repository tooling, CI, Docker, database (migrations, seeds, runner, tSQLt), backend and frontend skeletons |
 | Baseline | `main` at commit `6588d97` (pull request #19) |
 | Method | Static review of the code, catalogue queries against a migrated SQL Server 2022, dependency audit, execution of every test suite and of the whole compose stack, review of CI and container configuration |
-| Result | **Approved to continue to Stage 3** after the fixes in section 4. Twelve items fixed, twelve open and registered in section 5; none of them blocks Delivery Phase 1 |
+| Result | **Approved to continue to Stage 3** after the fixes in section 4. Thirteen items fixed, eleven open and registered in section 5; none of them blocks Delivery Phase 1 |
 
 ## 1. Summary
 
@@ -59,6 +59,7 @@ The foundation is sound: the database is built only through versioned scripts, t
 | F-10 | Low | Process | Dependabot proposed major upgrades that broke `main` twice and ignored two of the Dockerfiles. | Majors ignored (done by hand with tests), frontend and runner Dockerfiles watched |
 | F-11 | Low | Quality | The migration register could drift silently from the files, and the backend coverage figure disagreed with SonarCloud's exclusions. | `sql:lint` now fails when a migration or seed is missing from the register or its checksum differs (this also exercises the CRLF normalisation on Windows); coverage exclusions aligned |
 | F-12 | Medium | Operability | `/health/ready` checked the connection only and `REQUIRED_SCHEMA_VERSION` was read but never used, so a backend could take traffic against an outdated schema (was D-01). | `SP_System_GetSchemaVersion` and a readiness check that compares it with a version declared in code; 503 with `schema: outdated` until the migrations run, no version numbers in the response, one log line per state change |
+| F-13 | Medium | Database | The collation was the instance default, so unique text and ordering could behave differently per server (was D-04). | `Latin1_General_100_CI_AS_SC` ([ADR-0025](../adr/0025-database-collation.md)), created explicitly, enforced on every run, set on every server the repository starts, and covered by tests |
 
 ## 5. Debt register (open)
 
@@ -68,7 +69,6 @@ Severity is the impact if it is never addressed; effort is in working hours of o
 |---|---|---|---|---|---|---|
 | D-02 | Medium | Security | No `Content-Security-Policy` or HSTS on the pages served by the edge (the API has helmet's). | Add CSP and HSTS at the edge, verify in a browser that the app still loads | 3 | Stage 7 |
 | D-03 | Medium | Testing | No integration or concurrency tests yet; the `integration` job is off. The anti-oversell and idempotency guarantees are proven in one session only. | Testcontainers suite with 100 parallel reservations; enable the job and require it | 8 | Stage 3 and 4 |
-| D-04 | Medium | Database | The database collation is the server default, so accent and case behaviour of unique emails and names depends on the instance. | Decide the collation, set it explicitly in `CREATE DATABASE` and record an ADR | 2 | Stage 3 |
 | D-05 | Medium | Security | No rate-limit or idempotency middleware exists yet; only the edge `limit_req` is active. | Build as designed (ADR-0004, ADR-0010) | 10 | Stage 5 |
 | D-06 | Medium | Reliability | The expiry and reconciliation jobs do not exist; reservations would never expire. | Job runner with `sp_getapplock` (design §12.8) | 6 | Stage 6 |
 | D-07 | Low | Database | Constraints refer to fixed status identifiers (`IDOrderStatus IN (1, 6)`), coupling migrations to seed values. | Accepted and documented; revisit only if the states change | 0 | none |
@@ -99,5 +99,4 @@ Severity is the impact if it is never addressed; effort is in working hours of o
 
 1. Merge this audit's pull request, then add `images` to the required checks.
 2. Start Stage 3 with the money function and its tests, then the atomic stock reservation with the concurrency test, because they carry the highest risk.
-3. Take the collation decision (D-04) before the first procedure that compares text.
 4. Schedule the demo data (D-14) and the job runner (D-06) as fixed blocks, not as leftovers.

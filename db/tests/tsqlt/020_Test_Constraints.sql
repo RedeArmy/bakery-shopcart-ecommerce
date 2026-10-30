@@ -141,6 +141,27 @@ BEGIN
 END;
 GO
 
+-- CI: el mismo correo con otra capitalización es el mismo correo
+CREATE PROCEDURE Test_Constraints.[test an e-mail address is unique regardless of case]
+AS
+BEGIN
+    EXEC tSQLt.ExpectException @ExpectedMessagePattern = N'%UQ_Users_Email%';
+    INSERT INTO dbo.Users (IDRole, Email, PasswordHash, FullName)
+    VALUES (1, N'FIXTURE.CUSTOMER@SHOPCART.TEST', N'not-a-real-hash', N'Duplicate');
+END;
+GO
+
+-- AS: un nombre con acento y otro sin él son distintos ("Té" y "Te"); la búsqueda sin acentos se pide con COLLATE
+CREATE PROCEDURE Test_Constraints.[test category names that differ only by an accent are distinct]
+AS
+BEGIN
+    INSERT INTO dbo.Categories (Name) VALUES (N'Te'), (N'T' + NCHAR(0x00E9));
+
+    DECLARE @Count INT = (SELECT COUNT(*) FROM dbo.Categories WHERE Name IN (N'Te', N'T' + NCHAR(0x00E9)));
+    EXEC tSQLt.AssertEquals @Expected = 2, @Actual = @Count;
+END;
+GO
+
 CREATE PROCEDURE Test_Constraints.[test a guest token cannot be used by two carts]
 AS
 BEGIN

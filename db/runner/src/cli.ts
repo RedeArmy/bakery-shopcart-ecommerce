@@ -9,6 +9,7 @@ import {
   applyScript,
   connect,
   ensureControlTables,
+  enforceCollation,
   ensureDatabase,
   loadState,
   provisionAppLogin,
@@ -34,6 +35,7 @@ async function migrate(): Promise<number> {
 
   const pool = await connect(config, config.database);
   try {
+    await enforceCollation(pool, config.database);
     await acquireLock(pool);
     await ensureControlTables(pool);
 
@@ -69,6 +71,7 @@ async function verify(): Promise<number> {
 
   const pool = await connect(config, config.database);
   try {
+    await enforceCollation(pool, config.database);
     await ensureControlTables(pool);
     const state = await loadState(pool);
     const live = await readLiveDefinitions(
