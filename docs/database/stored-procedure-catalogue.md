@@ -34,7 +34,8 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 | `VW_Carts_Abandoned` | Active carts with items and activity older than the configured threshold |
 | `FU_Catalogue_CurrentPrice(@IDVariant)` | Current price |
 | `FU_Coupons_DiscountCalculation(@IDCart, @IDCoupon)` | Discount per line with largest-remainder allocation |
-| `FU_Money_HalfEvenDivision(@N, @D)` | **The only rounding policy** (half-even) |
+| `FU_Money_HalfEvenDivision(@N, @D)` | **The only rounding policy** (half-even). `NULL` outside its domain (`@N >= 0`, `@D > 0`) |
+| `FU_Money_VatIncluded(@TotalCents, @VatRate)` | VAT included in a total (`VatCents`) and the taxable base (`BaseCents` by subtraction, so base + VAT = total) |
 | `FU_Payments_DepositWindow(@DeliveryDate, @LeadTimeDays)` | Deposit deadline: `MIN(24 h, delivery − lead time)` and minutes available |
 | `FU_Dashboard_SalesByPeriod(@From, @To, @Granularity)` | Sales by day, week or month in GTQ and order count, by `PaidAt` |
 | `FU_Orders_RefundableAmount(@IDOrderLine, @Quantity)` | Proportional refund closing exactly on the last unit |
