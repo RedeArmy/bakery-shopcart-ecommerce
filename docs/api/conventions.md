@@ -49,6 +49,9 @@ HTTP codes: 400 validation or missing key, 401 missing or expired token, 403 ins
 | `INVALID_STATE_TRANSITION` | 422 | The order or payment transition is not allowed |
 | `RETURN_QUANTITY_EXCEEDED` | 422 | More units than were sold on the line |
 | `IDEMPOTENCY_KEY_REUSED` | 422 | The key was used with a different body |
+| `IDEMPOTENCY_KEY_IN_USE` | 409 | The key was already used to create another order |
+| `DELIVERY_DATE_TOO_SOON` | 422 | The delivery date is earlier than the lead time of the products allows |
+| `DEPOSIT_ATTEMPTS_EXCEEDED` | 422 | The order used all its deposit attempts |
 | `PAYLOAD_TOO_LARGE` | 413 | File over 5 MB |
 | `UNSUPPORTED_FILE_TYPE` | 415 | Magic bytes are not JPEG, PNG or PDF |
 | `RATE_LIMITED` | 429 | Too many requests |

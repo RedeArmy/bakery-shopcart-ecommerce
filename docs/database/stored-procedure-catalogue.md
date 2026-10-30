@@ -11,7 +11,7 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 | Inventory (RF-03) | **Built:** `SP_Inventory_RegisterEntry`, `SP_Inventory_AdjustStock`, **`SP_Inventory_ReserveStock`**, `SP_Inventory_ReleaseCartReservation`, **`SP_Inventory_ReleaseExpiredReservations`**, `SP_Inventory_GetLedger` |
 | Cart (RF-04) | **Built:** `SP_Cart_Get`, `SP_Cart_SetItemQuantity`, `SP_Cart_RemoveItem`, `SP_Cart_MergeGuest`, `SP_Cart_ApplyCoupon`, `SP_Cart_RemoveCoupon` |
 | Coupons (RF-05) | **Built:** `SP_Coupons_Create/Update/Deactivate/List`, `SP_Coupons_Validate` |
-| Checkout (RF-06) | **Built:** `SP_Idempotency_Begin/Complete/Fail/PurgeExpired`, **`SP_Orders_CreateOrder`** |
+| Checkout (RF-06) | **Built:** `SP_Idempotency_Begin/Complete/Fail/PurgeExpired`, **`SP_Orders_CreateOrder`** (built) |
 | Payments | `SP_BankAccounts_ListActive/Save`, `SP_Payments_GetMethodsAndWindow`, `SP_Payments_GetByOrder`, **`SP_Payments_ConfirmPayment`**, **`SP_Payments_RegisterProof`**, `SP_Payments_GetProof`, `SP_Payments_ListPendingDeposits`, **`SP_Payments_ApproveDeposit`**, **`SP_Payments_RejectDeposit`**, **`SP_Payments_ExpirePending`**, `SP_Payments_RegisterOrphanPayment`, `SP_Refunds_Register/List/Mark` |
 | Payments, card (Phase 2) | `SP_Payments_RegisterExternalCheckout`, `SP_Payments_RegisterCreationFailure`, `SP_Payments_RegisterWebhookEvent`, `SP_Payments_ListPendingCardsToReconcile`, `SP_Webhooks_Purge` |
 | Orders (RF-07) | **`SP_Orders_ChangeStatus`**, **`SP_Orders_Cancel`**, `SP_Orders_List`, `SP_Orders_GetDetail`, **`SP_Returns_Register`** |
@@ -41,11 +41,39 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 | `FU_Money_HalfEvenDivision(@N, @D)` | **The only rounding policy** (half-even). `NULL` outside its domain (`@N >= 0`, `@D > 0`) |
 | `FU_Users_ActiveAdministrator(@IDUser)` | One row when the account is an active administrator; the second line of defence behind the role middleware for every catalogue write |
 | `FU_Money_VatIncluded(@TotalCents, @VatRate)` | VAT included in a total (`VatCents`) and the taxable base (`BaseCents` by subtraction, so base + VAT = total) |
-| `FU_Payments_DepositWindow(@DeliveryDate, @LeadTimeDays)` | Deposit deadline: `MIN(24 h, delivery − lead time)` and minutes available |
+| `FU_Payments_DepositWindow(@DeliveryDate, @LeadTimeDays, @Now)` | Built. Deposit deadline `MIN(DepositReservationHours, delivery − lead time)` with the delivery read at 00:00 Guatemala time, and the minutes available (negative when it is already too late) |
 | `FU_Dashboard_SalesByPeriod(@From, @To, @Granularity)` | Sales by day, week or month in GTQ and order count, by `PaidAt` |
 | `FU_Orders_RefundableAmount(@IDOrderLine, @Quantity)` | Proportional refund closing exactly on the last unit |
 
 ## Critical procedures in brief
+
+### Order creation (built)
+
+Source: `R0300` (`SP_Orders_CreateOrder`) and `R0058` (`FU_Payments_DepositWindow`). 35 tSQLt tests in `Test_Orders`, plus two races in `npm run sql:concurrency`.
+
+`SP_Orders_CreateOrder(@IDUser, @IDReservation, @IDAddress, @RequestedDeliveryDate, @IDPaymentMethod, @IdempotencyKey, @IDBankAccount, @Now, outputs)` creates the order, its lines, its payment and the links in one transaction, from an active reservation. **The backend sends no amounts**: the subtotal, the discount per line, the total, the VAT and the taxable base are recalculated from `FU_Cart_Totals` in integer cents.
+
+- **Reservation.** It is locked and must belong to the user (another customer's reservation answers 404), be `Active` and not past its expiry, and match the cart line for line; otherwise `409 RESERVATION_EXPIRED`. A variant withdrawn after reserving gives `409 INSUFFICIENT_STOCK`.
+- **Address and date.** The address must be the customer's and active. The delivery date cannot be earlier than today (Guatemala) plus the longest lead time among the lines: `422 DELIVERY_DATE_TOO_SOON`.
+- **Payment deadline.** A card payment lasts `ReservationMinutes`. A deposit lasts until the earlier of `DepositReservationHours` and the delivery date minus the lead time; with fewer than `MinDepositHours` left it answers `422 DEPOSIT_UNAVAILABLE_FOR_DATE` (ADR-0016). A deposit needs an active bank account; a card takes none.
+- **Coupon.** A coupon that stopped being valid after it was applied (expired, sold out, already used by the customer) **stops the order** with its code instead of charging more in silence. The per-customer limit is checked under an application lock on customer and coupon. The total limit is enforced by a conditional `UPDATE`, which is atomic, so two orders cannot take the last use. The totals and the split of the discount are computed **before** the use is counted: counting first would turn a single-use coupon into "exhausted" and take away its own discount.
+- **Frozen data.** The order keeps a copy of the address, the coupon code and, per line, the SKU, name, attributes, price and discount. Shipping is written as zero: the brief does not ask for it. The order number is `PED-YYYY-NNNNNN` from the identifier.
+- **Effects.** The payment is born `Pending` for the order total; the reservation is linked to the order and takes the payment's expiry; the cart becomes `Converted`; both status histories and an audit entry are written. There is **no inventory movement and no drop of the physical stock**: that happens when the payment is confirmed, so an abandoned order leaves no noise in the ledger. The expiry job never releases a reservation that has an order.
+- **Idempotency.** Repeating the call with the same key and reservation returns the same order and does not count the coupon twice. Another key for a reservation that already has an order, and a key already used for another order, answer `409` (the latter with `IDEMPOTENCY_KEY_IN_USE`, which is not the middleware's `IDEMPOTENCY_KEY_REUSED`). The repeat check uses local variables because an output parameter can arrive with the value of an earlier call.
+- A total of zero (a coupon covering the whole cart) is refused, because a payment of zero does not exist.
+
+### Deposit payments (built)
+
+Sources: `R0301` (`SP_Orders_CancelPending`) and `R0310` to `R0316` (`SP_Payments_*`). 45 tSQLt tests in `Test_Payments` (399 in the whole suite), plus two races in `npm run sql:concurrency`.
+
+- **`SP_Payments_ConfirmPayment`** is the single door through which money is recognised. It locks the payment row, so two confirmations serialise, and answers in `@Outcome` instead of raising when the result is an expected one: `Approved`, `AlreadyApproved` (a repeat is a no-op) or `Orphan` (the payment arrived for an order that can no longer take it, so a refund is registered). A different amount raises `422 AMOUNT_MISMATCH` and approves nothing. On approval, in one transaction: payment `Approved`, order `Paid`, variants locked in ascending order, physical stock decremented with an `InventoryMovements` exit (type 2) that stores the resulting balance, reservation `Consumed`, and the financial ledger gets the charge and the provider fee.
+- **`SP_Payments_RegisterProof`** takes the customer's file data (the file lives outside the database: only its opaque key and SHA-256 hash arrive). Ownership is checked in the same query that locks the payment, so another customer's payment answers 404. It refuses a bank reference that backs another live payment (`REFERENCE_ALREADY_USED`), a file already backing a payment under review or approved (`PAYMENT_PROOF_REUSED`) and an order with no attempts left (`DEPOSIT_ATTEMPTS_EXCEEDED`). The payment moves to `UnderReview`.
+- **`SP_Payments_ApproveDeposit`** and **`SP_Payments_RejectDeposit`** are for operators and administrators. Approving a deposit whose amount differs from the order rejects it with that reason (`RejectedAmountMismatch`); there are no partial approvals. Rejecting needs a reason, frees the bank reference (`IsCurrent = 0`) and extends the reservation to at least `now + RejectionGraceHours`. When `MaxDepositAttempts` rejections are reached the order is cancelled and everything is released (`RejectedOrderCancelled`).
+- **`SP_Payments_CreateDepositAttempt`** opens a new pending payment for an order whose deposit was rejected: a rejected payment is terminal, so retrying creates another one, never reopens it. Only one open attempt per order, and it lives as long as the reservation.
+- **`SP_Orders_CancelPending`** (internal) cancels an order that was never paid: it closes its open payments, returns the reservation to the stock, voids the coupon use and writes the histories. It is shared by the maximum-attempts rule, by expiry and, later, by the customer's cancellation. Cancelling twice is a no-op.
+- **`SP_Payments_ExpirePending`** expires pending payments past their deadline and the orders left with no open payment whose reservation ran out. A payment under review never expires. The job that calls it is still pending (D-06).
+- **`SP_Payments_RegisterOrphanPayment`** registers the refund for a payment that cannot be applied; repeating it changes nothing.
+- **Concurrency, proven with real connections.** Twenty simultaneous confirmations of one payment decrement the stock once and write one charge. An operator approving while another rejects the same deposit ends in exactly one outcome. This race found a real deadlock: the two procedures reached the `Payments` row through different indexes and took their locks in opposite order. Both now enter through the primary key with no join. Reads of "the payments of this order" force `IX_Payments_Order` for the same reason (a tiny table makes the optimiser scan the status index and collide with other orders' uncommitted rows).
 
 ### Idempotency (built)
 

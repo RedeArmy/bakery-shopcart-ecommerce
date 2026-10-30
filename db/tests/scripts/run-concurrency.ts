@@ -52,22 +52,45 @@ async function cleanUp(pool: sql.ConnectionPool): Promise<void> {
     .input('category', sql.NVarChar(80), CATEGORY_NAME).batch(`
     DISABLE TRIGGER dbo.TR_InventoryMovements_Immutable ON dbo.InventoryMovements;
     DISABLE TRIGGER dbo.TR_AuditLog_Immutable ON dbo.AuditLog;
+    DISABLE TRIGGER dbo.TR_OrderStatusHistory_Immutable ON dbo.OrderStatusHistory;
+    DISABLE TRIGGER dbo.TR_PaymentStatusHistory_Immutable ON dbo.PaymentStatusHistory;
+    DISABLE TRIGGER dbo.TR_FinancialMovements_Immutable ON dbo.FinancialMovements;
     BEGIN TRY
       DELETE m FROM dbo.InventoryMovements AS m JOIN dbo.Variants AS v ON v.IDVariant = m.IDVariant WHERE v.SKU LIKE @sku;
       DELETE a FROM dbo.AuditLog AS a JOIN dbo.Variants AS v ON a.Module = N'Stock' AND a.EntityKey = CAST(v.IDVariant AS NVARCHAR(40)) WHERE v.SKU LIKE @sku;
+      DELETE rl FROM dbo.ReservationLines AS rl JOIN dbo.Variants AS v ON v.IDVariant = rl.IDVariant WHERE v.SKU LIKE @sku;
+      DELETE r FROM dbo.Reservations AS r JOIN dbo.Users AS u ON u.IDUser = r.IDUser WHERE u.Email LIKE @email;
+      DELETE a FROM dbo.AuditLog AS a JOIN dbo.Orders AS o ON a.Module = N'Orders' AND a.EntityKey = CAST(o.IDOrder AS NVARCHAR(40)) JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
+      DELETE a FROM dbo.AuditLog AS a JOIN dbo.Payments AS p ON a.Module = N'Payments' AND a.EntityKey = CAST(p.IDPayment AS NVARCHAR(40)) JOIN dbo.Orders AS o ON o.IDOrder = p.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
+      DELETE pr FROM dbo.PaymentProofs AS pr JOIN dbo.Payments AS p ON p.IDPayment = pr.IDPayment JOIN dbo.Orders AS o ON o.IDOrder = p.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
+      DELETE f FROM dbo.FinancialMovements AS f JOIN dbo.Orders AS o ON o.IDOrder = f.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
+      DELETE h FROM dbo.PaymentStatusHistory AS h JOIN dbo.Payments AS p ON p.IDPayment = h.IDPayment JOIN dbo.Orders AS o ON o.IDOrder = p.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
+      DELETE h FROM dbo.OrderStatusHistory AS h JOIN dbo.Orders AS o ON o.IDOrder = h.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
+      DELETE d FROM dbo.PaymentDeposits AS d JOIN dbo.Payments AS p ON p.IDPayment = d.IDPayment JOIN dbo.Orders AS o ON o.IDOrder = p.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
+      DELETE p FROM dbo.Payments AS p JOIN dbo.Orders AS o ON o.IDOrder = p.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
+      DELETE cu FROM dbo.CouponUsages AS cu JOIN dbo.Users AS u ON u.IDUser = cu.IDUser WHERE u.Email LIKE @email;
+      DELETE l FROM dbo.OrderLines AS l JOIN dbo.Orders AS o ON o.IDOrder = l.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
+      DELETE o FROM dbo.Orders AS o JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE @email;
     END TRY
     BEGIN CATCH
       ENABLE TRIGGER dbo.TR_InventoryMovements_Immutable ON dbo.InventoryMovements;
       ENABLE TRIGGER dbo.TR_AuditLog_Immutable ON dbo.AuditLog;
+      ENABLE TRIGGER dbo.TR_OrderStatusHistory_Immutable ON dbo.OrderStatusHistory;
+      ENABLE TRIGGER dbo.TR_PaymentStatusHistory_Immutable ON dbo.PaymentStatusHistory;
+      ENABLE TRIGGER dbo.TR_FinancialMovements_Immutable ON dbo.FinancialMovements;
       THROW;
     END CATCH;
     ENABLE TRIGGER dbo.TR_InventoryMovements_Immutable ON dbo.InventoryMovements;
     ENABLE TRIGGER dbo.TR_AuditLog_Immutable ON dbo.AuditLog;
+    ENABLE TRIGGER dbo.TR_OrderStatusHistory_Immutable ON dbo.OrderStatusHistory;
+    ENABLE TRIGGER dbo.TR_PaymentStatusHistory_Immutable ON dbo.PaymentStatusHistory;
+    ENABLE TRIGGER dbo.TR_FinancialMovements_Immutable ON dbo.FinancialMovements;
+    DELETE FROM dbo.BankAccounts WHERE BankName = N'RACE Bank';
 
-    DELETE rl FROM dbo.ReservationLines AS rl JOIN dbo.Variants AS v ON v.IDVariant = rl.IDVariant WHERE v.SKU LIKE @sku;
-    DELETE r FROM dbo.Reservations AS r JOIN dbo.Users AS u ON u.IDUser = r.IDUser WHERE u.Email LIKE @email;
+    DELETE ad FROM dbo.Addresses AS ad JOIN dbo.Users AS u ON u.IDUser = ad.IDUser WHERE u.Email LIKE @email;
     DELETE ci FROM dbo.CartItems AS ci JOIN dbo.Carts AS c ON c.IDCart = ci.IDCart JOIN dbo.Users AS u ON u.IDUser = c.IDUser WHERE u.Email LIKE @email;
     DELETE c FROM dbo.Carts AS c JOIN dbo.Users AS u ON u.IDUser = c.IDUser WHERE u.Email LIKE @email;
+    DELETE FROM dbo.Coupons WHERE Code LIKE N'RACE-%';
     DELETE FROM dbo.Variants WHERE SKU LIKE @sku;
     DELETE p FROM dbo.Products AS p JOIN dbo.Categories AS cat ON cat.IDCategory = p.IDCategory WHERE cat.Name = @category;
     DELETE FROM dbo.Categories WHERE Name = @category;
@@ -481,6 +504,452 @@ async function idempotencyRace(pool: sql.ConnectionPool): Promise<void> {
   check('only one row exists per key', rows.recordset[0]?.Rows, keys.length);
 }
 
+interface OrderAttempt {
+  outcome: 'created' | 'conflict' | 'other';
+  idOrder: number | null;
+  idPayment: number | null;
+  message: string;
+}
+
+async function reserveCart(pool: sql.ConnectionPool, cart: Cart): Promise<number> {
+  const result = await pool
+    .request()
+    .input('IDUser', sql.Int, cart.IDUser)
+    .input('IDCart', sql.Int, cart.IDCart)
+    .output('IDReservation', sql.Int)
+    .execute('dbo.SP_Inventory_ReserveStock');
+  return result.output['IDReservation'] as number;
+}
+
+async function createAddresses(
+  pool: sql.ConnectionPool,
+  tag: string,
+): Promise<Map<number, number>> {
+  const result = await pool.request().input('prefix', sql.NVarChar(40), `race-${tag}-`).query<{
+    IDUser: number;
+    IDAddress: number;
+  }>(`
+    INSERT INTO dbo.Addresses (IDUser, Label, Recipient, Phone, Line1, Municipality, Department)
+    SELECT IDUser, N'Home', N'Race customer', N'55550000', N'Line 1', N'City', N'State'
+    FROM dbo.Users WHERE Email LIKE CONCAT(@prefix, N'%');
+    SELECT a.IDUser, a.IDAddress FROM dbo.Addresses AS a JOIN dbo.Users AS u ON u.IDUser = a.IDUser
+    WHERE u.Email LIKE CONCAT(@prefix, N'%');
+  `);
+  return new Map(result.recordset.map((row) => [row.IDUser, row.IDAddress]));
+}
+
+// A SQL error is a result, not a crash: the guarantees are about what the database answers under contention
+async function placeOrder(
+  pool: sql.ConnectionPool,
+  cart: Cart,
+  reservation: number,
+  address: number,
+  key: string,
+  method = 1,
+  bank: number | null = null,
+): Promise<OrderAttempt> {
+  try {
+    const result = await pool
+      .request()
+      .input('IDUser', sql.Int, cart.IDUser)
+      .input('IDReservation', sql.Int, reservation)
+      .input('IDAddress', sql.Int, address)
+      .input('RequestedDeliveryDate', sql.Date, new Date(Date.UTC(2099, 0, 1)))
+      .input('IDPaymentMethod', sql.TinyInt, method)
+      .input('IDBankAccount', sql.Int, bank)
+      .input('IdempotencyKey', sql.NVarChar(64), key)
+      .output('IDOrder', sql.Int)
+      .output('IDPayment', sql.Int)
+      .output('OrderNumber', sql.NVarChar(20))
+      .output('PaymentExpiresAt', sql.DateTime2(3))
+      .execute('dbo.SP_Orders_CreateOrder');
+    return {
+      outcome: 'created',
+      idOrder: result.output['IDOrder'] as number,
+      idPayment: result.output['IDPayment'] as number,
+      message: '',
+    };
+  } catch (error) {
+    const number = (error as { number?: unknown }).number;
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      outcome: number === 50409 ? 'conflict' : 'other',
+      idOrder: null,
+      idPayment: null,
+      message,
+    };
+  }
+}
+
+async function scalar(pool: sql.ConnectionPool, query: string): Promise<number> {
+  const result = await pool.request().query<{ Value: number }>(query);
+  return result.recordset[0]?.Value ?? -1;
+}
+
+// Doble clic sobre "confirmar compra": diez solicitudes con la misma llave y la misma reserva crean un solo pedido
+async function orderDoubleClick(pool: sql.ConnectionPool): Promise<void> {
+  console.log('\n10 simultaneous order requests with the same key and reservation');
+  const [variant = 0] = await createVariants(pool, 'odc', [10]);
+  const [cart] = await createCarts(pool, 'odc', 1);
+  if (cart === undefined) throw new Error('The cart was not created.');
+  await addLines(pool, [{ IDCart: cart.IDCart, IDVariant: variant, Quantity: 2 }]);
+  const addresses = await createAddresses(pool, 'odc');
+  const reservation = await reserveCart(pool, cart);
+
+  const attempts = await Promise.all(
+    Array.from({ length: 10 }, () =>
+      placeOrder(pool, cart, reservation, addresses.get(cart.IDUser) ?? 0, 'race-double-click'),
+    ),
+  );
+  const created = attempts.filter((attempt) => attempt.outcome === 'created');
+  console.log(
+    `  created ${created.length}, conflict ${attempts.filter((a) => a.outcome === 'conflict').length}, other ${attempts.filter((a) => a.outcome === 'other').length}`,
+  );
+  check('every request gets an answer', created.length, 10);
+  check(
+    'all of them are the same order',
+    new Set(created.map((attempt) => attempt.idOrder)).size,
+    1,
+  );
+  check(
+    'only one order exists',
+    await scalar(
+      pool,
+      "SELECT Value = COUNT(*) FROM dbo.Orders AS o JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE N'race-odc-%';",
+    ),
+    1,
+  );
+  check(
+    'only one payment exists',
+    await scalar(
+      pool,
+      "SELECT Value = COUNT(*) FROM dbo.Payments AS p JOIN dbo.Orders AS o ON o.IDOrder = p.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE N'race-odc-%';",
+    ),
+    1,
+  );
+  check('the units stay reserved once', await reservedStock(pool, variant), 2);
+  await checkInvariant(pool, 'order double click', [variant]);
+}
+
+// Veinte clientes se disputan el último uso de un cupón: exactamente uno se lleva el descuento y los otros pedidos no se crean
+async function lastCouponUse(pool: sql.ConnectionPool): Promise<void> {
+  const buyers = 20;
+  console.log(`\n${buyers} customers compete for the last use of a coupon`);
+  await pool
+    .request()
+    .batch(
+      "INSERT INTO dbo.Coupons (Code, Type, Value, MinimumAmount, StartsAt, EndsAt, TotalUsageLimit) VALUES (N'RACE-ONE', N'Percentage', 10.00, 0, '2020-01-01', '2099-12-31', 1);",
+    );
+  const [variant = 0] = await createVariants(pool, 'cpn', [50]);
+  const carts = await createCarts(pool, 'cpn', buyers);
+  await addLines(
+    pool,
+    carts.map((cart) => ({ IDCart: cart.IDCart, IDVariant: variant, Quantity: 1 })),
+  );
+  const addresses = await createAddresses(pool, 'cpn');
+  await pool
+    .request()
+    .batch(
+      "UPDATE c SET IDCoupon = (SELECT IDCoupon FROM dbo.Coupons WHERE Code = N'RACE-ONE') FROM dbo.Carts AS c JOIN dbo.Users AS u ON u.IDUser = c.IDUser WHERE u.Email LIKE N'race-cpn-%';",
+    );
+  const reservations = await Promise.all(carts.map((cart) => reserveCart(pool, cart)));
+
+  const attempts = await Promise.all(
+    carts.map((cart, index) =>
+      placeOrder(
+        pool,
+        cart,
+        reservations[index] ?? 0,
+        addresses.get(cart.IDUser) ?? 0,
+        `race-coupon-${index}`,
+      ),
+    ),
+  );
+  const created = attempts.filter((attempt) => attempt.outcome === 'created').length;
+  const exhausted = attempts.filter(
+    (attempt) => attempt.outcome === 'conflict' && attempt.message.startsWith('COUPON_EXHAUSTED'),
+  ).length;
+  console.log(
+    `  created ${created}, coupon exhausted ${exhausted}, other ${buyers - created - exhausted}`,
+  );
+  check('exactly one order takes the last use', created, 1);
+  check('every other order is refused as exhausted', exhausted, buyers - 1);
+  check(
+    'the coupon counts exactly one use',
+    await scalar(pool, "SELECT Value = UsageCount FROM dbo.Coupons WHERE Code = N'RACE-ONE';"),
+    1,
+  );
+  check(
+    'one coupon usage was recorded',
+    await scalar(
+      pool,
+      "SELECT Value = COUNT(*) FROM dbo.CouponUsages AS cu JOIN dbo.Users AS u ON u.IDUser = cu.IDUser WHERE u.Email LIKE N'race-cpn-%';",
+    ),
+    1,
+  );
+  check(
+    'the winner got the discount',
+    await scalar(
+      pool,
+      "SELECT Value = COUNT(*) FROM dbo.Orders AS o JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE N'race-cpn-%' AND o.Discount = 1.00;",
+    ),
+    1,
+  );
+  check(
+    'the refused orders left their stock reserved, untouched',
+    await reservedStock(pool, variant),
+    buyers,
+  );
+  await checkInvariant(pool, 'last coupon use', [variant]);
+}
+
+// Una confirmación de pago llega varias veces a la vez (un webhook reintentado, dos operadores): el pago se aprueba una sola
+// vez, el stock baja una sola vez y el libro de dinero cobra una sola vez
+async function paymentConfirmRace(pool: sql.ConnectionPool): Promise<void> {
+  const confirmations = 20;
+  console.log(`\n${confirmations} simultaneous confirmations of the same payment`);
+  const [variant = 0] = await createVariants(pool, 'pcf', [30]);
+  const [cart] = await createCarts(pool, 'pcf', 1);
+  if (cart === undefined) throw new Error('The cart was not created.');
+  await addLines(pool, [{ IDCart: cart.IDCart, IDVariant: variant, Quantity: 2 }]);
+  const addresses = await createAddresses(pool, 'pcf');
+  const reservation = await reserveCart(pool, cart);
+  const order = await placeOrder(
+    pool,
+    cart,
+    reservation,
+    addresses.get(cart.IDUser) ?? 0,
+    'race-confirm',
+  );
+  const idPayment = order.idPayment ?? 0;
+
+  const outcomes = await Promise.all(
+    Array.from({ length: confirmations }, () => confirmPayment(pool, idPayment, '20.00')),
+  );
+  const approved = outcomes.filter((outcome) => outcome === 'Approved').length;
+  const already = outcomes.filter((outcome) => outcome === 'AlreadyApproved').length;
+  console.log(
+    `  approved ${approved}, already approved ${already}, other ${confirmations - approved - already}`,
+  );
+  check('exactly one confirmation approves the payment', approved, 1);
+  check('all the others are told it was already approved', already, confirmations - 1);
+  check(
+    'the physical stock dropped once',
+    await scalar(
+      pool,
+      `SELECT Value = OnHandStock FROM dbo.Variants WHERE IDVariant = ${variant};`,
+    ),
+    28,
+  );
+  check('the reserved stock was consumed once', await reservedStock(pool, variant), 0);
+  check(
+    'one exit movement was written',
+    await scalar(
+      pool,
+      `SELECT Value = COUNT(*) FROM dbo.InventoryMovements WHERE IDVariant = ${variant} AND IDInventoryMovementType = 2;`,
+    ),
+    1,
+  );
+  check(
+    'the money ledger charged once',
+    await scalar(
+      pool,
+      `SELECT Value = COUNT(*) FROM dbo.FinancialMovements WHERE IDPayment = ${idPayment} AND Type = N'Charge';`,
+    ),
+    1,
+  );
+  check(
+    'the order is paid',
+    await scalar(
+      pool,
+      `SELECT Value = IDOrderStatus FROM dbo.Orders WHERE IDOrder = ${order.idOrder ?? 0};`,
+    ),
+    2,
+  );
+  await checkInvariant(pool, 'payment confirmation', [variant]);
+}
+
+// Un operador aprueba mientras otro rechaza el mismo depósito: gana uno, el otro recibe un 422, y el estado final es siempre
+// coherente (pagado con la salida de inventario, o pendiente con el stock todavía reservado), nunca una mezcla
+async function approveVersusReject(pool: sql.ConnectionPool): Promise<void> {
+  const payments = 20;
+  console.log(`\n${payments} deposits approved and rejected at the same time`);
+  await pool
+    .request()
+    .batch(
+      "IF NOT EXISTS (SELECT 1 FROM dbo.BankAccounts WHERE BankName = N'RACE Bank') INSERT INTO dbo.BankAccounts (BankName, AccountType, AccountNumber, HolderName) VALUES (N'RACE Bank', N'Checking', N'0001', N'Race');",
+    );
+  const bank = await scalar(
+    pool,
+    "SELECT Value = IDBankAccount FROM dbo.BankAccounts WHERE BankName = N'RACE Bank';",
+  );
+  const operator = await createOperator(pool);
+  const [variant = 0] = await createVariants(pool, 'avr', [50]);
+  const carts = await createCarts(pool, 'avr', payments);
+  await addLines(
+    pool,
+    carts.map((cart) => ({ IDCart: cart.IDCart, IDVariant: variant, Quantity: 1 })),
+  );
+  const addresses = await createAddresses(pool, 'avr');
+  const reservations = await Promise.all(carts.map((cart) => reserveCart(pool, cart)));
+  const orders = await Promise.all(
+    carts.map((cart, index) =>
+      placeOrder(
+        pool,
+        cart,
+        reservations[index] ?? 0,
+        addresses.get(cart.IDUser) ?? 0,
+        `race-avr-${index}`,
+        2,
+        bank,
+      ),
+    ),
+  );
+  const notCreated = orders.filter((order) => order.outcome !== 'created');
+  if (notCreated.length > 0) console.log(`  first order failure: ${notCreated[0]?.message ?? ''}`);
+  check('every deposit order was created', payments - notCreated.length, payments);
+  await Promise.all(
+    carts.map((cart, index) =>
+      registerProof(pool, cart.IDUser, orders[index]?.idPayment ?? 0, index),
+    ),
+  );
+
+  const results = await Promise.all(
+    orders.flatMap((order) => [
+      reviewDeposit(pool, 'dbo.SP_Payments_ApproveDeposit', operator, order.idPayment ?? 0),
+      reviewDeposit(pool, 'dbo.SP_Payments_RejectDeposit', operator, order.idPayment ?? 0),
+    ]),
+  );
+  const unexpected = results.filter((result) => result !== 'ok' && result !== 'refused').length;
+  const kinds = [...new Set(results)].map(
+    (kind) => `${kind}: ${results.filter((r) => r === kind).length}`,
+  );
+  console.log(`  results: ${kinds.join(', ')}`);
+  const approved = await scalar(
+    pool,
+    "SELECT Value = COUNT(*) FROM dbo.Payments AS p JOIN dbo.Orders AS o ON o.IDOrder = p.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE N'race-avr-%' AND p.IDPaymentStatus = 3;",
+  );
+  const rejected = await scalar(
+    pool,
+    "SELECT Value = COUNT(*) FROM dbo.Payments AS p JOIN dbo.Orders AS o ON o.IDOrder = p.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE N'race-avr-%' AND p.IDPaymentStatus = 4;",
+  );
+  console.log(`  approved ${approved}, rejected ${rejected}, unexpected errors ${unexpected}`);
+  check('every payment ends approved or rejected, never both', approved + rejected, payments);
+  check('no review fails with an unexpected error', unexpected, 0);
+  check(
+    'each paid order has its exit movement',
+    await scalar(
+      pool,
+      `SELECT Value = COUNT(*) FROM dbo.InventoryMovements WHERE IDVariant = ${variant} AND IDInventoryMovementType = 2;`,
+    ),
+    approved,
+  );
+  check(
+    'the physical stock dropped once per approval',
+    await scalar(
+      pool,
+      `SELECT Value = OnHandStock FROM dbo.Variants WHERE IDVariant = ${variant};`,
+    ),
+    50 - approved,
+  );
+  check(
+    'only the rejected orders keep their stock reserved',
+    await reservedStock(pool, variant),
+    payments - approved,
+  );
+  check(
+    'the money ledger has one charge per approval',
+    await scalar(
+      pool,
+      "SELECT Value = COUNT(*) FROM dbo.FinancialMovements AS f JOIN dbo.Orders AS o ON o.IDOrder = f.IDOrder JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE N'race-avr-%' AND f.Type = N'Charge';",
+    ),
+    approved,
+  );
+  check(
+    'the paid orders are exactly the approved payments',
+    await scalar(
+      pool,
+      "SELECT Value = COUNT(*) FROM dbo.Orders AS o JOIN dbo.Users AS u ON u.IDUser = o.IDUser WHERE u.Email LIKE N'race-avr-%' AND o.IDOrderStatus = 2;",
+    ),
+    approved,
+  );
+  await checkInvariant(pool, 'approve versus reject', [variant]);
+}
+
+async function confirmPayment(
+  pool: sql.ConnectionPool,
+  idPayment: number,
+  amount: string,
+): Promise<string> {
+  try {
+    const result = await pool
+      .request()
+      .input('IDPayment', sql.Int, idPayment)
+      .input('ReceivedAmount', sql.Decimal(18, 2), amount)
+      .input('Source', sql.NVarChar(20), 'Webhook')
+      .output('Outcome', sql.VarChar(20))
+      .execute('dbo.SP_Payments_ConfirmPayment');
+    return String(result.output['Outcome']);
+  } catch (error) {
+    return `error ${(error as { number?: number }).number ?? '?'}`;
+  }
+}
+
+async function createOperator(pool: sql.ConnectionPool): Promise<number> {
+  const result = await pool.request().query<{ IDUser: number }>(`
+    INSERT INTO dbo.Users (IDRole, Email, PasswordHash, FullName)
+    OUTPUT inserted.IDUser
+    VALUES (2, N'race-operator@shopcart.test', N'not-a-real-hash', N'Concurrency operator');
+  `);
+  return result.recordset[0]?.IDUser ?? 0;
+}
+
+async function registerProof(
+  pool: sql.ConnectionPool,
+  idUser: number,
+  idPayment: number,
+  index: number,
+): Promise<void> {
+  await pool
+    .request()
+    .input('IDUser', sql.Int, idUser)
+    .input('IDPayment', sql.Int, idPayment)
+    .input('OriginalFileName', sql.NVarChar(255), 'receipt.png')
+    .input('StorageKey', sql.NVarChar(100), `race-proof-${index}-${idPayment}`)
+    .input('MimeType', sql.NVarChar(50), 'image/png')
+    .input('SizeBytes', sql.Int, 2048)
+    .input('Sha256Hash', sql.Char(64), String(index).padStart(64, '0'))
+    .input('ReferenceNumber', sql.NVarChar(40), `RACE-${index}-${idPayment}`)
+    .input('DepositDate', sql.Date, new Date())
+    .input('DepositedAmount', sql.Decimal(18, 2), '10.00')
+    .output('IDPaymentProof', sql.Int)
+    .execute('dbo.SP_Payments_RegisterProof');
+}
+
+// 'ok' si el procedimiento respondió, 'refused' si lo rechazó con un 422 (perdió la carrera), otra cosa es inesperada
+async function reviewDeposit(
+  pool: sql.ConnectionPool,
+  procedure: string,
+  actor: number,
+  idPayment: number,
+): Promise<string> {
+  try {
+    const request = pool
+      .request()
+      .input('IDActor', sql.Int, actor)
+      .input('IDPayment', sql.Int, idPayment)
+      .output('Outcome', sql.VarChar(30));
+    if (procedure.endsWith('RejectDeposit'))
+      request.input('Reason', sql.NVarChar(250), 'Race rejection');
+    await request.execute(procedure);
+    return 'ok';
+  } catch (error) {
+    return (error as { number?: number }).number === 50422
+      ? 'refused'
+      : `error ${(error as { number?: number }).number ?? '?'}`;
+  }
+}
+
 async function main(): Promise<number> {
   const envFile = join(ROOT, '.env');
   if (existsSync(envFile)) process.loadEnvFile(envFile);
@@ -509,6 +978,10 @@ async function main(): Promise<number> {
       () => crossingCarts(pool),
       () => ledgerEntries(pool),
       () => idempotencyRace(pool),
+      () => orderDoubleClick(pool),
+      () => lastCouponUse(pool),
+      () => paymentConfirmRace(pool),
+      () => approveVersusReject(pool),
     ];
     await inSequence(scenarios, (scenario) => scenario());
   } finally {
