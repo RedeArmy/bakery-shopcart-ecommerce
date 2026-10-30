@@ -56,8 +56,8 @@ erDiagram
 | `V0005` | `OrderStatuses`, `OrderStatusTransitions`, `Orders`, `OrderLines`, `OrderStatusHistory`, `CouponUsages` and the deferred foreign keys (`InventoryMovements.IDOrder`, `Carts.IDCoupon`) |
 | `V0006` | `Reservations`, `ReservationLines` |
 | `V0007` | `PaymentMethods`, `PaymentStatuses`, `PaymentStatusTransitions`, `BankAccounts`, `Payments`, `PaymentStatusHistory`, `PaymentDeposits`, `PaymentProofs`, `ReceivedWebhooks`, `Returns`, `ReturnLines`, `Refunds`, `FinancialMovements` |
-| `V0008` | `IdempotentRequests`, `AuditLog`, `Configuration`, `SchemaVersion`, `ObjectVersions`, `DdlHistory` |
-| `V0009` | Triggers and permissions |
+| `V0008` | `IdempotentRequests`, `AuditLog`, `Configuration`, `DdlHistory` (`SchemaVersion` and `ObjectVersions` are created by the runner) |
+| `V0009` | Triggers (immutability, valid transitions, frozen amounts, DDL capture) and permissions |
 | `R*` | Functions, views and procedures with a version header |
 | `S*` | Idempotent seeds |
 
@@ -108,13 +108,13 @@ CREATE UNIQUE INDEX UX_Payments_OneApproved ON dbo.Payments (IDOrder) WHERE IDPa
 CREATE UNIQUE INDEX UX_Payments_ExternalReference ON dbo.Payments (ExternalReference) WHERE ExternalReference IS NOT NULL;
 ```
 
-The complete DDL is built in Stage 2 following the design (§7.2); each table above is listed there with all its columns and constraints. Seed configuration settings: `ReservationMinutes=15`, `DepositReservationHours=24`, `MinDepositHours=2`, `RejectionGraceHours=12`, `MaxDepositAttempts=3`, `AbandonedCartHours=24`, `ShippingCost=25.00`, `FreeShippingFrom=300.00`, `VatRate=12`, `IdempotencyKeyHours=24`.
+The complete DDL is in `db/migrations/V0001` to `V0009`, translated from the design (§7.2) with the names of the [glossary](../glossary.md). Seed configuration settings: `ReservationMinutes=15`, `DepositReservationHours=24`, `MinDepositHours=2`, `RejectionGraceHours=12`, `MaxDepositAttempts=3`, `AbandonedCartHours=24`, `ShippingCost=25.00`, `FreeShippingFrom=300.00`, `VatRate=12`, `IdempotencyKeyHours=24`.
 
 ## Immutability and permissions
 
-- `AuditLog` and `FinancialMovements` are insert-only (`INSTEAD OF UPDATE, DELETE` triggers that raise 50422).
+- `AuditLog`, `FinancialMovements`, `InventoryMovements`, `OrderStatusHistory` and `PaymentStatusHistory` are insert-only (`INSTEAD OF UPDATE, DELETE` triggers that raise 50422).
 - `TR_Orders_AmountsImmutable`, `TR_OrderLines_PricesImmutable` and `TR_Payments_AmountImmutable` block changes to amounts; only `ReturnedQuantity` can change on a line.
-- `shopcart_app` has `GRANT EXECUTE` and `DENY SELECT, INSERT, UPDATE, DELETE` on the schema (`R0900__permissions.sql`). Insert-only tables (`AuditLog`, `InventoryMovements`, `FinancialMovements`, `OrderStatusHistory`, `PaymentStatusHistory`, `PaymentProofs`, `ReceivedWebhooks`) accept no update or delete; old webhooks are purged by a dedicated procedure.
+- `shopcart_app` has `GRANT EXECUTE` and `DENY SELECT, INSERT, UPDATE, DELETE` on the schema. The container initialisation creates the login and grants; `V0009` repeats the grants when the user exists (it does not in CI). `PaymentProofs` and `ReceivedWebhooks` are also insert-only for the application, but through permissions and not a trigger, because old webhooks are purged by a dedicated procedure.
 
 ## Reference and seed values
 

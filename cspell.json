@@ -54,6 +54,9 @@
     "/^.*<!--\\s*spelling-ignore\\s*-->.*$/gm"
   ],
   "words": [
+    "ISJSON",
+    "EVENTDATA",
+    "msdownload",
     "Objeto",
     "Cambio",
     "SNAME",
