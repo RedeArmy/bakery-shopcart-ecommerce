@@ -8,7 +8,7 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 |---|---|
 | Auth (RF-01) | **Built:** `SP_Users_Register`, `SP_Users_GetByEmail`, `SP_Users_SetStatus`, `SP_Users_List`, `SP_Users_RecordFailedAttempt`, `SP_Users_RecordSuccessfulLogin` (added: it resets the lockout counter), `SP_Tokens_Save`, `SP_Tokens_Rotate`, `SP_Tokens_RevokeFamily` |
 | Catalogue (RF-02) | **Built:** `SP_Categories_Create/Update/Deactivate/List`, `SP_Products_Create/Update/Deactivate/Get/Search`, `SP_Variants_Create/Update`, `SP_Variants_ChangePrice`, `SP_Variants_SetAttributes` (internal), `SP_Addresses_List/Save` |
-| Inventory (RF-03) | `SP_Inventory_RegisterEntry`, `SP_Inventory_AdjustStock`, **`SP_Inventory_ReserveStock`**, `SP_Inventory_ReleaseCartReservation`, **`SP_Inventory_ReleaseExpiredReservations`**, `SP_Inventory_GetLedger` |
+| Inventory (RF-03) | **Built:** `SP_Inventory_RegisterEntry`, `SP_Inventory_AdjustStock`, **`SP_Inventory_ReserveStock`**, `SP_Inventory_ReleaseCartReservation`, **`SP_Inventory_ReleaseExpiredReservations`**, `SP_Inventory_GetLedger` |
 | Cart (RF-04) | `SP_Cart_Get`, `SP_Cart_SetItemQuantity`, `SP_Cart_RemoveItem`, `SP_Cart_MergeGuest`, `SP_Cart_ApplyCoupon`, `SP_Cart_RemoveCoupon` |
 | Coupons (RF-05) | `SP_Coupons_Create/Update/Deactivate/List`, `SP_Coupons_Validate` |
 | Checkout (RF-06) | `SP_Idempotency_Begin/Complete/Fail/PurgeExpired`, **`SP_Orders_CreateOrder`** |
@@ -23,8 +23,8 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 
 | Object | Purpose |
 |---|---|
-| `VW_Inventory_Availability` | Available stock per variant (`OnHandStock − ReservedStock`) |
-| `VW_Inventory_Reconciliation` | `OnHandStock` against `SUM(Quantity)` of the ledger. Must return no differences |
+| `VW_Inventory_Availability` | Built. Available stock per variant (`OnHandStock − ReservedStock`) |
+| `VW_Inventory_Reconciliation` | Built. Two checks, one row per discrepancy with its cause in `Issue`: `OnHandStock` against `SUM(Quantity)` of the ledger (`OnHandVsLedger`) and `ReservedStock` against the lines of the active reservations (`ReservedVsReservations`). Must return no rows |
 | `VW_Orders_History` | Order with its status history |
 | `VW_Payments_PendingDeposits` | Review queue with age in hours |
 | `VW_Payments_CardReconciliation` | Open card payments past their nominal expiry (Phase 2) |
@@ -42,6 +42,17 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 | `FU_Orders_RefundableAmount(@IDOrderLine, @Quantity)` | Proportional refund closing exactly on the last unit |
 
 ## Critical procedures in brief
+
+### Stock ledger (built)
+
+Sources: `R0113` (`SP_Inventory_RegisterEntry`), `R0114` (`SP_Inventory_AdjustStock`), `R0115` (`SP_Inventory_GetLedger`), `R0060` and `R0061` (the views). 21 tSQLt tests in `Test_Ledger`.
+
+- Stock changes **only** through the ledger: a variant is born with zero units, and an entry or an adjustment updates `OnHandStock` and inserts its `InventoryMovements` row in the same transaction, under a lock on the variant. Concurrent entries therefore read the balance the previous one left, so `ResultingBalance` is always consecutive and no unit is lost.
+- `SP_Inventory_RegisterEntry(@IDActor, @IDVariant, @Quantity, @Reason, @Now, @IDMovement OUT)` adds units. The quantity must be positive and the reason is mandatory; an entry that would overflow the stored `INT` is refused with 50422.
+- `SP_Inventory_AdjustStock(@IDActor, @IDVariant, @NewOnHand, @Reason, @Now, @IDMovement OUT)` takes the **counted** stock, not an increment, and writes a signed compensating movement of type `Adjustment`. A count equal to the stock writes nothing. A count below the reserved units is refused with 50422: those units are promised to customers.
+- Both need an active administrator and write `SP_Audit_Record` (module `Stock`).
+- `SP_Inventory_GetLedger(@IDVariant, @From, @To, @PageNumber, @PageSize)` lists the movements newest first, ordered by identifier and not by date because two movements can share a millisecond. `@To` is exclusive.
+- `npm run sql:concurrency` now puts the initial stock through `SP_Inventory_RegisterEntry`, checks that `VW_Inventory_Reconciliation` is empty after every scenario, and races 50 simultaneous entries (all succeed, 50 different balances, the ledger adds up to the stock).
 
 ### Authentication and catalogue (built)
 

@@ -30,6 +30,9 @@ interface CartLine {
 
 const failures: string[] = [];
 
+// Administrador de la prueba: el stock entra por SP_Inventory_RegisterEntry, igual que en producción
+let adminId = 0;
+
 function check(name: string, actual: unknown, expected: unknown): void {
   const ok = actual === expected;
   // Sin plantillas anidadas: lo esperado solo se muestra cuando la comprobación falla
@@ -39,12 +42,28 @@ function check(name: string, actual: unknown, expected: unknown): void {
 }
 
 // Todo se ejecuta con sa sobre la base de pruebas: los datos de la prueba se identifican por su prefijo y se borran al terminar
+// El libro de inventario y la bitácora son de solo inserción (triggers de inmutabilidad): solo durante el borrado, y solo en
+// la base de pruebas _CI, se desactivan para no dejar movimientos de la prueba que descuadrarían otras pruebas
 async function cleanUp(pool: sql.ConnectionPool): Promise<void> {
   await pool
     .request()
     .input('email', sql.NVarChar(256), EMAIL_PATTERN)
     .input('sku', sql.NVarChar(40), SKU_PATTERN)
     .input('category', sql.NVarChar(80), CATEGORY_NAME).batch(`
+    DISABLE TRIGGER dbo.TR_InventoryMovements_Immutable ON dbo.InventoryMovements;
+    DISABLE TRIGGER dbo.TR_AuditLog_Immutable ON dbo.AuditLog;
+    BEGIN TRY
+      DELETE m FROM dbo.InventoryMovements AS m JOIN dbo.Variants AS v ON v.IDVariant = m.IDVariant WHERE v.SKU LIKE @sku;
+      DELETE a FROM dbo.AuditLog AS a JOIN dbo.Variants AS v ON a.Module = N'Stock' AND a.EntityKey = CAST(v.IDVariant AS NVARCHAR(40)) WHERE v.SKU LIKE @sku;
+    END TRY
+    BEGIN CATCH
+      ENABLE TRIGGER dbo.TR_InventoryMovements_Immutable ON dbo.InventoryMovements;
+      ENABLE TRIGGER dbo.TR_AuditLog_Immutable ON dbo.AuditLog;
+      THROW;
+    END CATCH;
+    ENABLE TRIGGER dbo.TR_InventoryMovements_Immutable ON dbo.InventoryMovements;
+    ENABLE TRIGGER dbo.TR_AuditLog_Immutable ON dbo.AuditLog;
+
     DELETE rl FROM dbo.ReservationLines AS rl JOIN dbo.Variants AS v ON v.IDVariant = rl.IDVariant WHERE v.SKU LIKE @sku;
     DELETE r FROM dbo.Reservations AS r JOIN dbo.Users AS u ON u.IDUser = r.IDUser WHERE u.Email LIKE @email;
     DELETE ci FROM dbo.CartItems AS ci JOIN dbo.Carts AS c ON c.IDCart = ci.IDCart JOIN dbo.Users AS u ON u.IDUser = c.IDUser WHERE u.Email LIKE @email;
@@ -70,17 +89,44 @@ async function createVariants(
         .request()
         .input('category', sql.NVarChar(80), CATEGORY_NAME)
         .input('product', sql.NVarChar(150), `Concurrency ${tag} ${index}`)
-        .input('sku', sql.NVarChar(40), `RACE-${tag}-${index}`)
-        .input('stock', sql.Int, stock).query<{ IDVariant: number }>(`
+        .input('sku', sql.NVarChar(40), `RACE-${tag}-${index}`).query<{ IDVariant: number }>(`
         INSERT INTO dbo.Products (IDCategory, Name) SELECT IDCategory, @product FROM dbo.Categories WHERE Name = @category;
-        INSERT INTO dbo.Variants (IDProduct, SKU, Price, OnHandStock)
+        INSERT INTO dbo.Variants (IDProduct, SKU, Price)
         OUTPUT inserted.IDVariant
-        SELECT IDProduct, @sku, 10.00, @stock FROM dbo.Products WHERE Name = @product;
+        SELECT IDProduct, @sku, 10.00 FROM dbo.Products WHERE Name = @product;
       `);
-      return result.recordset[0]?.IDVariant ?? 0;
+      const idVariant = result.recordset[0]?.IDVariant ?? 0;
+      if (stock > 0) await registerEntry(pool, idVariant, stock);
+      return idVariant;
     }),
   );
   return ids;
+}
+
+async function registerEntry(
+  pool: sql.ConnectionPool,
+  variant: number,
+  quantity: number,
+): Promise<Outcome> {
+  return retryOnDeadlock(async () => {
+    await pool
+      .request()
+      .input('IDActor', sql.Int, adminId)
+      .input('IDVariant', sql.Int, variant)
+      .input('Quantity', sql.Int, quantity)
+      .input('Reason', sql.NVarChar(250), 'Concurrency check')
+      .output('IDMovement', sql.BigInt)
+      .execute('dbo.SP_Inventory_RegisterEntry');
+  });
+}
+
+async function createAdmin(pool: sql.ConnectionPool): Promise<void> {
+  const result = await pool.request().query<{ IDUser: number }>(`
+    INSERT INTO dbo.Users (IDRole, Email, PasswordHash, FullName)
+    OUTPUT inserted.IDUser
+    VALUES (3, N'race-admin@shopcart.test', N'not-a-real-hash', N'Concurrency admin');
+  `);
+  adminId = result.recordset[0]?.IDUser ?? 0;
 }
 
 async function createCarts(pool: sql.ConnectionPool, tag: string, count: number): Promise<Cart[]> {
@@ -153,6 +199,22 @@ async function checkInvariant(
       true,
     );
   });
+  await checkReconciliation(pool, label, variants);
+}
+
+// El contrato del diseño: la vista de conciliación devuelve cero filas
+async function checkReconciliation(
+  pool: sql.ConnectionPool,
+  label: string,
+  variants: readonly number[],
+): Promise<void> {
+  const result = await pool
+    .request()
+    .input('ids', sql.NVarChar(sql.MAX), JSON.stringify(variants))
+    .query<{ Differences: number }>(
+      'SELECT Differences = COUNT(*) FROM dbo.VW_Inventory_Reconciliation WHERE IDVariant IN (SELECT value FROM OPENJSON(@ids));',
+    );
+  check(`${label}: the reconciliation view returns no rows`, result.recordset[0]?.Differences, 0);
 }
 
 async function reservedStock(pool: sql.ConnectionPool, variant: number): Promise<number> {
@@ -257,6 +319,40 @@ async function crossingCarts(pool: sql.ConnectionPool): Promise<void> {
   await checkInvariant(pool, 'crossing carts', variants);
 }
 
+// Cincuenta entradas de una unidad a la vez: ninguna se pierde y el saldo del libro es consecutivo
+async function ledgerEntries(pool: sql.ConnectionPool): Promise<void> {
+  const entries = 50;
+  console.log(`\n${entries} simultaneous entries of one unit`);
+  const [variant = 0] = await createVariants(pool, 'led', [0]);
+
+  const counts = tally(
+    await Promise.all(Array.from({ length: entries }, () => registerEntry(pool, variant, 1))),
+  );
+  console.log(`  ${report(counts)}`);
+  check('every entry succeeds', counts.reserved, entries);
+
+  const ledger = await pool.request().input('id', sql.Int, variant).query<{
+    OnHandStock: number;
+    Movements: number;
+    Total: number;
+    DistinctBalances: number;
+    MaxBalance: number;
+  }>(`
+    SELECT v.OnHandStock,
+           Movements = COUNT(m.IDInventoryMovement), Total = ISNULL(SUM(m.Quantity), 0),
+           DistinctBalances = COUNT(DISTINCT m.ResultingBalance), MaxBalance = ISNULL(MAX(m.ResultingBalance), 0)
+    FROM dbo.Variants AS v LEFT JOIN dbo.InventoryMovements AS m ON m.IDVariant = v.IDVariant
+    WHERE v.IDVariant = @id GROUP BY v.OnHandStock;
+  `);
+  const row = ledger.recordset[0];
+  check('the stock holds every unit', row?.OnHandStock, entries);
+  check('the ledger has one movement per entry', row?.Movements, entries);
+  check('the ledger adds up to the stock', row?.Total, entries);
+  check('every resulting balance is different', row?.DistinctBalances, entries);
+  check('the last balance is the stock', row?.MaxBalance, entries);
+  await checkReconciliation(pool, 'ledger entries', [variant]);
+}
+
 async function main(): Promise<number> {
   const envFile = join(ROOT, '.env');
   if (existsSync(envFile)) process.loadEnvFile(envFile);
@@ -276,12 +372,14 @@ async function main(): Promise<number> {
   try {
     console.log(`Concurrency checks in ${config.database} on ${config.host}:${config.port}.`);
     await cleanUp(pool);
+    await createAdmin(pool);
     const scenarios = [
       () => race(pool, 'one', 100, 1),
       () => race(pool, 'ten', 100, 10),
       () => doubleClick(pool),
       () => allOrNothing(pool),
       () => crossingCarts(pool),
+      () => ledgerEntries(pool),
     ];
     await inSequence(scenarios, (scenario) => scenario());
   } finally {
