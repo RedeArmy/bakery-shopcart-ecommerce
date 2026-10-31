@@ -22,6 +22,9 @@ import type { ScriptFile } from './scripts.js';
 const CONNECT_ATTEMPTS = 60;
 const CONNECT_DELAY_MS = 2000;
 const LOCK_TIMEOUT_MS = 60_000;
+// Procedimientos que solo usa el runner: la aplicación no puede ejecutarlos aunque tenga EXECUTE sobre todo el esquema.
+// SP_Users_Provision asigna un rol, y un error del backend no debe poder crear un administrador.
+export const RESTRICTED_PROCEDURES: readonly string[] = ['dbo.SP_Users_Provision'];
 const LEVEL1_TYPES: Readonly<Record<string, string>> = {
   P: 'PROCEDURE',
   V: 'VIEW',
@@ -372,6 +375,7 @@ export async function provisionAppLogin(
     IF DATABASE_PRINCIPAL_ID(@user) IS NULL
       SET @statement += N'CREATE USER ' + @quotedUser + N' FOR LOGIN ' + @quotedUser + N';';
     SET @statement += N'GRANT EXECUTE ON SCHEMA::dbo TO ' + @quotedUser + N';';
+    ${RESTRICTED_PROCEDURES.map((name) => `IF OBJECT_ID(N'${name}', N'P') IS NOT NULL SET @statement += N'DENY EXECUTE ON OBJECT::${name} TO ' + @quotedUser + N';';`).join('\n    ')}
     SET @statement += N'DENY SELECT, INSERT, UPDATE, DELETE ON SCHEMA::dbo TO ' + @quotedUser + N';';
     EXEC sp_executesql @statement;
   `);
