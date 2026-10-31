@@ -51,3 +51,43 @@ export function assertBenchDatabase(name: string): string {
   }
   return name;
 }
+
+// La carga de volumen inserta miles de filas con sa y cambia la base: solo se permite sobre un servidor local y desechable
+const LOCAL_HOSTS: ReadonlySet<string> = new Set(['localhost', '127.0.0.1', '::1']);
+
+export interface BenchSettings {
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  trustServerCertificate: boolean;
+  database: string;
+}
+
+/** Lee y valida la conexión del banco desde el entorno; falla con un mensaje claro en lugar de cargar datos donde no debe. */
+export function loadBenchSettings(env: NodeJS.ProcessEnv): BenchSettings {
+  const password = env['SQL_TEST_PASSWORD'] ?? env['MSSQL_SA_PASSWORD'];
+  if (password === undefined || password === '') {
+    throw new Error(
+      'Set SQL_TEST_PASSWORD (or MSSQL_SA_PASSWORD in .env): the sa password of the test server.',
+    );
+  }
+  const host = env['SQL_TEST_HOST'] ?? 'localhost';
+  if (!LOCAL_HOSTS.has(host)) {
+    throw new Error(`Refusing to load volume data into "${host}": use the local test server.`);
+  }
+  const port = Number(env['SQL_TEST_PORT'] ?? '14333');
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error(
+      `SQL_TEST_PORT must be a port number between 1 and 65535, got "${env['SQL_TEST_PORT'] ?? ''}".`,
+    );
+  }
+  return {
+    host,
+    port,
+    user: env['SQL_TEST_USER'] ?? 'sa',
+    password,
+    trustServerCertificate: true,
+    database: assertBenchDatabase(env['SQL_BENCH_DATABASE'] ?? 'ShopCart_Bench'),
+  };
+}

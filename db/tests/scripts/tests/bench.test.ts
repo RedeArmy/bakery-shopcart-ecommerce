@@ -3,6 +3,7 @@ import {
   MAX_MILLISECONDS,
   assertBenchDatabase,
   assess,
+  loadBenchSettings,
   logicalReads,
   type BenchCase,
 } from '../lib/bench.js';
@@ -84,4 +85,58 @@ describe('assertBenchDatabase', () => {
       expect(() => assertBenchDatabase(name)).toThrow(/must end in _Bench/);
     },
   );
+});
+
+describe('loadBenchSettings', () => {
+  const env = { SQL_TEST_PASSWORD: 'Abcdefg12345' };
+
+  it('has defaults for the local test server and the benchmark database', () => {
+    expect(loadBenchSettings(env)).toEqual({
+      host: 'localhost',
+      port: 14333,
+      user: 'sa',
+      password: 'Abcdefg12345',
+      trustServerCertificate: true,
+      database: 'ShopCart_Bench',
+    });
+  });
+
+  it('falls back to the sa password of the .env file', () => {
+    expect(loadBenchSettings({ MSSQL_SA_PASSWORD: 'FromDotEnv123' }).password).toBe(
+      'FromDotEnv123',
+    );
+  });
+
+  it.each([{}, { SQL_TEST_PASSWORD: '' }])(
+    'asks for the password when it is missing (%j)',
+    (partial) => {
+      expect(() => loadBenchSettings(partial)).toThrow(/Set SQL_TEST_PASSWORD/);
+    },
+  );
+
+  it('refuses a server that is not local, so 50,000 orders never land on a shared one', () => {
+    expect(() => loadBenchSettings({ ...env, SQL_TEST_HOST: 'db.example.test' })).toThrow(
+      /Refusing to load volume data into "db.example.test"/,
+    );
+  });
+
+  it.each(['localhost', '127.0.0.1', '::1'])('accepts the local host %s', (host) => {
+    expect(loadBenchSettings({ ...env, SQL_TEST_HOST: host }).host).toBe(host);
+  });
+
+  it('reads the port and the user from the environment', () => {
+    const settings = loadBenchSettings({ ...env, SQL_TEST_PORT: '15000', SQL_TEST_USER: 'loader' });
+    expect(settings.port).toBe(15000);
+    expect(settings.user).toBe('loader');
+  });
+
+  it.each(['abc', '0', '70000', '1.5'])('rejects the port %s', (port) => {
+    expect(() => loadBenchSettings({ ...env, SQL_TEST_PORT: port })).toThrow(/SQL_TEST_PORT/);
+  });
+
+  it('refuses a database that is not a benchmark one', () => {
+    expect(() => loadBenchSettings({ ...env, SQL_BENCH_DATABASE: 'ShopCart' })).toThrow(
+      /must end in _Bench/,
+    );
+  });
 });

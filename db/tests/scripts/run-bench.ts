@@ -10,8 +10,8 @@ import type sql from 'mssql';
 import { connect } from '../../runner/src/database.js';
 import { inSequence } from '../../runner/src/sequence.js';
 import {
-  assertBenchDatabase,
   assess,
+  loadBenchSettings,
   logicalReads,
   type BenchCase,
   type BenchResult,
@@ -85,28 +85,6 @@ const CASES: readonly BenchCase[] = [
   },
 ];
 
-const LOCAL_HOSTS: ReadonlySet<string> = new Set(['localhost', '127.0.0.1', '::1']);
-
-function loadSettings(env: NodeJS.ProcessEnv) {
-  const password = env['SQL_TEST_PASSWORD'] ?? env['MSSQL_SA_PASSWORD'];
-  if (password === undefined || password === '') {
-    throw new Error(
-      'Set SQL_TEST_PASSWORD (or MSSQL_SA_PASSWORD in .env): the sa password of the test server.',
-    );
-  }
-  const host = env['SQL_TEST_HOST'] ?? 'localhost';
-  if (!LOCAL_HOSTS.has(host))
-    throw new Error(`Refusing to load volume data into "${host}": use the local test server.`);
-  return {
-    host,
-    port: Number(env['SQL_TEST_PORT'] ?? '14333'),
-    user: env['SQL_TEST_USER'] ?? 'sa',
-    password,
-    trustServerCertificate: true,
-    database: assertBenchDatabase(env['SQL_BENCH_DATABASE'] ?? 'ShopCart_Bench'),
-  };
-}
-
 /** Ejecuta el lote dos veces (la primera compila y calienta la caché) y mide la segunda, con las lecturas que imprime SET STATISTICS IO. */
 async function measure(pool: sql.ConnectionPool, benchCase: BenchCase): Promise<BenchResult> {
   await pool.request().batch(DECLARATIONS + benchCase.sql);
@@ -127,23 +105,28 @@ async function measure(pool: sql.ConnectionPool, benchCase: BenchCase): Promise<
 async function main(): Promise<number> {
   const envFile = join(ROOT, '.env');
   if (existsSync(envFile)) process.loadEnvFile(envFile);
-  const settings = loadSettings(process.env);
+  const settings = loadBenchSettings(process.env);
   const { database, ...connection } = settings;
 
   console.log(`Migrating ${database} on ${connection.host}:${connection.port}.`);
-  const migrated = spawnSync('npm', ['run', 'db:migrate'], {
-    cwd: ROOT,
-    stdio: 'inherit',
-    shell: process.platform === 'win32',
-    env: {
-      ...process.env,
-      DB_NAME: database,
-      MIGRATION_HOST: connection.host,
-      MIGRATION_PORT: String(connection.port),
-      MIGRATION_PASSWORD: connection.password,
-      SEED_DEMO_DATA: 'false',
+  // Node con su ruta absoluta y sin shell: así ningún directorio del PATH decide qué programa se ejecuta. El runner es el
+  // mismo archivo que usa npm run db:migrate, cargado con tsx como lo hace ese script.
+  const migrated = spawnSync(
+    process.execPath,
+    ['--import', 'tsx', 'db/runner/src/cli.ts', 'migrate'],
+    {
+      cwd: ROOT,
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        DB_NAME: database,
+        MIGRATION_HOST: connection.host,
+        MIGRATION_PORT: String(connection.port),
+        MIGRATION_PASSWORD: connection.password,
+        SEED_DEMO_DATA: 'false',
+      },
     },
-  });
+  );
   if (migrated.status !== 0) return 2;
 
   const pool = await connect(connection, database);
