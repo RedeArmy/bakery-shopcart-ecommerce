@@ -129,3 +129,25 @@ npm run sql:test:down
 `sql:test:up` starts a throwaway SQL Server from `docker-compose.sql-test.yml` (loopback only, port 14333, separate from the application stack). `sql:test` verifies the vendored files against their checksums, creates `ShopCart_CI` if it is missing, removes any previous tSQLt installation, installs tSQLt, runs every `db/tests/tsqlt/NNN_Test_<Name>.sql` in order, executes `tSQLt.RunAll` and writes `test-results/tsqlt-junit.xml`. The exit code is 0 when all tests pass, 1 when a test fails or none ran, and 2 when the tool itself fails. `sql:test:down` removes the container and its volume.
 
 The runner refuses a host other than the local one and any database whose name does not end in `_CI`, so tSQLt cannot reach the delivered database. It keeps the database, so the migrated schema stays in place, and removes tSQLt with `tSQLt.Uninstall` before installing and again after the run, because `tSQLt.class.sql` cannot be reinstalled over an existing installation and tSQLt must never stay in the database. This works on Windows and Linux, so an evaluator can run it without CI.
+
+## Concurrency, HTTP and performance suites
+
+The same throwaway server (`npm run sql:test:up`) runs the other three layers. They need the schema in place, so migrate `ShopCart_CI` first; the password comes from `.env` (`MSSQL_SA_PASSWORD`).
+
+```bash
+DB_NAME=ShopCart_CI MIGRATION_HOST=localhost MIGRATION_PORT=14333 npm run db:migrate
+```
+
+```bash
+npm run sql:concurrency
+```
+
+```bash
+SQL_TEST_HOST=localhost SQL_TEST_PORT=14333 SQL_TEST_PASSWORD=<MSSQL_SA_PASSWORD> DB_NAME=ShopCart_CI npm run test:integration -w backend
+```
+
+```bash
+npm run sql:bench
+```
+
+`sql:concurrency` races real connections for the last unit of stock, the last use of a coupon, a repeated payment, a return against a cancellation and the expiry job, and checks that a reader does not wait for a writer. The HTTP suite drives the whole Express application against that database. `sql:bench` uses its own database, `ShopCart_Bench`, and is described in [performance](../operations/performance.md). On PowerShell write the variables as `$env:SQL_TEST_HOST = "localhost"` before the command.

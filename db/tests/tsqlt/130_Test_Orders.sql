@@ -48,7 +48,7 @@ BEGIN
     SELECT IDUser, N'Home', FullName, N'55550000', N'5th Avenue 10-20', N'Guatemala', N'Guatemala' FROM dbo.Users WHERE Email IN (N'ana@shopcart.test', N'luis@shopcart.test');
 
     INSERT INTO dbo.BankAccounts (BankName, AccountType, AccountNumber, HolderName, IsActive)
-    VALUES (N'Test Bank', N'Checking', N'1112223334', N'Dulce Aroma', 1), (N'Old Bank', N'Savings', N'9998887776', N'Dulce Aroma', 0);
+    VALUES (N'Test Bank', N'Checking', N'1112223334', N'Pastelería', 1), (N'Old Bank', N'Savings', N'9998887776', N'Pastelería', 0);
 
     INSERT INTO dbo.Coupons (Code, Type, Value, MinimumAmount, StartsAt, EndsAt, PerCustomerUsageLimit)
     VALUES (N'WELCOME10', N'Percentage', 10.00, 100.00, '2020-01-01', '2099-12-31', 1);

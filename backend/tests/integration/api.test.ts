@@ -221,7 +221,7 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
       bankName: `IT Bank ${runId}`,
       accountType: 'Checking',
       accountNumber: `ACC-${runId}`,
-      holderName: 'Dulce Aroma',
+      holderName: 'Pastelería',
     });
     idBankAccount = num(bank.body, 'idBankAccount');
 

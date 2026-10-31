@@ -5,7 +5,7 @@ openapi: 3.0.3
 info:
   title: ShopCart API
   version: 0.2.0
-  description: E-commerce API for the Dulce Aroma bakery. Amounts are decimal strings with two decimals (never JSON numbers) and the currency is always GTQ. Errors share a single shape. Every mutating endpoint needs an Idempotency-Key header; PUT and DELETE accept it optionally. Delivery Phase 1 covers deposits; card payments and the webhook arrive in Phase 2.
+  description: E-commerce API for the bakery. Amounts are decimal strings with two decimals (never JSON numbers) and the currency is always GTQ. Errors share a single shape. Every mutating endpoint needs an Idempotency-Key header; PUT and DELETE accept it optionally. Delivery Phase 1 covers deposits; card payments and the webhook arrive in Phase 2.
 servers:
   - url: /
     description: Same origin as the web application (nginx proxies /api and /health)

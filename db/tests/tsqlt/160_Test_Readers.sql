@@ -426,9 +426,9 @@ CREATE PROCEDURE Test_Readers.[test an administrator creates and edits a bank ac
 AS
 BEGIN
     DECLARE @Admin INT = Test_Shop.UserId(N'admin@shopcart.test'), @IDSaved INT, @Again INT;
-    EXEC dbo.SP_BankAccounts_Save @IDActor = @Admin, @BankName = N'New Bank', @AccountType = N'Savings', @AccountNumber = N'555', @HolderName = N'Dulce Aroma', @IDSaved = @IDSaved OUTPUT;
+    EXEC dbo.SP_BankAccounts_Save @IDActor = @Admin, @BankName = N'New Bank', @AccountType = N'Savings', @AccountNumber = N'555', @HolderName = N'Pastelería', @IDSaved = @IDSaved OUTPUT;
     EXEC dbo.SP_BankAccounts_Save @IDActor = @Admin, @IDBankAccount = @IDSaved, @BankName = N'New Bank', @AccountType = N'Checking', @AccountNumber = N'555',
-         @HolderName = N'Dulce Aroma', @IsActive = 0, @IDSaved = @Again OUTPUT;
+         @HolderName = N'Pastelería', @IsActive = 0, @IDSaved = @Again OUTPUT;
 
     DECLARE @Type NVARCHAR(12) = (SELECT AccountType FROM dbo.BankAccounts WHERE IDBankAccount = @IDSaved);
     DECLARE @Active INT = (SELECT CAST(IsActive AS INT) FROM dbo.BankAccounts WHERE IDBankAccount = @IDSaved);

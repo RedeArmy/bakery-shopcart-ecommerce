@@ -2,10 +2,10 @@
 // Único lugar donde vive el texto visible de la tienda. Las claves están en inglés británico.
 export const esGT = {
   common: {
-    appName: 'Pastelería Dulce Aroma',
+    appName: 'Pastelería',
   },
   home: {
-    title: 'Bienvenido a Dulce Aroma',
+    title: 'Bienvenido a la Pastelería',
     subtitle: 'Pasteles, cupcakes y pan dulce hechos con cariño. El catálogo llegará pronto.',
   },
   errors: {

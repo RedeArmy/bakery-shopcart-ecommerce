@@ -66,8 +66,8 @@ Allowed transitions: `1→2`, `1→3`, `1→5`, `1→6`, `1→8`, `2→3`, `2→
 stateDiagram-v2
   [*] --> Pending
   Pending --> UnderReview: customer uploads a proof
-  Pending --> Approved: webhook or verification (card)
-  Pending --> Failed: checkout was not created
+  Pending --> Approved: webhook or verification (card, not delivered)
+  Pending --> Failed: checkout was not created (card, not delivered)
   Pending --> Expired: window elapsed
   Pending --> Cancelled: order cancelled
   UnderReview --> Approved: Operator approves

@@ -11,7 +11,6 @@ flowchart TB
     db[("db<br/>SQL Server 2022")]
     proofs[("payment-proofs volume")]
   end
-  recurrente[["Recurrente"]]
 
   browser -->|HTTPS| nginx
   nginx -->|/| frontend
@@ -19,7 +18,6 @@ flowchart TB
   backend -->|typed stored procedures| db
   backend -->|reads and writes proofs| proofs
   migrate -->|migrations, objects, seeds| db
-  backend -.->|REST + webhooks| recurrente
 ```
 
 Compose profiles: default (`db`, `db-migrate`, `backend`, `frontend`, `nginx`), `payments-sandbox` (Recurrente simulator), `quality` (SonarQube) and `observability` (OpenTelemetry collector).

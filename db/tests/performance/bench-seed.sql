@@ -4,7 +4,7 @@
    Nota      : Solo corre en ShopCart_Bench, una base de pruebas aparte que nunca es la entregada. Inserta con sa y se
                salta los procedimientos a propósito: cargar 50 000 pedidos uno por uno tardaría horas.
    ===================================================================== */
--- cspell:ignore Cliente Producto Tarjeta Depósito Zona carga volumen
+-- cspell:ignore Pastelería Cliente Producto Tarjeta Depósito Zona carga volumen
 SET NOCOUNT ON;
 SET QUOTED_IDENTIFIER ON;
 
@@ -83,7 +83,7 @@ SELECT @Variant, 1, 1, i, N'carga de volumen', @FirstUser, DATEADD(MINUTE, -i, S
 IF NOT EXISTS (SELECT 1 FROM dbo.PaymentMethods) INSERT INTO dbo.PaymentMethods (IDPaymentMethod, Code, Name) VALUES (1, N'CARD', N'Tarjeta'), (2, N'BANK_DEPOSIT', N'Depósito');
 IF NOT EXISTS (SELECT 1 FROM dbo.PaymentStatuses) INSERT INTO dbo.PaymentStatuses (IDPaymentStatus, Name)
 VALUES (1, N'Pending'), (2, N'UnderReview'), (3, N'Approved'), (4, N'Rejected'), (5, N'Failed'), (6, N'Expired'), (7, N'Refunded'), (8, N'Cancelled');
-INSERT INTO dbo.BankAccounts (BankName, AccountType, AccountNumber, HolderName) VALUES (N'Banco Bench', N'Checking', N'0001', N'Dulce Aroma');
+INSERT INTO dbo.BankAccounts (BankName, AccountType, AccountNumber, HolderName) VALUES (N'Banco Bench', N'Checking', N'0001', N'Pastelería');
 DECLARE @Bank INT = SCOPE_IDENTITY();
 INSERT INTO dbo.Payments (IDOrder, IDPaymentMethod, IDPaymentStatus, Amount, IdempotencyKey, ExpiresAt, CreatedAt)
 SELECT TOP (20000) o.IDOrder, 2, 3, o.Total, CONCAT(N'bench-', o.IDOrder), DATEADD(HOUR, 24, o.CreatedAt), o.CreatedAt

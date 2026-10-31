@@ -30,12 +30,12 @@ flowchart TB
   http --> rate
   modules -->|infrastructure only| dbp
   payments --> storage
-  jobs --> payments
-  jobs --> inventory
+  payments -->|storedKeyOf| checkout
+  jobs -->|SP_Jobs_* procedures| dbp
   modules --> kernel
   platform --> kernel
   root --> modules
   root --> platform
 ```
 
-Modules communicate only through each other's `index.ts`. For example `checkout` uses the public surface of `inventory`, `coupons` and `payments`.
+Modules do not call each other. The only import between two modules goes through an `index.ts`: `payments` uses `storedKeyOf` from `checkout`. What couples them is the database: `checkout` reserves the stock and creates the order by calling `SP_Inventory_ReserveStock` and `SP_Orders_CreateOrder` through its own repository.

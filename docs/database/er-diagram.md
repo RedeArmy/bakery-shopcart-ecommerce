@@ -24,6 +24,7 @@ erDiagram
   Variants ||--o{ ReservationLines : reserves
   Coupons ||--o{ CouponUsages : records
   Coupons }o--o| Categories : "applies to"
+  Categories ||--o{ OrderLines : "category frozen on the line"
   Orders ||--o{ OrderLines : contains
   Orders ||--o{ OrderStatusHistory : history
   OrderStatuses ||--o{ Orders : status
