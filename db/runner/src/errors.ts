@@ -11,7 +11,8 @@ export type MigrationErrorCode =
   | 'OBJECT_NOT_CREATED'
   | 'LOCK_NOT_ACQUIRED'
   | 'COLLATION_MISMATCH'
-  | 'SERVER_SHUT_DOWN';
+  | 'SERVER_SHUT_DOWN'
+  | 'DATABASE_NOT_FOUND';
 
 /** Error esperado del runner, con un código estable para los registros y las pruebas. */
 export class MigrationError extends Error {

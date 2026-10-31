@@ -54,6 +54,14 @@
     "/^.*<!--\\s*spelling-ignore\\s*-->.*$/gm"
   ],
   "words": [
+    "Cutoff",
+    "cutoff",
+    "sargable",
+    "HASHBYTES",
+    "FULLSCAN",
+    "CHECKDB",
+    "INFOMSGS",
+    "OBJECTPROPERTY",
     "HSTS",
     "ECONNCLOSED",
     "ESOCKET",

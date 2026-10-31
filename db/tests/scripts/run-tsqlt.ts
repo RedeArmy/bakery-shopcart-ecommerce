@@ -8,7 +8,7 @@ import sql from 'mssql';
 import { verifyDirectory } from '../../../tools/scripts/lib/checksums.js';
 import { splitBatches } from '../../runner/src/batches.js';
 import { normalise } from '../../runner/src/checksum.js';
-import { connect, enforceCollation, ensureDatabase } from '../../runner/src/database.js';
+import { connect, enforceCollation, prepareDatabase } from '../../runner/src/database.js';
 import { inSequence } from '../../runner/src/sequence.js';
 import { loadConfig } from './lib/config.js';
 import { buildJUnitXml, summarise, type TestResultRow } from './lib/junit.js';
@@ -77,7 +77,7 @@ async function main(): Promise<number> {
 
   const master = await connect(connection, 'master');
   try {
-    await ensureDatabase(master, config.database);
+    await prepareDatabase(master, config.database);
     await runScript(master, join(INSTALL_DIRECTORY, 'PrepareServer.sql'));
   } finally {
     await master.close();

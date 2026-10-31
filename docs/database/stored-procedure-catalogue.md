@@ -122,6 +122,16 @@ Sources: `R0063` to `R0065` (views), `R0066` to `R0068` (functions) and `R0350` 
 - **Abandoned carts.** Active, with items and a last activity older than `AbandonedCartHours` (24). Most valuable first (current prices, no coupon), paged, with the customer's name and email; a visitor appears without them.
 - Amounts leave as text with two decimals; the backend adds nothing up.
 
+### Retention and list performance (built)
+
+Sources: `V0012`, `S0006`, `R0070`, `R0071` and `R0344`; the procedures changed are listed below. 13 tSQLt tests in `Test_Retention`, `npm run sql:bench` and the figures in [performance](../operations/performance.md).
+
+- **Retention.** `SP_Retention_Purge(@Now, @BatchSize, @MaxBatches, ...)` deletes refresh tokens (whole families, in identifier order so the `IDReplacedBy` key never fails), webhooks, guest carts, released or expired reservations without an order and DDL history, in batches that are their own transactions, and returns what it deleted. `SP_Jobs_PurgeExpired` 1.1.0 calls it after `SP_Idempotency_PurgeExpired` and exposes the counts. The periods come from `Configuration` (`S0006`) through `FU_Configuration_PositiveInteger(@SettingKey, @Default)`.
+- **Abandoned carts.** `FU_Carts_AbandonmentCutoff(@Now)` returns the instant before which a cart's last activity makes it abandoned, so the filter is `LastActivityAt <= cutoff` and uses `IX_Carts_LastActivity`. `SP_Dashboard_AbandonedCarts` and `SP_Dashboard_Summary` (both 1.1.0) use it; `VW_Carts_Abandoned` is no longer used by any procedure and stays only to inspect carts by hand.
+- **Paged lists.** `SP_Orders_List`, `SP_Audit_Query`, `SP_Users_List`, `SP_Inventory_GetLedger`, `SP_Payments_ListPendingDeposits` (all 1.1.0) return the same columns as before. The total is a separate `COUNT(*)` and the page is built from the identifiers, because `COUNT(*) OVER ()` writes every row to `tempdb`. `SP_Orders_List` has one path for the customer (stable plan) and one for the staff (recompiled); the others recompile for their optional filters, except the deposit queue, where compiling cost more than running.
+- **Integrity.** `FK_OrderLines_Categories` makes the frozen category of a line a real category.
+- **Database options.** `READ_COMMITTED_SNAPSHOT`, Query Store and `PAGE_VERIFY CHECKSUM` are applied by the runner (`ALTER DATABASE` cannot run in a migration) and checked by `db:verify`.
+
 ### Idempotency (built)
 
 Sources: `R0220` to `R0223`. 22 tSQLt tests in `Test_Idempotency`, plus a race in `npm run sql:concurrency`. This is the first level of ADR-0004; the unique indexes of each table are the second.

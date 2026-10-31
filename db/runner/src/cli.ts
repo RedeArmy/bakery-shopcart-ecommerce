@@ -12,12 +12,14 @@ import {
   connect,
   ensureControlTables,
   enforceCollation,
-  ensureDatabase,
   loadState,
+  prepareDatabase,
+  readDatabaseOptions,
   provisionAppLogin,
   readLiveDefinitions,
 } from './database.js';
 import { MigrationError } from './errors.js';
+import { describePending, pendingOptions } from './options.js';
 import { findProblems, planRun } from './plan.js';
 import { discoverScripts } from './scripts.js';
 import { seedDemoAccounts } from './seed-demo.js';
@@ -31,7 +33,8 @@ async function migrate(): Promise<number> {
 
   const master = await connect(config, 'master');
   try {
-    await ensureDatabase(master, config.database);
+    const applied = await prepareDatabase(master, config.database);
+    if (applied.length > 0) console.log(`Database options applied: ${applied.join(', ')}.`);
   } finally {
     await master.close();
   }
@@ -124,7 +127,12 @@ async function verify(): Promise<number> {
       pool,
       state.objects.map((item) => item.objectName),
     );
-    const problems = findProblems(scripts, state, live);
+    const problems = [
+      ...findProblems(scripts, state, live),
+      ...pendingOptions(await readDatabaseOptions(pool, config.database)).map((option) =>
+        describePending(option, config.database),
+      ),
+    ];
     if (problems.length === 0) {
       console.log(`${config.database} matches the scripts in the repository.`);
       return 0;

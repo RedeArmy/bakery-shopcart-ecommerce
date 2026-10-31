@@ -55,6 +55,7 @@ Environment states used in the register: **Verified** (run and checked), **Pendi
 | V0009 | `V0009__create_triggers_and_permissions.sql` | Triggers and permissions | Schema, behaviour | High | Applied |
 | V0010 | `V0010__add_foreign_key_indexes.sql` | Foreign key support indexes | Schema, additive | Low | Applied |
 | V0011 | `V0011__add_one_active_reservation_per_cart.sql` | One active reservation per cart | Schema, additive | Low | Applied |
+| V0012 | `V0012__add_retention_indexes_and_category_foreign_key.sql` | Operation and retention indexes, category foreign key | Schema, additive | Low | Draft |
 
 Risk is the impact of a defect in the migration, not of running it: all nine run on an empty database, take no meaningful locks and move no data. **High** marks the migrations that protect money (V0007) or that can block legitimate writes if wrong (V0009).
 
@@ -246,6 +247,27 @@ Each entry uses the template in section 7. Common fields for V0001 to V0009 (V00
 | Reviewer | Repository owner. The ruleset requires no approving review while the project has a single maintainer; the approval is the merge with all required checks green |
 | Environments | Local Verified (applied, `db:verify` clean, 101 tests passed, concurrency checks passed five times); CI Verified (`sql-tests` job of pull request #28: 213 tests passed and the concurrency checks held); Production Not deployed |
 
+### V0012: Operation and retention indexes, category foreign key
+
+| Field | Value |
+|---|---|
+| File | `db/migrations/V0012__add_retention_indexes_and_category_foreign_key.sql` |
+| SHA-256 | `da63209a0fc57a29429cafd3f7327a90c45c26e706ea472b5d50e3ff0ec9148d` |
+| Description | Seven indexes that back real queries and purges, the replacement of `IX_RefreshTokens_Family`, and the foreign key `OrderLines.IDCategory`. A review with 50,000 orders, 20,000 carts, 200,000 refresh tokens and 200,000 audit rows found queries that read whole tables for lack of an index. |
+| Objects created | `IX_AuditLog_Entity (Module, EntityKey)`; filtered `IX_Reservations_ActiveExpiry (ExpiresAt)` where `Status = 'Active' AND IDOrder IS NULL`; `IX_Carts_LastActivity (LastActivityAt) INCLUDE (Status, IDUser)`; `IX_RefreshTokens_Family_Expiry (IDFamily, ExpiresAt)`; `IX_Users_CreatedAt (CreatedAt DESC, IDUser DESC)`; `IX_ReceivedWebhooks_ReceivedAt`; `IX_DdlHistory_CreatedAt`; constraint `FK_OrderLines_Categories` |
+| Objects dropped | `IX_RefreshTokens_Family`: the new index starts with the same column, so no lookup by family is lost |
+| Key rules | An order line can no longer carry a category that does not exist. Categories are deactivated, never deleted, so the key never gets in the way |
+| Depends on | V0001, V0002, V0004, V0005, V0006, V0007, V0008 |
+| Data migration | None. `WITH CHECK` validates the existing order lines: a line with an unknown category would make the migration fail, and none can exist because the category comes from the product at the moment of the sale |
+| Online impact | Index builds on populated tables. On an edition that allows it use `ONLINE = ON`; the largest table (`AuditLog`) builds a narrow two-column index |
+| Compatibility | Fully compatible with the previous application version: nothing was renamed and no column changed |
+| Rollback | Additive. Compensating changes: `DROP INDEX` for each new index, `CREATE INDEX IX_RefreshTokens_Family ON dbo.RefreshTokens (IDFamily)` and `ALTER TABLE dbo.OrderLines DROP CONSTRAINT FK_OrderLines_Categories` |
+| Tests | `Test_Retention` (the purge procedure that the token, webhook, DDL and cart indexes serve), `Test_Readers` and `Test_Dashboard` (the lists and reports that the audit, cart and user indexes serve) and the benchmark in `db/tests/performance` |
+| Author, date | Eder Yafeth Garcia Quiroa, 30 October 2026 |
+| Pull request | Pending |
+| Reviewer | Repository owner |
+| Environments | Local Verified (applied on an empty database and on one with 50,000 orders; `db:verify` clean; 533 tSQLt tests and the concurrency checks passed); CI Pending; Production Not deployed |
+
 ### Reference seeds
 
 Seeds are idempotent `MERGE` scripts applied after the migrations. They are registered because the code, the API and the tests assume exactly these values. The common fields are the same as above, except the pull request, which is the one that adds them (see the revision history), and the rollback, which is to correct the seed and let the runner apply the new version.
@@ -257,6 +279,7 @@ Seeds are idempotent `MERGE` scripts applied after the migrations. They are regi
 | S0003 | `S0003__seed_payment_reference_data.sql` | `de3d5b7c00c36e11c0dafe6cab47b93aafa44840679566143b889285cb962148` | Payment methods `CARD` and `BANK_DEPOSIT`, eight payment states and nine transitions | Same as S0002 |
 | S0004 | `S0004__seed_inventory_movement_types.sql` | `c374071314d410942a1d22410f5985f8a722d6abe1bf9e656dd73a8ed197a7e4` | Entry (1), Exit (2), Adjustment (3), Return (4) | Names are corrected if they differ |
 | S0005 | `S0005__seed_configuration.sql` | `430c3a4b144d71ed846491d9dd4066f7b997d7e92fb57a505d91fc7980f805ff` | Ten business settings with their defaults (reservation minutes, deposit hours, shipping cost, VAT rate and others) | Inserts only missing keys and never overwrites a tuned value |
+| S0006 | `S0006__seed_retention_configuration.sql` | `4381bd06a18054df61f5f34f6054289dcb4370800b67e36e4a055cdace7c39df` | Five retention settings: refresh token families 30 days, webhooks 90, guest carts 30, released or expired reservations 90 and DDL history 365 | Inserts only missing keys and never overwrites a value an administrator changed |
 
 Tests: `Test_Seeds` compares every table with the expected rows and checks that Cancelled and Returned orders have no way out, that a dispatched order cannot be cancelled and that a payment under review cannot expire.
 
@@ -320,3 +343,4 @@ Programmable objects and seeds: a change to an `R####` object needs only the ver
 | 30 October 2026 | V0001 to V0009 set to Applied after pull request #18; reference seeds S0001 to S0005 added | Eder Yafeth Garcia Quiroa |
 | 30 October 2026 | V0010 added after the technical audit | Eder Yafeth Garcia Quiroa |
 | 30 October 2026 | V0011 added with the stock reservation; V0010 and V0011 set to Applied after pull requests #20 and #28 | Eder Yafeth Garcia Quiroa |
+| 30 October 2026 | V0012 and S0006 added with the database review: operation and retention indexes, the category foreign key and the retention settings | Eder Yafeth Garcia Quiroa |

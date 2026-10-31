@@ -1,9 +1,9 @@
 /* =====================================================================
    Objeto   : dbo.SP_Inventory_GetLedger
-   Version  : 1.0.0
-   Cambio   : Primera versión: movimientos de inventario de una variante, del más reciente al más antiguo
+   Version  : 1.1.0
+   Cambio   : El total ya no se calcula con COUNT(*) OVER () (un Window Spool que escribía cada fila en tempdb); se cuenta aparte y solo se leen las filas de la página; OPTION (RECOMPILE) por los filtros opcionales
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
-   Compat   : Nueva. Errores: 50400 paginación o rango inválidos, 50404 variante inexistente.
+   Compat   : Mismas columnas y mismo orden que 1.0.0. Errores: 50400 paginación o rango inválidos, 50404 variante inexistente.
    ===================================================================== */
 CREATE OR ALTER PROCEDURE dbo.SP_Inventory_GetLedger
   @IDVariant  INT,
@@ -28,16 +28,26 @@ BEGIN
 
   -- Se ordena por el identificador y no por la fecha: dos movimientos pueden compartir el mismo milisegundo, y el
   -- identificador crece en el orden en que se confirmaron bajo el bloqueo de la variante. @To es exclusivo.
+  -- El total se cuenta aparte y la página se arma con los identificadores: COUNT(*) OVER () obligaba a escribir todas las filas
+  -- en una tabla de trabajo de tempdb. RECOMPILE porque los filtros opcionales cambian cuál es el mejor plan en cada llamada.
+  ;WITH f AS (
+    SELECT m.IDInventoryMovement
+    FROM dbo.InventoryMovements AS m
+    WHERE m.IDVariant = @IDVariant
+      AND (@From IS NULL OR m.CreatedAt >= @From)
+      AND (@To IS NULL OR m.CreatedAt < @To)
+  ), pg AS (
+    SELECT IDInventoryMovement FROM f ORDER BY IDInventoryMovement DESC
+    OFFSET (@PageNumber - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY
+  )
   SELECT m.IDInventoryMovement, MovementType = t.Name, m.Quantity, m.ResultingBalance, m.Reason,
          m.IDUser, UserName = u.FullName, m.IDOrder, m.CreatedAt,
-         TotalCount = COUNT(*) OVER ()
-  FROM dbo.InventoryMovements AS m
+         TotalCount = (SELECT COUNT(*) FROM f)
+  FROM pg
+  JOIN dbo.InventoryMovements AS m ON m.IDInventoryMovement = pg.IDInventoryMovement
   JOIN dbo.InventoryMovementTypes AS t ON t.IDInventoryMovementType = m.IDInventoryMovementType
   JOIN dbo.Users AS u ON u.IDUser = m.IDUser
-  WHERE m.IDVariant = @IDVariant
-    AND (@From IS NULL OR m.CreatedAt >= @From)
-    AND (@To IS NULL OR m.CreatedAt < @To)
   ORDER BY m.IDInventoryMovement DESC
-  OFFSET (@PageNumber - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
+  OPTION (RECOMPILE);
 END;
 GO

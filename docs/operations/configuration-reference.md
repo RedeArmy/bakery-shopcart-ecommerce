@@ -65,3 +65,10 @@ Rate-limit variables per policy group are added with the rate-limit module (Stag
 | `FreeShippingFrom` | `300.00` | Free shipping threshold |
 | `VatRate` | `12` | VAT percentage, included in prices |
 | `IdempotencyKeyHours` | `24` | Retention of idempotency keys |
+| `RetentionRefreshTokenDays` | `30` | Days after the last expiry of a refresh token family before it is deleted |
+| `RetentionWebhookDays` | `90` | Days a received webhook is kept |
+| `RetentionGuestCartDays` | `30` | Days without activity before a guest cart is deleted |
+| `RetentionReservationDays` | `90` | Days a released or expired reservation without an order is kept |
+| `RetentionDdlHistoryDays` | `365` | Days the DDL history is kept |
+
+The retention keys are read by `SP_Retention_Purge` through `FU_Configuration_PositiveInteger`: a missing, non-numeric, zero or negative value uses the default. They are inserted by the seed `S0006` and never overwritten, so changing one in the table survives a new run.

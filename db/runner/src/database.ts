@@ -14,6 +14,12 @@ import {
 } from './collation.js';
 import { CONTROL_TABLES_SQL } from './control-tables.js';
 import { MigrationError } from './errors.js';
+import {
+  OPTION_CLAUSES,
+  pendingOptions,
+  type DatabaseOptionName,
+  type DatabaseOptions,
+} from './options.js';
 import { inSequence } from './sequence.js';
 import type { AppliedScript, CurrentObject, DatabaseState } from './plan.js';
 import type { ScriptFile } from './scripts.js';
@@ -127,6 +133,58 @@ export async function ensureDatabase(master: sql.ConnectionPool, name: string): 
     }
     throw error;
   }
+}
+
+/** Lee las opciones de la base de datos que el sistema necesita; sys.databases se ve desde cualquier conexión. */
+export async function readDatabaseOptions(
+  pool: sql.ConnectionPool,
+  name: string,
+): Promise<DatabaseOptions> {
+  const result = await pool.request().input('name', sql.NVarChar(128), name).query<{
+    ReadCommittedSnapshot: boolean;
+    QueryStore: boolean;
+    PageVerify: string;
+  }>(`
+    SELECT ReadCommittedSnapshot = is_read_committed_snapshot_on, QueryStore = is_query_store_on, PageVerify = page_verify_option_desc
+    FROM sys.databases WHERE name = @name;
+  `);
+  const row = result.recordset[0];
+  if (row === undefined)
+    throw new MigrationError('DATABASE_NOT_FOUND', `Database ${name} does not exist.`);
+  return {
+    readCommittedSnapshot: row.ReadCommittedSnapshot,
+    queryStore: row.QueryStore,
+    pageVerify: row.PageVerify,
+  };
+}
+
+/**
+ * Aplica las opciones que falten y devuelve cuáles aplicó. Cada vez que corre, solo toca lo que no esté ya puesto: activar
+ * READ_COMMITTED_SNAPSHOT espera a que las demás sesiones terminen y deshace las que sigan abiertas, y no debe repetirse en
+ * cada arranque. Las cláusulas son constantes; el nombre de la base se incrusta con QUOTENAME porque ALTER DATABASE no admite
+ * parámetros.
+ */
+export async function configureDatabase(
+  master: sql.ConnectionPool,
+  name: string,
+): Promise<DatabaseOptionName[]> {
+  const pending = pendingOptions(await readDatabaseOptions(master, name));
+  await inSequence(pending, async (option) => {
+    await master.request().input('name', sql.NVarChar(128), name).query(`
+        DECLARE @statement NVARCHAR(500) = N'ALTER DATABASE ' + QUOTENAME(@name) + N' ${OPTION_CLAUSES[option]};';
+        EXEC sp_executesql @statement;
+      `);
+  });
+  return pending;
+}
+
+/** Crea la base de datos si falta y la deja con las opciones del sistema; devuelve las opciones que aplicó. */
+export async function prepareDatabase(
+  master: sql.ConnectionPool,
+  name: string,
+): Promise<DatabaseOptionName[]> {
+  await ensureDatabase(master, name);
+  return configureDatabase(master, name);
 }
 
 /**

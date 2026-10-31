@@ -1,9 +1,9 @@
 /* =====================================================================
    Objeto   : dbo.SP_Dashboard_Summary
-   Version  : 1.0.0
-   Cambio   : Primera versión: indicadores de la cabecera del panel para un rango de fechas
+   Version  : 1.1.0
+   Cambio   : Los carritos abandonados se cuentan con un predicado sargable y sin calcular su valor; antes se valoraban todos solo para contarlos
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
-   Compat   : Nueva. Una sola fila. Las ventas siguen la definición de ADR-0009 (pagados y no cancelados, por fecha de pago, menos
+   Compat   : Mismas columnas que 1.0.0. Una sola fila. Las ventas siguen la definición de ADR-0009 (pagados y no cancelados, por fecha de pago, menos
               devoluciones); el ticket promedio es la venta neta entre los pedidos pagados, con redondeo half-even. Los tres
               contadores finales son del momento actual y no dependen del rango: pedidos esperando pago, depósitos en revisión y
               carritos abandonados. Importes como texto con dos decimales. Errores: 50400 rango inválido.
@@ -27,12 +27,20 @@ BEGIN
   FROM dbo.FU_Dashboard_Range(@From, @To, @Now) AS r
   JOIN dbo.VW_Dashboard_SoldOrders AS o ON o.PaidAt >= r.FromUtc AND o.PaidAt < r.ToUtc;
 
+  -- Contar no necesita el valor del carrito, solo saber que tiene productos
+  DECLARE @Abandoned INT;
+  SELECT @Abandoned = COUNT(*)
+  FROM dbo.Carts AS c
+  WHERE c.Status = N'Active' AND c.LastActivityAt <= (SELECT CutoffAt FROM dbo.FU_Carts_AbandonmentCutoff(@Now))
+    AND EXISTS (SELECT 1 FROM dbo.CartItems AS ci WHERE ci.IDCart = c.IDCart)
+  OPTION (RECOMPILE);
+
   SELECT FromDate = @From, ToDate = @To, Orders = @Orders,
          Gross = g.Text, Returned = rt.Text, Net = n.Text,
          AverageTicket = a.Text,
          PendingPaymentOrders = (SELECT COUNT(*) FROM dbo.Orders WHERE IDOrderStatus = 1),
          DepositsUnderReview  = (SELECT COUNT(*) FROM dbo.Payments WHERE IDPaymentMethod = 2 AND IDPaymentStatus = 2),
-         AbandonedCarts       = (SELECT COUNT(*) FROM dbo.VW_Carts_Abandoned WHERE AbandonedAt <= @Now)
+         AbandonedCarts       = @Abandoned
   FROM (SELECT One = 1) AS x
   CROSS APPLY dbo.FU_Money_CentsToText(@GrossCents) AS g
   CROSS APPLY dbo.FU_Money_CentsToText(@ReturnedCents) AS rt
