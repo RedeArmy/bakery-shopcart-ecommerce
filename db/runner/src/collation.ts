@@ -94,13 +94,20 @@ export async function confirmServerSettled(
   pause: (ms: number) => Promise<void>,
   expected: string = DATABASE_COLLATION,
 ): Promise<void> {
-  for (const sample of [1, 2]) {
-    const startup = await read();
-    if (startup === undefined) return;
-    if (isServerInitialising(startup, expected)) {
-      throw new Error('The server is still finishing its first start.');
-    }
-    if (sample === 1) await pause(SETTLE_CONFIRMATION_MS);
+  // Dos lecturas fijas, escritas en secuencia: cada una depende de la anterior y de la pausa entre ambas
+  const first = await read();
+  if (first === undefined) return;
+  assertSettled(first, expected);
+
+  await pause(SETTLE_CONFIRMATION_MS);
+
+  const second = await read();
+  if (second !== undefined) assertSettled(second, expected);
+}
+
+function assertSettled(startup: ServerStartup, expected: string): void {
+  if (isServerInitialising(startup, expected)) {
+    throw new Error('The server is still finishing its first start.');
   }
 }
 
