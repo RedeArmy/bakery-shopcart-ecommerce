@@ -10,7 +10,8 @@ export type MigrationErrorCode =
   | 'OBJECT_VERSION_LOWERED'
   | 'OBJECT_NOT_CREATED'
   | 'LOCK_NOT_ACQUIRED'
-  | 'COLLATION_MISMATCH';
+  | 'COLLATION_MISMATCH'
+  | 'SERVER_SHUT_DOWN';
 
 /** Error esperado del runner, con un código estable para los registros y las pruebas. */
 export class MigrationError extends Error {

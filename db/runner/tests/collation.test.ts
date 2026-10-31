@@ -1,12 +1,17 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   DATABASE_COLLATION,
+  SETTLE_CONFIRMATION_MS,
   STARTUP_GRACE_SECONDS,
   assessCollation,
+  confirmServerSettled,
+  isPermissionDenied,
   isServerInitialising,
+  isServerShutdown,
+  type ServerStartup,
 } from '../src/collation.js';
 
 describe('DATABASE_COLLATION', () => {
@@ -125,5 +130,89 @@ describe('isServerInitialising', () => {
     expect(
       isServerInitialising({ ...settled, serverCollation: DATABASE_COLLATION.toUpperCase() }),
     ).toBe(false);
+  });
+});
+
+describe('confirmServerSettled', () => {
+  const settled: ServerStartup = {
+    collationChangeStarted: true,
+    collationChangeFinished: true,
+    serverCollation: DATABASE_COLLATION,
+    uptimeSeconds: 600,
+  };
+  const running: ServerStartup = { ...settled, collationChangeFinished: false, uptimeSeconds: 11 };
+  const instantly = (): Promise<void> => Promise.resolve();
+
+  it('needs two settled readings separated by a pause', async () => {
+    const read = vi.fn().mockResolvedValue(settled);
+    const pause = vi.fn(instantly);
+    await confirmServerSettled(read, pause);
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(pause).toHaveBeenCalledExactlyOnceWith(SETTLE_CONFIRMATION_MS);
+  });
+
+  it('fails when the first reading says the change is still running', async () => {
+    const read = vi.fn().mockResolvedValue(running);
+    await expect(confirmServerSettled(read, instantly)).rejects.toThrow(/still finishing/);
+    expect(read).toHaveBeenCalledTimes(1);
+  });
+
+  // Una lectura aislada puede caer antes de que el registro anuncie el cambio: la segunda lo ve
+  it('fails when the change shows up between the two readings', async () => {
+    const read = vi.fn().mockResolvedValueOnce(settled).mockResolvedValueOnce(running);
+    await expect(confirmServerSettled(read, instantly)).rejects.toThrow(/still finishing/);
+    expect(read).toHaveBeenCalledTimes(2);
+  });
+
+  // Antes cualquier error de la consulta se daba por "listo" y dejaba pasar a CREATE DATABASE
+  it('does not swallow a failed reading: the caller must retry', async () => {
+    const deadlock = Object.assign(new Error('deadlock victim'), { number: 1205 });
+    const read = vi.fn().mockRejectedValue(deadlock);
+    await expect(confirmServerSettled(read, instantly)).rejects.toBe(deadlock);
+  });
+
+  it('lets a server whose log cannot be read go on, because it is not a fresh one', async () => {
+    const read = vi.fn().mockResolvedValue(undefined);
+    const pause = vi.fn(instantly);
+    await confirmServerSettled(read, pause);
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(pause).not.toHaveBeenCalled();
+  });
+});
+
+describe('isPermissionDenied', () => {
+  it.each([229, 230, 262, 297, 300, 15003])('treats error %i as a missing permission', (number) => {
+    expect(isPermissionDenied({ number })).toBe(true);
+  });
+
+  it.each([1205, 3434, 6005, 4060, -2])(
+    'does not treat error %i as a missing permission',
+    (number) => {
+      expect(isPermissionDenied({ number })).toBe(false);
+    },
+  );
+
+  it('ignores values that are not SQL Server errors', () => {
+    expect(isPermissionDenied(undefined)).toBe(false);
+    expect(isPermissionDenied('229')).toBe(false);
+    expect(isPermissionDenied(new Error('plain'))).toBe(false);
+  });
+});
+
+describe('isServerShutdown', () => {
+  it('recognises the collation change shutdown and a shutdown in progress', () => {
+    expect(isServerShutdown({ number: 3434 })).toBe(true);
+    expect(isServerShutdown({ number: 6005 })).toBe(true);
+  });
+
+  it('recognises a connection that was cut', () => {
+    expect(isServerShutdown({ code: 'ECONNCLOSED' })).toBe(true);
+    expect(isServerShutdown({ code: 'ESOCKET' })).toBe(true);
+  });
+
+  it('does not mistake an ordinary SQL error for a shutdown', () => {
+    expect(isServerShutdown({ number: 1205 })).toBe(false);
+    expect(isServerShutdown({ code: 'EREQUEST', number: 2714 })).toBe(false);
+    expect(isServerShutdown(null)).toBe(false);
   });
 });
