@@ -38,6 +38,7 @@
     "sql:test:up": "tsx tools/scripts/ensure-env.ts && docker compose -f docker-compose.sql-test.yml up -d --wait",
     "sql:test:down": "docker compose -f docker-compose.sql-test.yml down --volumes",
     "sql:concurrency": "tsx db/tests/scripts/run-concurrency.ts",
+    "sql:bench": "tsx db/tests/scripts/run-bench.ts",
     "sql:coverage": "tsx db/tests/scripts/sp-coverage.ts",
     "seed": "tsx tools/scripts/not-implemented.ts seed 2",
     "api:generate": "tsx tools/scripts/not-implemented.ts api:generate 7",

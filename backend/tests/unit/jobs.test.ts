@@ -256,11 +256,24 @@ describe('job runner', () => {
   });
 });
 
+/** Los seis contadores de la purga, en cero salvo los que una prueba indique. */
+function purged(overrides: Partial<Record<string, number>> = {}) {
+  return {
+    purgedIdempotency: 0,
+    purgedRefreshTokens: 0,
+    purgedWebhooks: 0,
+    purgedGuestCarts: 0,
+    purgedReservations: 0,
+    purgedDdlHistory: 0,
+    ...overrides,
+  };
+}
+
 function fakePort(overrides: Partial<JobsPort> = {}): JobsPort {
   return {
     expirePayments: () =>
       Promise.resolve({ outcome: 'Ran', expiredOrders: 3, releasedReservations: 2 }),
-    purgeExpired: () => Promise.resolve({ outcome: 'Ran', purgedIdempotency: 7 }),
+    purgeExpired: () => Promise.resolve({ outcome: 'Ran', ...purged({ purgedIdempotency: 7 }) }),
     reconcile: () =>
       Promise.resolve({ outcome: 'Ran', amountDiscrepancies: 0, inventoryDiscrepancies: 0 }),
     ...overrides,
@@ -289,7 +302,7 @@ describe('job definitions', () => {
     });
     expect(await jobs['purgeExpired']?.run()).toEqual({
       outcome: 'Ran',
-      counts: { purgedIdempotency: 7 },
+      counts: purged({ purgedIdempotency: 7 }),
     });
   });
 
@@ -337,7 +350,7 @@ describe('SQL jobs adapter', () => {
       expiredOrders: 0,
       releasedReservations: 0,
     });
-    expect(await jobs.purgeExpired()).toEqual({ outcome: 'Skipped', purgedIdempotency: 0 });
+    expect(await jobs.purgeExpired()).toEqual({ outcome: 'Skipped', ...purged() });
     expect(await jobs.reconcile()).toEqual({
       outcome: 'Skipped',
       amountDiscrepancies: 0,
@@ -352,7 +365,15 @@ describe('SQL jobs adapter', () => {
       {
         procedure: 'dbo.SP_Jobs_PurgeExpired',
         inputs: [],
-        outputs: ['Outcome', 'PurgedIdempotency'],
+        outputs: [
+          'Outcome',
+          'PurgedIdempotency',
+          'PurgedRefreshTokens',
+          'PurgedWebhooks',
+          'PurgedGuestCarts',
+          'PurgedReservations',
+          'PurgedDdlHistory',
+        ],
       },
       {
         procedure: 'dbo.SP_Jobs_ReconcileAmounts',

@@ -52,6 +52,7 @@ All documents are British English. The only Spanish files are the root `README.m
 | [operations/runbook](operations/runbook.md) | Running, resetting and troubleshooting |
 | [operations/environment-windows-linux](operations/environment-windows-linux.md) | Windows and Linux setup |
 | [operations/configuration-reference](operations/configuration-reference.md) | Every environment variable |
+| [operations/performance](operations/performance.md) | Database figures at 50,000 orders, what was changed and rejected, and how to repeat it |
 | [operations/test-accounts](operations/test-accounts.md) | Test accounts and how their passwords are generated |
 | [operations/branch-protection-and-sonarcloud](operations/branch-protection-and-sonarcloud.md) | Ruleset for `main` and SonarCloud setup |
 

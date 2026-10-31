@@ -7,7 +7,15 @@ export interface JobsPort {
     expiredOrders: number;
     releasedReservations: number;
   }>;
-  purgeExpired(): Promise<{ outcome: 'Ran' | 'Skipped'; purgedIdempotency: number }>;
+  purgeExpired(): Promise<{
+    outcome: 'Ran' | 'Skipped';
+    purgedIdempotency: number;
+    purgedRefreshTokens: number;
+    purgedWebhooks: number;
+    purgedGuestCarts: number;
+    purgedReservations: number;
+    purgedDdlHistory: number;
+  }>;
   reconcile(): Promise<{
     outcome: 'Ran' | 'Skipped';
     amountDiscrepancies: number;
@@ -54,7 +62,8 @@ export function buildJobs(port: JobsPort, config: JobsConfig): JobDefinition[] {
       startDelayMs: 30 * SECOND,
       run: async () => {
         const result = await port.purgeExpired();
-        return { outcome: result.outcome, counts: { purgedIdempotency: result.purgedIdempotency } };
+        const { outcome, ...counts } = result;
+        return { outcome, counts };
       },
     },
     {

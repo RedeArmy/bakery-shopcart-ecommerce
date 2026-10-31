@@ -1369,6 +1369,56 @@ async function reviewDeposit(
   }
 }
 
+// Un escritor con una fila bloqueada no hace esperar a quien lee. Con READ_COMMITTED_SNAPSHOT el lector ve la última versión
+// confirmada; con el aislamiento por bloqueos esperaría a que el escritor termine, y un panel de control o el catálogo se
+// quedarían colgados detrás de cualquier transacción larga. El lector tiene un tiempo límite corto para que la falla sea clara.
+async function readersDoNotWaitForWriters(
+  pool: sql.ConnectionPool,
+  settings: sql.config,
+): Promise<void> {
+  console.log('\nreaders do not wait for writers');
+  const enabled = await scalar(
+    pool,
+    'SELECT Value = CAST(is_read_committed_snapshot_on AS INT) FROM sys.databases WHERE name = DB_NAME()',
+  );
+  check('READ_COMMITTED_SNAPSHOT is on', enabled, 1);
+
+  const [variant] = await createVariants(pool, 'snapshot', [5]);
+  const writer = await new sql.ConnectionPool({ ...settings, pool: { min: 1, max: 1 } }).connect();
+  const reader = await new sql.ConnectionPool({
+    ...settings,
+    requestTimeout: 3000,
+    pool: { min: 1, max: 1 },
+  }).connect();
+  const transaction = new sql.Transaction(writer);
+  try {
+    await transaction.begin();
+    await new sql.Request(transaction)
+      .input('id', sql.Int, variant)
+      .batch('UPDATE dbo.Variants SET Price = 99.00 WHERE IDVariant = @id;');
+
+    const outcome = await reader
+      .request()
+      .input('id', sql.Int, variant)
+      .query<{ Price: number }>('SELECT Price FROM dbo.Variants WHERE IDVariant = @id;')
+      .then((result) => result.recordset[0]?.Price ?? -1)
+      .catch(() => 'the reader waited for the writer');
+    check('a reader gets the last committed price while a writer holds the row', outcome, 10);
+
+    const search = await reader
+      .request()
+      .input('Query', sql.NVarChar(100), 'Concurrency snapshot')
+      .execute<{ MinPrice: string }>('dbo.SP_Products_Search')
+      .then((result) => result.recordset[0]?.MinPrice ?? 'no row')
+      .catch(() => 'the catalogue waited for the writer');
+    check('the catalogue answers while a writer holds a variant', search, '10.00');
+  } finally {
+    await transaction.rollback().catch(() => undefined);
+    await writer.close();
+    await reader.close();
+  }
+}
+
 async function main(): Promise<number> {
   const envFile = join(ROOT, '.env');
   if (existsSync(envFile)) process.loadEnvFile(envFile);
@@ -1406,6 +1456,7 @@ async function main(): Promise<number> {
       () => cancelRace(pool),
       () => jobLock(pool, settings),
       () => expireRace(pool),
+      () => readersDoNotWaitForWriters(pool, settings),
     ];
     await inSequence(scenarios, (scenario) => scenario());
   } finally {

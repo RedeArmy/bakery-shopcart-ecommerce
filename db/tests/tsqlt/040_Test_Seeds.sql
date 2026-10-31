@@ -126,7 +126,7 @@ BEGIN
 END;
 GO
 
-CREATE PROCEDURE Test_Seeds.[test the configuration holds the ten default settings]
+CREATE PROCEDURE Test_Seeds.[test the configuration holds the fifteen default settings]
 AS
 BEGIN
     CREATE TABLE #Expected (SettingKey NVARCHAR(50) COLLATE DATABASE_DEFAULT, SettingValue NVARCHAR(100) COLLATE DATABASE_DEFAULT);
@@ -134,7 +134,9 @@ BEGIN
         (N'ReservationMinutes', N'15'), (N'DepositReservationHours', N'24'), (N'MinDepositHours', N'2'),
         (N'RejectionGraceHours', N'12'), (N'MaxDepositAttempts', N'3'), (N'AbandonedCartHours', N'24'),
         (N'ShippingCost', N'25.00'), (N'FreeShippingFrom', N'300.00'), (N'VatRate', N'12'),
-        (N'IdempotencyKeyHours', N'24');
+        (N'IdempotencyKeyHours', N'24'),
+        (N'RetentionRefreshTokenDays', N'30'), (N'RetentionWebhookDays', N'90'), (N'RetentionGuestCartDays', N'30'),
+        (N'RetentionReservationDays', N'90'), (N'RetentionDdlHistoryDays', N'365');
 
     SELECT SettingKey, SettingValue INTO #Actual FROM dbo.Configuration;
 

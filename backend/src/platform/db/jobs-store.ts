@@ -31,11 +31,22 @@ export function createSqlJobs(execute: ProcedureExecutor): JobsPort {
         [
           { name: 'Outcome', type: sql.VarChar(10) },
           { name: 'PurgedIdempotency', type: sql.Int },
+          { name: 'PurgedRefreshTokens', type: sql.Int },
+          { name: 'PurgedWebhooks', type: sql.Int },
+          { name: 'PurgedGuestCarts', type: sql.Int },
+          { name: 'PurgedReservations', type: sql.Int },
+          { name: 'PurgedDdlHistory', type: sql.Int },
         ],
       );
+      const count = (name: string): number => Number(result.output[name] ?? 0);
       return {
         outcome: result.output['Outcome'] as Outcome,
-        purgedIdempotency: Number(result.output['PurgedIdempotency'] ?? 0),
+        purgedIdempotency: count('PurgedIdempotency'),
+        purgedRefreshTokens: count('PurgedRefreshTokens'),
+        purgedWebhooks: count('PurgedWebhooks'),
+        purgedGuestCarts: count('PurgedGuestCarts'),
+        purgedReservations: count('PurgedReservations'),
+        purgedDdlHistory: count('PurgedDdlHistory'),
       };
     },
 
