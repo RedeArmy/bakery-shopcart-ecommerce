@@ -12,4 +12,6 @@ regexes = [
   '''Abcdefg12345''',
   # Token de carrito de visitante ficticio de las pruebas de rutas (un UUID cualquiera): no abre nada
   '''6f1c2a34-8e0b-4a6e-9a3a-0b1f7c9d2e11''',
+  # Contraseña ficticia de la prueba de configuración del banco de rendimiento (la que se lee de .env); no corresponde a ninguna cuenta
+  '''FromDotEnv123''',
 ]
