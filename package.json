@@ -2,7 +2,7 @@
   "name": "shopcart",
   "version": "0.1.0",
   "private": true,
-  "description": "ShopCart: e-commerce platform for the Dulce Aroma bakery (Tech Challenge 360)",
+  "description": "ShopCart: e-commerce platform for the bakery (Tech Challenge 360)",
   "type": "module",
   "engines": {
     "node": ">=26"

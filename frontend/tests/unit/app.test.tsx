@@ -17,9 +17,9 @@ describe('application shell', () => {
     render(<AppProviders />);
     expect(await screen.findByRole('heading', { level: 1 })).toHaveProperty(
       'textContent',
-      'Bienvenido a Dulce Aroma',
+      'Bienvenido a la Pastelería',
     );
-    expect(screen.getByText('Pastelería Dulce Aroma')).toBeDefined();
+    expect(screen.getByText('Pastelería')).toBeDefined();
   });
 });
 

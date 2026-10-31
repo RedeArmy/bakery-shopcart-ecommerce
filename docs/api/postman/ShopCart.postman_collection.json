@@ -1102,7 +1102,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"bankName\": \"Verification Bank {{runId}}\",\n  \"accountType\": \"Checking\",\n  \"accountNumber\": \"ACC-{{runId}}\",\n  \"holderName\": \"Dulce Aroma\"\n}",
+              "raw": "{\n  \"bankName\": \"Verification Bank {{runId}}\",\n  \"accountType\": \"Checking\",\n  \"accountNumber\": \"ACC-{{runId}}\",\n  \"holderName\": \"Pastelería\"\n}",
               "options": {
                 "raw": {
                   "language": "json"

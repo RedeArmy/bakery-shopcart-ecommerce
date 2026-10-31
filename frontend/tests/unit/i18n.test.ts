@@ -5,7 +5,7 @@ import i18n from '../../src/shared/i18n';
 describe('i18n', () => {
   it('serves Spanish (es-GT) copy through English keys', () => {
     expect(i18n.language).toBe('es-GT');
-    expect(i18n.t('common.appName')).toBe('Pastelería Dulce Aroma');
+    expect(i18n.t('common.appName')).toBe('Pastelería');
   });
 
   it('returns the key itself when a translation is missing, so gaps are visible', () => {

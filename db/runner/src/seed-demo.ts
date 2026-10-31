@@ -21,13 +21,13 @@ export interface DemoAccount {
 export const DEMO_ACCOUNTS: readonly DemoAccount[] = [
   {
     email: 'admin@shopcart.test',
-    fullName: 'Administrador Dulce Aroma',
+    fullName: 'Administrador',
     idRole: 3,
     password: 'adminPassword',
   },
   {
     email: 'operator@shopcart.test',
-    fullName: 'Operador Dulce Aroma',
+    fullName: 'Operador',
     idRole: 2,
     password: 'operatorPassword',
   },

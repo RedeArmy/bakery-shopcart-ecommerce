@@ -1,4 +1,4 @@
-# ShopCart · "Dulce Aroma" bakery
+# ShopCart · Pastelería
 
 🇬🇹 Versión en español: [README.md](README.md) <!-- spelling-ignore -->
 
@@ -144,6 +144,7 @@ stateDiagram-v2
   Dispatched --> Delivered
   Delivered --> PartiallyReturned
   Delivered --> Returned
+  PartiallyReturned --> PartiallyReturned
   PartiallyReturned --> Returned
 ```
 
