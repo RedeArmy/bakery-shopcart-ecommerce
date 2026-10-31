@@ -46,7 +46,8 @@ Stages 2 to 6 now have to fit in the four days before Delivery Phase 1; see the 
 - [ ] Add `integration` to the required checks when it is enabled (Stage 3 and 4).
 - [x] Write the core schema (`V0001` to `V0009`) and the reference seeds (`S0001` to `S0005`: roles, order and payment states and transitions, payment methods, movement types, configuration) (Stage 2).
 - [ ] Write the demo seeds (postponed to the end of the project at the user's request): catalogue of about 60 products, coupons `WELCOME10`, `CAKES25`, `SOLDOUT` and `EXPIRED`, a bank account, and the performance data (Stage 2).
-- [ ] Generate the `SEED_*_PASSWORD` variables in `ensure-env` and `.env.example`, and create the demo accounts with a Node seed step that calls `SP_Users_Register` (Stage 2, see [test accounts](../operations/test-accounts.md)).
+- [x] Generate the `SEED_*_PASSWORD` variables in `ensure-env` and `.env.example`; an older `.env` is completed without touching its values (Stage 2, see [test accounts](../operations/test-accounts.md)).
+- [ ] Create the demo accounts with a Node seed step that hashes the `SEED_*_PASSWORD` values and calls `SP_Users_Register`, and pass the variables to `db-migrate` (Stage 2).
 - [x] tSQLt spike: installs and runs on the SQL Server 2022 Linux image and Docker Desktop; plan B not needed (29 Oct).
 - [x] Vendor tSQLt 1.0.8083.3529 with its checksums, kept byte for byte and verified by `npm run sql:lint` on Linux and Windows (Stage 2, branch `feat/stage-2-vendor-tsqlt`).
 - [x] Write `db/tests/scripts/run-tsqlt.ts` so that `npm run sql:test` installs tSQLt and exports the JUnit XML (Stage 2).
