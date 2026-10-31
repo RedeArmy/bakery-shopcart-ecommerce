@@ -7,7 +7,9 @@ import type { AppLoginConfig, ConnectionSettings } from './config.js';
 import {
   DATABASE_COLLATION,
   assessCollation,
-  isServerInitialising,
+  confirmServerSettled,
+  isPermissionDenied,
+  isServerShutdown,
   type ServerStartup,
 } from './collation.js';
 import { CONTROL_TABLES_SQL } from './control-tables.js';
@@ -26,6 +28,9 @@ import type { ScriptFile } from './scripts.js';
 const CONNECT_ATTEMPTS = 60;
 const CONNECT_DELAY_MS = 2000;
 const LOCK_TIMEOUT_MS = 60_000;
+// Procedimientos que solo usa el runner: la aplicación no puede ejecutarlos aunque tenga EXECUTE sobre todo el esquema.
+// SP_Users_Provision asigna un rol, y un error del backend no debe poder crear un administrador.
+export const RESTRICTED_PROCEDURES: readonly string[] = ['dbo.SP_Users_Provision'];
 const LEVEL1_TYPES: Readonly<Record<string, string>> = {
   P: 'PROCEDURE',
   V: 'VIEW',
@@ -52,12 +57,13 @@ function poolFor(config: ConnectionSettings, database: string): sql.ConnectionPo
 }
 
 /**
- * Espera a que un servidor recién creado termine de arrancar (ver isServerInitialising). Lee el registro del servidor con
- * xp_readerrorlog, que exige sysadmin: si la consulta falla (por ejemplo, un login sin ese permiso) no se puede saber y se
- * continúa, porque en ese caso el servidor no es uno recién creado por el repositorio.
+ * Lee del registro del servidor si el cambio de collation por defecto empezó y terminó (ver isServerInitialising). Usa
+ * xp_readerrorlog, que exige sysadmin: sin ese permiso devuelve undefined, porque entonces el servidor no es uno recién creado
+ * por el repositorio. Cualquier otro fallo sube y hace reintentar a connect(): antes se daba por bueno, y un interbloqueo o una
+ * conexión cortada justo durante el cambio dejaban pasar a CREATE DATABASE, que apaga el servidor (error 3434). La tabla es
+ * una variable de tabla para no crear objetos en tempdb mientras el servidor la está reconstruyendo.
  */
-async function assertServerStarted(pool: sql.ConnectionPool): Promise<void> {
-  let startup: ServerStartup;
+async function readServerStartup(pool: sql.ConnectionPool): Promise<ServerStartup | undefined> {
   try {
     const result = await pool.request().query<{
       Started: number;
@@ -65,27 +71,24 @@ async function assertServerStarted(pool: sql.ConnectionPool): Promise<void> {
       ServerCollation: string;
       UptimeSeconds: number;
     }>(`
-      CREATE TABLE #ErrorLog (LogDate DATETIME, ProcessInfo NVARCHAR(50), LogText NVARCHAR(MAX));
-      INSERT INTO #ErrorLog EXEC master.dbo.xp_readerrorlog 0, 1, N'default collation';
-      SELECT Started = CASE WHEN EXISTS (SELECT 1 FROM #ErrorLog WHERE LogText LIKE N'Attempting to change default collation%') THEN 1 ELSE 0 END,
-             Finished = CASE WHEN EXISTS (SELECT 1 FROM #ErrorLog WHERE LogText LIKE N'The default collation was successfully changed%') THEN 1 ELSE 0 END,
+      DECLARE @ErrorLog TABLE (LogDate DATETIME, ProcessInfo NVARCHAR(50), LogText NVARCHAR(MAX));
+      INSERT INTO @ErrorLog EXEC master.dbo.xp_readerrorlog 0, 1, N'default collation';
+      SELECT Started = CASE WHEN EXISTS (SELECT 1 FROM @ErrorLog WHERE LogText LIKE N'Attempting to change default collation%') THEN 1 ELSE 0 END,
+             Finished = CASE WHEN EXISTS (SELECT 1 FROM @ErrorLog WHERE LogText LIKE N'The default collation was successfully changed%') THEN 1 ELSE 0 END,
              ServerCollation = CAST(SERVERPROPERTY('Collation') AS NVARCHAR(128)),
              UptimeSeconds = DATEDIFF(SECOND, (SELECT sqlserver_start_time FROM sys.dm_os_sys_info), SYSDATETIME());
     `);
     const row = result.recordset[0];
-    if (row === undefined) return;
-    startup = {
+    if (row === undefined) return undefined;
+    return {
       collationChangeStarted: row.Started === 1,
       collationChangeFinished: row.Finished === 1,
       serverCollation: row.ServerCollation,
       uptimeSeconds: row.UptimeSeconds,
     };
   } catch (error) {
-    if (error instanceof sql.RequestError) return;
+    if (error instanceof sql.RequestError && isPermissionDenied(error)) return undefined;
     throw error;
-  }
-  if (isServerInitialising(startup)) {
-    throw new Error('The server is still finishing its first start.');
   }
 }
 
@@ -98,7 +101,7 @@ export async function connect(
   const pool = poolFor(config, database);
   try {
     const connected = await pool.connect();
-    await assertServerStarted(connected);
+    await confirmServerSettled(() => readServerStartup(connected), pause);
     return connected;
   } catch (error) {
     await pool.close().catch(() => undefined);
@@ -114,10 +117,22 @@ export async function connect(
  * código y no un parámetro: CREATE DATABASE no admite parámetros en COLLATE y el valor nunca viene de fuera.
  */
 export async function ensureDatabase(master: sql.ConnectionPool, name: string): Promise<void> {
-  await master.request().input('name', sql.NVarChar(128), name).query(`
-    DECLARE @create NVARCHAR(500) = N'CREATE DATABASE ' + QUOTENAME(@name) + N' COLLATE ${DATABASE_COLLATION};';
-    IF DB_ID(@name) IS NULL EXEC sp_executesql @create;
-  `);
+  try {
+    await master.request().input('name', sql.NVarChar(128), name).query(`
+      DECLARE @create NVARCHAR(500) = N'CREATE DATABASE ' + QUOTENAME(@name) + N' COLLATE ${DATABASE_COLLATION};';
+      IF DB_ID(@name) IS NULL EXEC sp_executesql @create;
+    `);
+  } catch (error) {
+    // Si a pesar de la espera el servidor se apagó, el contenedor no vuelve solo y el volumen quedó a medias: se dice qué hacer
+    if (isServerShutdown(error)) {
+      throw new MigrationError(
+        'SERVER_SHUT_DOWN',
+        `SQL Server shut down while ${name} was being created, which happens when the database is created before the server ` +
+          'finishes its first start. Recreate the server (locally: docker compose down --volumes) and run the migrations again.',
+      );
+    }
+    throw error;
+  }
 }
 
 /** Lee las opciones de la base de datos que el sistema necesita; sys.databases se ve desde cualquier conexión. */
@@ -418,6 +433,7 @@ export async function provisionAppLogin(
     IF DATABASE_PRINCIPAL_ID(@user) IS NULL
       SET @statement += N'CREATE USER ' + @quotedUser + N' FOR LOGIN ' + @quotedUser + N';';
     SET @statement += N'GRANT EXECUTE ON SCHEMA::dbo TO ' + @quotedUser + N';';
+    ${RESTRICTED_PROCEDURES.map((name) => `IF OBJECT_ID(N'${name}', N'P') IS NOT NULL SET @statement += N'DENY EXECUTE ON OBJECT::${name} TO ' + @quotedUser + N';';`).join('\n    ')}
     SET @statement += N'DENY SELECT, INSERT, UPDATE, DELETE ON SCHEMA::dbo TO ' + @quotedUser + N';';
     EXEC sp_executesql @statement;
   `);

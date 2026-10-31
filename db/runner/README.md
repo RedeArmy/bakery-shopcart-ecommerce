@@ -18,8 +18,13 @@ npm run db:migrate
 npm run db:verify
 ```
 
+```bash
+npm run seed
+```
+
 `db:migrate` creates the database if it is missing, takes an application lock so two runners cannot overlap, creates the control tables and applies, in this order, the pending `V` migrations, the new or changed `R` objects and the `S` seeds. Every script runs in its own transaction; a failed one is rolled back and logged with `IsSuccessful = 0`.
 
+`db:migrate` also aligns the application login and, only when `SEED_DEMO_DATA` is `true`, creates the demo accounts (see [test accounts](../../docs/operations/test-accounts.md)). `seed` runs just that last step on a database that is already migrated and exits with 1 when the flag is off.
 `db:migrate` also prepares the database itself: `READ_COMMITTED_SNAPSHOT`, Query Store and `PAGE_VERIFY CHECKSUM` (`src/options.ts`). `ALTER DATABASE` cannot run inside the transaction of a script, so these are not migrations; the runner reads `sys.databases`, applies only what is missing (enabling the snapshot option waits up to 30 seconds for the other sessions, once) and `db:verify` reports what is missing.
 
 `db:verify` exits with 1 when a script is pending, a migration was edited, or an object was changed outside the runner. Exit codes of both commands: 0 correct, 1 a problem in the scripts or the database, 2 a failure of the tool itself.

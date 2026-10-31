@@ -620,3 +620,77 @@ BEGIN
     EXEC tSQLt.AssertEquals @Expected = 0, @Actual = @Rows;
 END;
 GO
+
+-- Alta con rol (cuentas de demostración) ---------------------------------------------------------
+
+CREATE PROCEDURE Test_Auth.[test provisioning creates an account with the given role]
+AS
+BEGIN
+    DECLARE @IDUser INT, @Created BIT;
+    EXEC dbo.SP_Users_Provision @Email = N'  operator@shopcart.demo ', @PasswordHash = N'hash', @FullName = N' Operator ', @IDRole = 2,
+         @IDUser = @IDUser OUTPUT, @Created = @Created OUTPUT;
+
+    DECLARE @Role INT = (SELECT IDRole FROM dbo.Users WHERE IDUser = @IDUser);
+    DECLARE @Email NVARCHAR(256) = (SELECT Email FROM dbo.Users WHERE IDUser = @IDUser);
+    DECLARE @Name NVARCHAR(120) = (SELECT FullName FROM dbo.Users WHERE IDUser = @IDUser);
+    DECLARE @Active INT = (SELECT CAST(IsActive AS INT) FROM dbo.Users WHERE IDUser = @IDUser);
+    EXEC tSQLt.AssertEquals @Expected = 2, @Actual = @Role;
+    EXEC tSQLt.AssertEqualsString @Expected = N'operator@shopcart.demo', @Actual = @Email;
+    EXEC tSQLt.AssertEqualsString @Expected = N'Operator', @Actual = @Name;
+    EXEC tSQLt.AssertEquals @Expected = 1, @Actual = @Active;
+    EXEC tSQLt.AssertEquals @Expected = 1, @Actual = @Created;
+END;
+GO
+
+-- Repetir el paso de semilla no cambia nada: ni la contraseña, ni el nombre, ni el rol de una cuenta que ya existe
+CREATE PROCEDURE Test_Auth.[test provisioning an existing email changes nothing]
+AS
+BEGIN
+    DECLARE @First INT, @Second INT, @FirstCreated BIT, @SecondCreated BIT;
+    EXEC dbo.SP_Users_Provision @Email = N'seed@shopcart.demo', @PasswordHash = N'original', @FullName = N'Original', @IDRole = 3,
+         @IDUser = @First OUTPUT, @Created = @FirstCreated OUTPUT;
+    EXEC dbo.SP_Users_Provision @Email = N'SEED@shopcart.demo', @PasswordHash = N'other', @FullName = N'Other', @IDRole = 1,
+         @IDUser = @Second OUTPUT, @Created = @SecondCreated OUTPUT;
+
+    DECLARE @Hash NVARCHAR(255) = (SELECT PasswordHash FROM dbo.Users WHERE IDUser = @First);
+    DECLARE @Name NVARCHAR(120) = (SELECT FullName FROM dbo.Users WHERE IDUser = @First);
+    DECLARE @Role INT = (SELECT IDRole FROM dbo.Users WHERE IDUser = @First);
+    DECLARE @Rows INT = (SELECT COUNT(*) FROM dbo.Users WHERE Email = N'seed@shopcart.demo');
+    EXEC tSQLt.AssertEquals @Expected = @First, @Actual = @Second;
+    EXEC tSQLt.AssertEquals @Expected = 1, @Actual = @FirstCreated;
+    EXEC tSQLt.AssertEquals @Expected = 0, @Actual = @SecondCreated;
+    EXEC tSQLt.AssertEqualsString @Expected = N'original', @Actual = @Hash;
+    EXEC tSQLt.AssertEqualsString @Expected = N'Original', @Actual = @Name;
+    EXEC tSQLt.AssertEquals @Expected = 3, @Actual = @Role;
+    EXEC tSQLt.AssertEquals @Expected = 1, @Actual = @Rows;
+END;
+GO
+
+CREATE PROCEDURE Test_Auth.[test provisioning rejects a role that does not exist]
+AS
+BEGIN
+    DECLARE @IDUser INT, @Created BIT;
+    EXEC tSQLt.ExpectException @ExpectedMessagePattern = N'%role does not exist%', @ExpectedErrorNumber = 50400;
+    EXEC dbo.SP_Users_Provision @Email = N'x@shopcart.demo', @PasswordHash = N'hash', @FullName = N'X', @IDRole = 9,
+         @IDUser = @IDUser OUTPUT, @Created = @Created OUTPUT;
+END;
+GO
+
+CREATE PROCEDURE Test_Auth.[test provisioning rejects missing data]
+AS
+BEGIN
+    DECLARE @IDUser INT, @Created BIT, @NoHash INT = 0, @NoName INT = 0, @BadEmail INT = 0;
+    BEGIN TRY EXEC dbo.SP_Users_Provision @Email = N'a@shopcart.demo', @PasswordHash = N'', @FullName = N'A', @IDRole = 1, @IDUser = @IDUser OUTPUT, @Created = @Created OUTPUT; END TRY
+    BEGIN CATCH SET @NoHash = ERROR_NUMBER(); END CATCH;
+    BEGIN TRY EXEC dbo.SP_Users_Provision @Email = N'a@shopcart.demo', @PasswordHash = N'hash', @FullName = N' ', @IDRole = 1, @IDUser = @IDUser OUTPUT, @Created = @Created OUTPUT; END TRY
+    BEGIN CATCH SET @NoName = ERROR_NUMBER(); END CATCH;
+    BEGIN TRY EXEC dbo.SP_Users_Provision @Email = N'not-an-email', @PasswordHash = N'hash', @FullName = N'A', @IDRole = 1, @IDUser = @IDUser OUTPUT, @Created = @Created OUTPUT; END TRY
+    BEGIN CATCH SET @BadEmail = ERROR_NUMBER(); END CATCH;
+    DECLARE @Rows INT = (SELECT COUNT(*) FROM dbo.Users WHERE Email LIKE N'%@shopcart.demo');
+
+    EXEC tSQLt.AssertEquals @Expected = 50400, @Actual = @NoHash;
+    EXEC tSQLt.AssertEquals @Expected = 50400, @Actual = @NoName;
+    EXEC tSQLt.AssertEquals @Expected = 50400, @Actual = @BadEmail;
+    EXEC tSQLt.AssertEquals @Expected = 0, @Actual = @Rows;
+END;
+GO

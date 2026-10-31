@@ -40,7 +40,7 @@
     "sql:concurrency": "tsx db/tests/scripts/run-concurrency.ts",
     "sql:bench": "tsx db/tests/scripts/run-bench.ts",
     "sql:coverage": "tsx db/tests/scripts/sp-coverage.ts",
-    "seed": "tsx tools/scripts/not-implemented.ts seed 2",
+    "seed": "tsx db/runner/src/cli.ts seed",
     "api:generate": "tsx tools/scripts/not-implemented.ts api:generate 7",
     "sonar": "tsx tools/scripts/not-implemented.ts sonar 9",
     "test:coverage": "npm run test:coverage --workspaces --if-present"

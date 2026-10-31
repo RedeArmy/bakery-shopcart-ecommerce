@@ -1,35 +1,28 @@
 // Crea .env a partir de .env.example y genera los secretos locales vacíos.
 // Así "npm run up" funciona en una máquina limpia sin pasos manuales y sin versionar secretos.
-import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { completeEnv } from './lib/env-file.js';
 
 const EXAMPLE_PATH = '.env.example';
 const ENV_PATH = '.env';
-const GENERATED_KEYS = new Set([
-  'MSSQL_SA_PASSWORD',
-  'DB_APP_PASSWORD',
-  'JWT_ACCESS_SECRET',
-  'JWT_REFRESH_PEPPER',
-]);
 
-// Solo alfanuméricos con mayúsculas, minúsculas y dígitos: cumple la complejidad de SQL Server
-// y evita caracteres que compose o sqlcmd interpretarían (por ejemplo "$").
-function generateSecret(): string {
-  return `Sc${randomBytes(18).toString('base64url').replace(/[-_]/g, 'x')}9a`;
-}
+const example = readFileSync(EXAMPLE_PATH, 'utf8');
+const exists = existsSync(ENV_PATH);
+const { content, filled } = completeEnv(
+  example,
+  exists ? readFileSync(ENV_PATH, 'utf8') : undefined,
+);
 
-if (existsSync(ENV_PATH)) {
-  // cspell:disable-next-line
-  console.log('.env ya existe: no se modifica.');
-} else {
-  const lines = readFileSync(EXAMPLE_PATH, 'utf8').split('\n');
-  const filled = lines.map((line) => {
-    const [key] = line.split('=');
-    return key !== undefined && GENERATED_KEYS.has(key) && line === `${key}=`
-      ? `${key}=${generateSecret()}`
-      : line;
-  });
-  writeFileSync(ENV_PATH, filled.join('\n'));
-  // cspell:disable-next-line
+// cspell:disable
+if (!exists) {
+  writeFileSync(ENV_PATH, content);
   console.log('.env creado con secretos locales generados.');
+} else if (filled.length > 0) {
+  writeFileSync(ENV_PATH, content);
+  console.log(
+    `.env ya existía: se completaron ${filled.join(', ')}. No se cambió ningún otro valor.`,
+  );
+} else {
+  console.log('.env ya existe: no se modifica.');
 }
+// cspell:enable
