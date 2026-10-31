@@ -9,27 +9,21 @@ flowchart LR
   end
   subgraph Docker Compose
     N[nginx<br/>static files, /api proxy, limit_req]
-    A1[API Express TS #1]
-    A2[API Express TS #2]
+    A[API Express TS]
     J[Jobs: payment and reservation expiry,<br/>reconciliation, purges]
     DB[(SQL Server 2019+)]
     V[(Private volume<br/>payment proofs)]
     M[db-migrate<br/>runner V/R/S]
   end
-  R[[Recurrente<br/>hosted checkout + Svix webhooks]]
   B -->|HTTPS| N
-  N --> A1
-  N --> A2
-  A1 -->|mssql + typed procedures| DB
-  A2 -->|mssql + typed procedures| DB
-  A1 --> V
+  N --> A
+  A -->|mssql + typed procedures| DB
+  A --> V
   J -->|maintenance procedures| DB
-  A1 -.->|create and query checkout| R
-  R -.->|signed webhook| N
   M -->|migrates, applies objects, seeds| DB
 ```
 
-Without Recurrente credentials the gateway box is unused and only bank deposit is offered. Jobs run inside the API process; `sp_getapplock` makes them single-instance when several replicas run.
+There is no payment gateway: only bank deposit is offered. Jobs run inside the API process; `sp_getapplock` makes them single-instance when several replicas run.
 
 ## Checkout: confirmation and method choice
 
@@ -39,22 +33,15 @@ sequenceDiagram
   participant U as Customer
   participant API as API
   participant DB as SQL Server
-  participant R as Recurrente (Phase 2)
   U->>API: GET /checkout/payment-methods?deliveryDate=
-  API-->>U: [CARD only if available, BANK_DEPOSIT if the window allows]
+  API-->>U: [BANK_DEPOSIT if the window allows]
   U->>API: POST /checkout/start (15-minute reservation)
-  U->>API: POST /checkout/confirm {reservationId, method, address, deliveryDate, coupon?} + Idempotency-Key
+  U->>API: POST /checkout/confirm {idReservation, idAddress, deliveryDate, method, idBankAccount} + Idempotency-Key
   API->>API: is the method available? (otherwise 422)
   API->>DB: SP_Orders_CreateOrder
   Note over DB: Atomic transaction: Order (PendingPayment) + lines + coupon<br/>+ Payment (Pending) + reservation linked to the order + audit
   DB-->>API: IDOrder, IDPayment, deadline
-  alt CARD (Phase 2)
-    API->>R: POST /api/checkouts (order total, metadata)
-    API->>DB: SP_Payments_RegisterExternalCheckout
-    API-->>U: 201 + checkoutUrl
-  else BANK_DEPOSIT
-    API-->>U: 201 + bank details, reference = OrderNumber, deadline
-  end
+  API-->>U: 201 + bank details, reference = OrderNumber, deadline
 ```
 
 ## Bank deposit (Delivery Phase 1)
@@ -77,15 +64,17 @@ sequenceDiagram
   O->>API: GET proof (authenticated stream)
   alt approves
     O->>API: POST /admin/payments/:id/approve
-    API->>DB: SP_Payments_ApproveDeposit then SP_Payments_ConfirmPayment
+    API->>DB: SP_Payments_ApproveDeposit (calls SP_Payments_ConfirmPayment)
   else rejects
     O->>API: POST /admin/payments/:id/reject {reason}
     API->>DB: SP_Payments_RejectDeposit (Payment Rejected, order stays PendingPayment)
-    Note over U: the customer sees the reason and may upload another proof<br/>(up to MaxDepositAttempts and within the window)
+    Note over U: the customer sees the reason and, within the window and up to MaxDepositAttempts,<br/>opens another attempt (POST /orders/:id/payment/attempts) and uploads another proof
   end
 ```
 
-## Card with Recurrente (Delivery Phase 2)
+## Card with Recurrente (not part of this delivery)
+
+A design kept for reference: the evaluator confirmed on 27 October that no payment gateway is required, so none of this is built.
 
 ```mermaid
 sequenceDiagram
