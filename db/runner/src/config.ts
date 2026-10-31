@@ -14,10 +14,19 @@ export interface ConnectionSettings {
   trustServerCertificate: boolean;
 }
 
+/** Contraseñas de las cuentas de demostración; nunca se versionan, salen del .env local (docs/operations/test-accounts.md). */
+export interface SeedConfig {
+  adminPassword: string;
+  operatorPassword: string;
+  customerPassword: string;
+}
+
 export interface RunnerConfig extends ConnectionSettings {
   database: string;
   /** Presente solo si DB_APP_PASSWORD está definida; en el CI no existe y no se crea ningún login */
   appLogin?: AppLoginConfig;
+  /** Presente solo si SEED_DEMO_DATA es true: entonces se crean las cuentas de demostración */
+  seed?: SeedConfig;
 }
 
 // QUOTENAME admite como máximo 128 caracteres: la contraseña se incrusta con ella en CREATE LOGIN
@@ -54,6 +63,7 @@ export function loadRunnerConfig(env: NodeJS.ProcessEnv): RunnerConfig {
     database,
     trustServerCertificate: env['DB_TRUST_SERVER_CERTIFICATE'] !== 'false',
     ...loadAppLogin(env),
+    ...loadSeed(env),
   };
 }
 
@@ -71,4 +81,52 @@ function loadAppLogin(env: NodeJS.ProcessEnv): { appLogin?: AppLoginConfig } {
     );
   }
   return { appLogin: { user, password: appPassword } };
+}
+
+// Mismo mínimo que la API para registrar una contraseña (10); el máximo evita que argon2 trabaje con entradas enormes
+const SEED_PASSWORD_MIN_LENGTH = 10;
+const SEED_PASSWORD_VARIABLES = {
+  adminPassword: 'SEED_ADMIN_PASSWORD',
+  operatorPassword: 'SEED_OPERATOR_PASSWORD',
+  customerPassword: 'SEED_CUSTOMER_PASSWORD',
+} as const;
+
+function loadSeed(env: NodeJS.ProcessEnv): { seed?: SeedConfig } {
+  const flag = env['SEED_DEMO_DATA'] ?? '';
+  if (flag === '' || flag === 'false') return {};
+  if (flag !== 'true') {
+    throw new Error(`SEED_DEMO_DATA must be true or false, got "${flag}".`);
+  }
+
+  // Nunca se escribe el valor de una contraseña en el mensaje: solo el nombre de la variable
+  const read = (key: keyof SeedConfig): string => {
+    const variable = SEED_PASSWORD_VARIABLES[key];
+    const value = env[variable] ?? '';
+    if (value === '') {
+      throw new Error(
+        `${variable} is empty: npm run up generates it in .env when SEED_DEMO_DATA is true.`,
+      );
+    }
+    if (value.length < SEED_PASSWORD_MIN_LENGTH || value.length > PASSWORD_MAX_LENGTH) {
+      throw new Error(
+        `${variable} must have between ${SEED_PASSWORD_MIN_LENGTH} and ${PASSWORD_MAX_LENGTH} characters.`,
+      );
+    }
+    return value;
+  };
+  return {
+    seed: {
+      adminPassword: read('adminPassword'),
+      operatorPassword: read('operatorPassword'),
+      customerPassword: read('customerPassword'),
+    },
+  };
+}
+
+/**
+ * Las bases de pruebas (nombre terminado en _CI) son de tSQLt: sus fixtures usan los mismos correos que las cuentas de
+ * demostración y suponen una base sin datos propios. El mismo sufijo ya lo exige SQL_TEST_DATABASE.
+ */
+export function isTestDatabase(database: string): boolean {
+  return database.endsWith('_CI');
 }

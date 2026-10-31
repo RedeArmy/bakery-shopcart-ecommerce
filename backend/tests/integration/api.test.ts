@@ -56,7 +56,9 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
 
   const key = (): string => `it-${runId}-${(counter += 1)}`;
   const deliveryDate = new Date(Date.now() + 10 * 24 * 3600 * 1000).toISOString().slice(0, 10);
-  const today = new Date().toISOString().slice(0, 10);
+  // La entrega se interpreta a las 00:00 de Guatemala (UTC-6): "hoy" es el día de Guatemala, no el de UTC, que desde las 18:00
+  // locales ya es el siguiente y daría tiempo para un depósito
+  const today = new Date(Date.now() - 6 * 3600 * 1000).toISOString().slice(0, 10);
   const api = (): ReturnType<typeof request> => request(container.app);
 
   const as = (token: string, call: Test): Test => call.set('Authorization', `Bearer ${token}`);

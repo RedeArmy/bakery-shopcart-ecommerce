@@ -66,3 +66,61 @@ export function isServerInitialising(
     startup.uptimeSeconds < STARTUP_GRACE_SECONDS
   );
 }
+
+/** Pausa entre las dos lecturas que confirman que el servidor ya terminó de arrancar. */
+export const SETTLE_CONFIRMATION_MS = 1500;
+
+// Errores de SQL Server por falta de permisos: 229/230 (EXECUTE/columna), 262 (CREATE TABLE), 297 y 300 (VIEW SERVER STATE)
+// y 15003 (solo sysadmin). Son los únicos que significan "no puedo leer el registro", que no es lo mismo que "el servidor
+// está listo": un interbloqueo, un tiempo agotado o una conexión cortada durante el cambio de collation son transitorios.
+const PERMISSION_DENIED_ERRORS: ReadonlySet<number> = new Set([229, 230, 262, 297, 300, 15003]);
+
+/** Distingue "no tengo permiso para leer el registro" de cualquier otro fallo de la consulta. */
+export function isPermissionDenied(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const { number } = error as { number?: unknown };
+  return typeof number === 'number' && PERMISSION_DENIED_ERRORS.has(number);
+}
+
+/**
+ * Da el servidor por asentado solo si dos lecturas separadas por una pausa coinciden. Una lectura aislada puede caer justo
+ * entre el inicio del cambio de collation y la línea del registro que lo anuncia; la segunda cierra esa ventana. Si leer falla
+ * por un error que no es de permisos, el error sube: el llamador reintenta en lugar de suponer que todo está bien.
+ * `read` devuelve undefined cuando el registro no se puede leer por permisos: el servidor no es uno recién creado por el
+ * repositorio y no hay nada que esperar.
+ */
+export async function confirmServerSettled(
+  read: () => Promise<ServerStartup | undefined>,
+  pause: (ms: number) => Promise<void>,
+  expected: string = DATABASE_COLLATION,
+): Promise<void> {
+  // Dos lecturas fijas, escritas en secuencia: cada una depende de la anterior y de la pausa entre ambas
+  const first = await read();
+  if (first === undefined) return;
+  assertSettled(first, expected);
+
+  await pause(SETTLE_CONFIRMATION_MS);
+
+  const second = await read();
+  if (second !== undefined) assertSettled(second, expected);
+}
+
+function assertSettled(startup: ServerStartup, expected: string): void {
+  if (isServerInitialising(startup, expected)) {
+    throw new Error('The server is still finishing its first start.');
+  }
+}
+
+// 3434: el cambio de collation por defecto no puede hacerse con otras bases creándose y el servidor se apaga; 6005: apagado en curso
+const SHUTDOWN_ERRORS: ReadonlySet<number> = new Set([3434, 6005]);
+const CONNECTION_LOST_CODES: ReadonlySet<string> = new Set(['ECONNCLOSED', 'ESOCKET']);
+
+/** El servidor se apagó o cortó la conexión mientras se le pedía crear la base de datos. */
+export function isServerShutdown(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const { number, code } = error as { number?: unknown; code?: unknown };
+  return (
+    (typeof number === 'number' && SHUTDOWN_ERRORS.has(number)) ||
+    (typeof code === 'string' && CONNECTION_LOST_CODES.has(code))
+  );
+}

@@ -55,6 +55,9 @@
   ],
   "words": [
     "HSTS",
+    "ECONNCLOSED",
+    "ESOCKET",
+    "EREQUEST",
     "TRANCOUNT",
     "OPENJSON",
     "Dockerfiles",

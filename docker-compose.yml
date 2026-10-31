@@ -47,6 +47,11 @@ services:
       MIGRATION_PASSWORD: ${MSSQL_SA_PASSWORD}
       DB_APP_USER: ${DB_APP_USER:-shopcart_app}
       DB_APP_PASSWORD: ${DB_APP_PASSWORD}
+      # Cuentas de demostración: apagadas salvo que el .env local las pida (npm run up lo deja en true y genera las contraseñas)
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      SEED_OPERATOR_PASSWORD: ${SEED_OPERATOR_PASSWORD:-}
+      SEED_CUSTOMER_PASSWORD: ${SEED_CUSTOMER_PASSWORD:-}
     restart: 'no'
     # Sin privilegios añadidos: la aplicación no necesita capacidades de Linux
     security_opt:
