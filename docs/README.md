@@ -40,10 +40,12 @@ All documents are British English. The only Spanish files are the root `README.m
 |---|---|
 | [api/conventions](api/conventions.md) | Errors, idempotency, pagination, money as strings |
 | [api/openapi/openapi.yaml](api/openapi/openapi.yaml) | The contract (source of truth) |
+| [api/postman](api/postman/README.md) | Postman collection that verifies the delivery: 44 requests, 76 assertions |
 | [payments/overview](payments/overview.md) | Payment methods and flows |
 | [payments/bank-deposit](payments/bank-deposit.md) | Deposit flow, proofs, review |
 | [payments/recurrente](payments/recurrente.md) | Card payments through Recurrente |
 | [payments/availability-rule](payments/availability-rule.md) | When each method is offered |
+| [quality/acceptance-criteria-map](quality/acceptance-criteria-map.md) | Each acceptance criterion of the brief, what enforces it and the test that proves it |
 | [quality/test-strategy](quality/test-strategy.md) | Test types and scenarios |
 | [quality/sql-testing-tsqlt](quality/sql-testing-tsqlt.md) | tSQLt layers, rules and cases |
 | [quality/definition-of-done](quality/definition-of-done.md) | When work counts as done |

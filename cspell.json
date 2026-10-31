@@ -54,6 +54,8 @@
     "/^.*<!--\\s*spelling-ignore\\s*-->.*$/gm"
   ],
   "words": [
+    "noauth",
+    "prerequest",
     "Cutoff",
     "cutoff",
     "sargable",
