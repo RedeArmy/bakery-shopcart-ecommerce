@@ -14,7 +14,7 @@ At checkout confirmation, `SP_Orders_CreateOrder` atomically creates the order i
 ## Consequences
 
 - Reports must exclude `PendingPayment` (ADR-0009).
-- The evaluator confirmed in writing that modelling a `PendingPayment` state before `Paid` is valid (recorded on 2026-10-29). The fallback of a separate "deposit request" entity is therefore not needed and `SP_Orders_CreateOrder` is written as designed.
+- Modelling a `PendingPayment` state before `Paid` is valid. The fallback of a separate "deposit request" entity is therefore not needed and `SP_Orders_CreateOrder` is written as designed.
 
 ## Alternatives considered
 

@@ -102,11 +102,10 @@ El enunciado deja algunas decisiones a propósito. Estas son las posturas tomada
 
 | Tema | Qué se decidió |
 |---|---|
-| Pasarela de pagos | No hay pasarela. El pago es un **depósito bancario** simulado: el cliente sube el comprobante, el personal lo revisa y lo aprueba (éxito) o lo rechaza con un motivo (rechazo), y el cliente abre otro intento, hasta tres (reintento). Lo confirmó el evaluador por escrito el 27 de octubre. El código de tarjeta queda inactivo por defecto |
+| Pasarela de pagos | No hay pasarela. El pago es un **depósito bancario** simulado: el cliente sube el comprobante, el personal lo revisa y lo aprueba (éxito) o lo rechaza con un motivo (rechazo), y el cliente abre otro intento, hasta tres (reintento). El código de tarjeta queda inactivo por defecto |
 | Existencias y reserva | Al iniciar el pago se reservan las unidades 15 minutos. El pedido se crea en una sola transacción que toma la reserva; el movimiento de salida del kardex se escribe cuando se aprueba el pago ([ADR-0007](docs/adr/0007-stock-reservation-as-expiring-counter.md)). Un pedido abandonado no deja ruido en el kardex |
-| Devoluciones | Totales o parciales por línea, **varias por pedido** (lo confirmó el evaluador). Las registra el operador o el administrador; el cliente no. El enunciado no define un plazo de devolución y no se inventó uno |
+| Devoluciones | Totales o parciales por línea, **varias por pedido**. Las registra el operador o el administrador; el cliente no. El enunciado no define un plazo de devolución y no se inventó uno |
 | Cancelación | Mientras el pedido no se haya despachado. Libera la reserva o devuelve las unidades al kardex y deja un reembolso pendiente |
-| Envío | No existe: el enunciado no lo pide. Los pedidos guardan envío `0.00` |
 | IVA | 12 % incluido en el precio; cada pedido guarda la base imponible y el IVA |
 | Zona horaria | Guatemala (UTC-6). Los reportes agrupan por la fecha de pago en hora local |
 | Cuentas de personal | No se crean por la API: se siembran. El registro público solo crea clientes, para que un error no pueda crear un administrador |
@@ -274,7 +273,7 @@ El pago es un **depósito bancario** que se simula de punta a punta, sin pasarel
 | `Rejected` | **Rechazo:** con motivo; el cliente puede abrir otro intento, hasta tres |
 | `Expired` | La ventana terminó sin pago: el pedido se cancela y la reserva se libera sola |
 
-La regla de cuándo se ofrece el depósito según la fecha de entrega está en [payments/availability-rule](docs/payments/availability-rule.md) y el flujo completo en [payments/bank-deposit](docs/payments/bank-deposit.md). El pago con tarjeta (Recurrente) no se requiere para esta entrega: el evaluador confirmó que basta simular el pago. Su código existe pero queda inactivo mientras no haya credenciales, y sin ellas solo se ofrece el depósito, tanto en la interfaz como en el backend (`422 PAYMENT_METHOD_UNAVAILABLE`).
+La regla de cuándo se ofrece el depósito según la fecha de entrega está en [payments/availability-rule](docs/payments/availability-rule.md) y el flujo completo en [payments/bank-deposit](docs/payments/bank-deposit.md). El pago con tarjeta (Recurrente) no se requiere para esta entrega: basta simular el pago. Su código existe pero queda inactivo mientras no haya credenciales, y sin ellas solo se ofrece el depósito, tanto en la interfaz como en el backend (`422 PAYMENT_METHOD_UNAVAILABLE`).
 
 ## 12. Mapa del repositorio
 

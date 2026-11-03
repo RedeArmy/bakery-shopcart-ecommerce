@@ -36,7 +36,7 @@ Stages 2 to 6 now have to fit in the four days before Delivery Phase 1; see the 
 - [x] Write `sp-coverage.ts` and put `sql:coverage` back in the `sql-tests` job (Stage 2).
 - [ ] Enable the `integration` CI job (Stage 2).
 - [x] Add the `windows-smoke` CRLF checksum test: the runner tests run on Windows in CI and cover CRLF, LF and a byte order mark (Stage 2).
-- [x] Evaluator question about `PendingPayment` answered affirmatively (open question 4).
+- [x] `PendingPayment` modelling validated (open question 4).
 - [x] Dependabot: ignore major versions and group minor and patch updates; it also watches the frontend and runner Dockerfiles (done in the technical audit).
 - [x] "Automatically delete head branches" stays off: a decision of the owner, who deletes merged branches by hand.
 - [x] Create the `CI_SA_PASSWORD` secret for the `sql-tests` job, as a repository and a Dependabot secret.

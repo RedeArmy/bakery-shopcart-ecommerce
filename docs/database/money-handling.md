@@ -22,7 +22,7 @@
 
 | Datum | Type | Reason |
 |---|---|---|
-| Amounts (price, total, discount, shipping, VAT, refund) | `DECIMAL(18,2)` | Up to 9 999 999 999 999 999.99; scale 2 is the quetzal cent (ISO 4217) |
+| Amounts (price, total, discount, VAT, refund) | `DECIMAL(18,2)` | Up to 9 999 999 999 999 999.99; scale 2 is the quetzal cent (ISO 4217) |
 | Calculations inside procedures | `BIGINT` cents | Exact integer arithmetic, no implicit scale rules |
 | Coupon percentages | `DECIMAL(18,2)` (0 to 100) and, inside procedures, **basis points** (`pct × 100`) | `12.50 %` → `1250` |
 | VAT rate | Integer `12` in `Configuration` | Used as the fraction `12/112` |
@@ -43,8 +43,7 @@
 | Fixed-amount discount | `MIN(ValueCents, EligibleCents)` | None |
 | **VAT included in the total** | `VatCents = HalfEvenDivision(TotalCents × 12, 112)` | Half-even, once |
 | Taxable base | `BaseCents = TotalCents − VatCents` | By subtraction: `Base + Vat = Total` always |
-| Shipping | Value from `Configuration` | None |
-| Total | `MAX(0, Subtotal − Discount) + Shipping` | None |
+| Total | `MAX(0, Subtotal − Discount)` | None |
 | Average ticket | `HalfEvenDivision(SumCents, N)` | Half-even, once (`N > 0`) |
 | Proportional refund of a line | `HalfEvenDivision(LineTotalCents × q, Sold)`; on the **last** pending unit: `LineTotal − previously refunded` | Half-even and exact closing |
 | Recurrente fee | `fee` arrives in integer cents; stored as `fee / 100` exactly | None |
@@ -116,10 +115,9 @@ Illustrative order: line **A** Q145.00 ×1, line **B** Q45.00 ×1, line **C** Q5
 | Remainders | `B = 22 295`, `A = 17 295`, `C = 9 500` | The 2 cents go to **B** and **A** |
 | Discount per line | `A = 1450`, `B = 450`, `C = 554` | Sum **2454** ✓ |
 | Total per line | `A = 13 050`, `B = 4 050`, `C = 4 991` | Sum **22 091** = `24 545 − 2 454` ✓ |
-| Shipping | `22 091 < 30 000` → **Q25.00** | `2500` |
-| **Total** | `22 091 + 2 500` | **`24 591`** = **Q245.91** |
-| VAT included | `HalfEvenDivision(24591 × 12, 112)` = `295 092 / 112` = `2634.75` → rounds up | **`2635`** = Q26.35 |
-| Taxable base | `24 591 − 2 635` | **`21 956`** = Q219.56; `Base + Vat = Total` ✓ |
+| **Total** | `MAX(0, 24 545 − 2 454)` | **`22 091`** = **Q220.91** |
+| VAT included | `HalfEvenDivision(22091 × 12, 112)` = `265 092 / 112` = `2366.89` → rounds up | **`2367`** = Q23.67 |
+| Taxable base | `22 091 − 2 367` | **`19 724`** = Q197.24; `Base + Vat = Total` ✓ |
 
 **Partial return without losing cents:** a line of 3 units with `LineTotal = Q100.00` (`10000`). Returning 1 unit: `HalfEvenDivision(10000 × 1, 3)` = `3333` → Q33.33. Returning another: `3333`. The **last** pending unit refunds `10000 − 3333 − 3333` = **`3334`** → Q33.34. Total refunded: **exactly Q100.00**.
 
@@ -201,7 +199,7 @@ A non-zero result writes an audit entry and raises an alert in the Administrator
 | Control | Detail |
 |---|---|
 | **Property tests** (`fast-check`) | For thousands of random inputs: allocation sums to the total; no element differs from the exact value by more than 1 cent; `Base + Vat = Total`; `fromDecimalString(toDecimalString(m)) = m`; `Σ partial refunds = LineTotal` |
-| **Golden values** | `0.10 + 0.20 = 0.30` exactly; `10.00 / 3 → [3.34; 3.33; 3.33]`; VAT of `Q112.00 = Q12.00`; the full example above; exact ties to even: 10 % of `Q1.25 → Q0.12` and 10 % of `Q1.35 → Q0.14`; VAT of `Q0.01 → Q0.00` and of `Q0.05 → Q0.01`; discount larger than subtotal → total `Q0.00` plus shipping |
+| **Golden values** | `0.10 + 0.20 = 0.30` exactly; `10.00 / 3 → [3.34; 3.33; 3.33]`; VAT of `Q112.00 = Q12.00`; the full example above; exact ties to even: 10 % of `Q1.25 → Q0.12` and 10 % of `Q1.35 → Q0.14`; VAT of `Q0.01 → Q0.00` and of `Q0.05 → Q0.01`; discount larger than subtotal → total `Q0.00` |
 | **Differential TS vs SQL** | `divRoundHalfEven` and `allocate` (TypeScript oracles) are compared with the procedure results over the same random inputs. Any difference fails the test |
 | **SQL lint in CI** | Fails on `FLOAT`, `REAL`, `MONEY`, `SMALLMONEY` or scientific notation in `db/` |
 | **TypeScript lint** | `no-restricted-syntax` in monetary modules: forbids `parseFloat`, `Number()` over amounts, `toFixed` and `*` `/` operators over amounts outside `Money` |
