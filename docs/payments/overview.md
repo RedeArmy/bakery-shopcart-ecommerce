@@ -16,7 +16,7 @@ Without valid Recurrente credentials **only bank deposit is offered**, in the UI
 | The order is created as `PendingPayment` | It exists before it is paid, like WooCommerce, Shopify and Odoo do for offline payments ([ADR-0014](../adr/0014-order-created-as-pending-payment.md)) |
 | Separate payment state | Its own machine and trigger ([ADR-0015](../adr/0015-payment-state-separated-from-order-state.md)) |
 | Windows | Reservation 15 min; card 15 min from confirmation; deposit `MIN(24 h, delivery − lead time days)`, not offered below 2 h; a deposit under review does not expire ([ADR-0016](../adr/0016-deposit-window-capped-by-delivery-date.md)) |
-| One line to the gateway | The whole order total in integer cents, GTQ, so descriptions do not need reconciling against discounts, shipping or VAT |
+| One line to the gateway | The whole order total in integer cents, GTQ, so descriptions do not need reconciling against discounts or VAT |
 | Stock | Reserved at checkout; physically decremented only when the payment is approved |
 | Ledger | Every charge, refund and fee is an append-only financial movement ([ADR-0021](../adr/0021-financial-movements-ledger.md)) |
 | Method switching | Not in Phase 1: the customer cancels and buys again. Endpoints arrive in Phase 2 |
@@ -37,6 +37,6 @@ The question reviewed was whether an order should exist before a deposit is conf
 
 Conclusions: the order exists before payment wherever offline payments are accepted; automatic expiry is mandatory (the `expirePayments` job does it); typical windows range from six hours to ten days, and a bakery uses a short window capped by the delivery date; the proof upload and review queue fill the gap that third-party apps cover elsewhere.
 
-**Question for the evaluator** (answers are shared with all participants). **The evaluator answered affirmatively, so the model stands (recorded on 2026-10-29).** The question that was asked: *In checkout, is it valid to model a `PendingPayment` state before `Paid` to support asynchronous payment methods (for example a bank deposit with a proof), so order creation stays atomic and stock stays reserved until payment is confirmed? Or must the order be created only when payment is already confirmed?* Had the answer been "only on payment", the fallback would have been a separate "deposit request" entity; it is not needed.
+**Decision: a `PendingPayment` state before `Paid` is valid, so the model stands.** The question it answers: *In checkout, is it valid to model a `PendingPayment` state before `Paid` to support asynchronous payment methods (for example a bank deposit with a proof), so order creation stays atomic and stock stays reserved until payment is confirmed? Or must the order be created only when payment is already confirmed?* Had the answer been "only on payment", the fallback would have been a separate "deposit request" entity; it is not needed.
 
 See [bank deposit](bank-deposit.md) and [Recurrente](recurrente.md).

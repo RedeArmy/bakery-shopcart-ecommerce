@@ -102,11 +102,10 @@ The brief leaves some decisions open on purpose. These are the positions taken; 
 
 | Topic | What was decided |
 |---|---|
-| Payment gateway | There is no gateway. The payment is a simulated **bank deposit**: the customer uploads the proof, the staff reviews it and approves it (success) or rejects it with a reason (rejection), and the customer opens another attempt, up to three (retry). The evaluator confirmed it in writing on 27 October. The card code is inactive by default |
+| Payment gateway | There is no gateway. The payment is a simulated **bank deposit**: the customer uploads the proof, the staff reviews it and approves it (success) or rejects it with a reason (rejection), and the customer opens another attempt, up to three (retry). The card code is inactive by default |
 | Stock and reservation | When the payment starts the units are reserved for 15 minutes. The order is created in a single transaction that takes the reservation; the exit movement of the ledger is written when the payment is approved ([ADR-0007](docs/adr/0007-stock-reservation-as-expiring-counter.md)). An abandoned order leaves no noise in the ledger |
-| Returns | Total or partial by line, **several per order** (confirmed by the evaluator). The operator or the administrator registers them; the customer does not. The brief defines no return window and none was invented |
+| Returns | Total or partial by line, **several per order**. The operator or the administrator registers them; the customer does not. The brief defines no return window and none was invented |
 | Cancellation | While the order has not been dispatched. It releases the reservation or returns the units to the ledger and leaves a pending refund |
-| Shipping | It does not exist: the brief does not ask for it. Orders store shipping `0.00` |
 | VAT | 12 % included in the price; each order stores the taxable base and the VAT |
 | Time zone | Guatemala (UTC-6). The reports group by the payment date in local time |
 | Staff accounts | They are not created through the API: they are seeded. Public registration only creates customers, so that a mistake cannot create an administrator |
@@ -274,7 +273,7 @@ The payment is a **bank deposit** simulated end to end, with no gateway. The cus
 | `Rejected` | **Rejection:** with a reason; the customer can open another attempt, up to three |
 | `Expired` | The window ended without payment: the order is cancelled and the reservation is released by itself |
 
-The rule for when the deposit is offered according to the delivery date is in [payments/availability-rule](docs/payments/availability-rule.md) and the full flow in [payments/bank-deposit](docs/payments/bank-deposit.md). Card payment (Recurrente) is not required for this delivery: the evaluator confirmed that simulating the payment is enough. Its code exists but stays inactive while there are no credentials, and without them only the deposit is offered, both in the interface and in the backend (`422 PAYMENT_METHOD_UNAVAILABLE`).
+The rule for when the deposit is offered according to the delivery date is in [payments/availability-rule](docs/payments/availability-rule.md) and the full flow in [payments/bank-deposit](docs/payments/bank-deposit.md). Card payment (Recurrente) is not required for this delivery: simulating the payment is enough. Its code exists but stays inactive while there are no credentials, and without them only the deposit is offered, both in the interface and in the backend (`422 PAYMENT_METHOD_UNAVAILABLE`).
 
 ## 12. Repository map
 

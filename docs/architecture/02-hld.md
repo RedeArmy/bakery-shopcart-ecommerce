@@ -74,7 +74,7 @@ sequenceDiagram
 
 ## Card with Recurrente (not part of this delivery)
 
-A design kept for reference: the evaluator confirmed on 27 October that no payment gateway is required, so none of this is built.
+A design kept for reference: no payment gateway is required, so none of this is built.
 
 ```mermaid
 sequenceDiagram

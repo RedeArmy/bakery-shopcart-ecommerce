@@ -76,7 +76,7 @@ One interpretation to defend: the stock is held by the reservation when the orde
 | No more can be returned than was sold on each line | `CK_OrderLines_ReturnedQuantity` and the pending quantity checked inside the procedure | **tSQLt** `Test_Constraints` (a line cannot return more than it sold), `Test_Lifecycle` (returning more units than were sold is refused and changes nothing). **Concurrency** `returnRace` |
 | Every state change records user, date and time, previous state and new state | `OrderStatusHistory` (append-only, written in the same transaction) and the audit log | **tSQLt** `Test_Orders` (creating the order leaves the status histories and an audit entry), `Test_Lifecycle` (an operator moves a paid order through preparation, dispatch and delivery with its history), `Test_Triggers` (the order status history cannot be updated). **Postman** 8 (the history keeps the previous state; the audit log says who changed the status) |
 
-Several partial returns per order are allowed, as the evaluator confirmed: `Test_Lifecycle` (a second partial return keeps the order partially returned; returning the rest completes the order). The history that a customer sees shows the states and the times; the user who made each change is in the audit log, which administrators read.
+Several partial returns per order are allowed: `Test_Lifecycle` (a second partial return keeps the order partially returned; returning the rest completes the order). The history that a customer sees shows the states and the times; the user who made each change is in the audit log, which administrators read.
 
 ## RF-08 · Dashboard and reports
 
