@@ -40,7 +40,7 @@ All documents are British English. The only Spanish files are the root `README.m
 |---|---|
 | [api/conventions](api/conventions.md) | Errors, idempotency, pagination, money as strings |
 | [api/openapi/openapi.yaml](api/openapi/openapi.yaml) | The contract (source of truth) |
-| [api/postman](api/postman/README.md) | Postman collection that verifies the delivery: 44 requests, 76 assertions |
+| [api/postman](api/postman/README.md) | Postman collection that verifies the delivery: 38 requests, 66 assertions, in English and Spanish |
 | [payments/overview](payments/overview.md) | Payment methods and flows |
 | [payments/bank-deposit](payments/bank-deposit.md) | Deposit flow, proofs, review |
 | [payments/recurrente](payments/recurrente.md) | Card payments through Recurrente |

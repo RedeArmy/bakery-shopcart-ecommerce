@@ -148,40 +148,81 @@ stateDiagram-v2
   PartiallyReturned --> Returned
 ```
 
-## 7. Quick start
+## 7. Quick start: from zero to a complete test
 
-Requirements: Node.js 26, Docker Desktop (Windows with WSL2) or Docker Engine with the compose plugin (Linux), and Git.
+Follow the steps in order. The whole route takes about 15 minutes the first time, mostly building the images.
+
+**1. Requirements.** Node.js 26, Git and Docker: Docker Desktop running (Windows with WSL2) or Docker Engine with the compose plugin (Linux). Check them:
+
+```bash
+node -v
+docker info
+```
+
+**2. Download and install.**
 
 ```bash
 git clone https://github.com/RedeArmy/bakery-shopcart-ecommerce.git
 cd bakery-shopcart-ecommerce
-npm install
+npm ci
+```
+
+If `npm` does not work in Windows PowerShell (for example, "running scripts is disabled"), use `npm.cmd` and `npx.cmd` instead of `npm` and `npx` in every command of this guide, for example `npm.cmd ci` and `npm.cmd run up`; or use Git Bash, where `npm` works unchanged.
+
+**3. Start the environment.**
+
+```bash
 npm run up
 ```
 
-`npm run up` creates `.env` with generated local secrets if it does not exist, builds the images, applies the migrations and the seeds, and waits for the services to be healthy (the first time it takes a few minutes). The API is at `http://localhost:8080/api/v1` and its status at `http://localhost:8080/health/ready`; the shop interface is a placeholder until Phase 2. To stop everything:
+It creates `.env` with generated local secrets if it does not exist, builds the images, applies the migrations and the seeds (the test accounts included) and waits for the services to be healthy. The services are `db`, `db-migrate`, `backend`, `frontend` and `nginx`.
 
-```bash
-npm run down
-```
+**4. Check that it is alive.** Open these addresses in the browser:
 
-To start from scratch, database included, use `docker compose down --volumes`. Optional profiles: `quality` (SonarQube) and `observability`. More help in the [runbook](docs/operations/runbook.md) and in [Windows and Linux](docs/operations/environment-windows-linux.md).
+| Address | Expected answer |
+|---|---|
+| `http://localhost:8080/health/ready` | 200: the database answers and the schema is up to date |
+| `http://localhost:8080/api/v1/categories` | 200: a public list, empty until the catalogue is created |
+| `http://localhost:8080/` | The shop placeholder (the interface arrives in Phase 2) |
 
-## 8. How to verify the delivery
+`/api/v1` alone does not exist and answers 404 `ROUTE_NOT_FOUND`: the API has only concrete routes.
 
-**With Postman (the fastest).** The folder [docs/api/postman](docs/api/postman/README.md) has a collection of 44 requests and 76 assertions and its environment:
+**5. Get the passwords.** Open the `.env` file in the root and copy `SEED_ADMIN_PASSWORD` and `SEED_CUSTOMER_PASSWORD`. They are generated at random on each machine and are not in the repository ([credentials](#10-test-credentials)).
 
-1. Run `npm run up` and open the `.env` file it created: copy `SEED_ADMIN_PASSWORD` and `SEED_CUSTOMER_PASSWORD`.
-2. In Postman, import `ShopCart.postman_collection.json` and `ShopCart.local.postman_environment.json`, choose the environment and paste the two passwords into `adminPassword` and `customerPassword`.
-3. Run the collection with **Run**, in the order of the folders.
+**6. Test with Postman.** The folder [docs/api/postman](docs/api/postman/README.md) has the collection in English, the same one in Spanish and an environment:
 
-The first folder that matters is **authentication**: it registers a customer, signs in, reads the profile, rejects a missing or tampered token and a wrong password, and checks the rotation of the refresh token. The others go through the catalogue, the cart, the coupons, the checkout with its idempotency, the ownership of data, the order lifecycle and the audit log. Each run creates its own data, so it can be repeated; wait one minute between runs because sign-in allows five attempts per minute. From a terminal:
+1. In Postman, import `ShopCart.postman_collection.json` and `ShopCart.local.postman_environment.json`.
+2. Choose the environment **ShopCart · local** and paste the two passwords into the **Current value** column of `adminPassword` and `customerPassword`.
+3. Open the collection, press **Run** and keep the folder order. Expected result: 38 requests, 66 assertions, 0 failed.
+
+Each run creates its own data, so it can be repeated; wait one minute between runs because sign-in allows five attempts per minute.
+
+**7. Or from a terminal**, without Postman (about 50 seconds; for the Spanish collection change the file to `ShopCart.postman_collection.es.json`):
 
 ```bash
 npx newman run docs/api/postman/ShopCart.postman_collection.json -e docs/api/postman/ShopCart.local.postman_environment.json --env-var "adminPassword=<SEED_ADMIN_PASSWORD>" --env-var "customerPassword=<SEED_CUSTOMER_PASSWORD>"
 ```
 
-To explore the 73 operations, import `docs/api/openapi/openapi.yaml` in Postman: it generates one request per operation.
+**8. Stop.**
+
+```bash
+npm run down
+```
+
+To start from scratch, database included, use `docker compose down --volumes`, delete `.env` and repeat from step 3. Optional profiles: `quality` (SonarQube) and `observability`. More help in the [runbook](docs/operations/runbook.md) and in [Windows and Linux](docs/operations/environment-windows-linux.md).
+
+| If you see this | What it means and how to fix it |
+|---|---|
+| `db` stays "unhealthy" and the log says `Login failed for user 'sa'` | A volume from an earlier run keeps another password. Run `docker compose down --volumes` and go back to step 3 |
+| `429 Too Many Requests` on sign-in | The five attempts per minute were used. Wait a minute |
+| `401` when signing in as administrator | The pasted password is not the one in the current `.env` |
+| `503` on `/health/ready` | The migrations have not finished. Check `docker compose logs db-migrate` |
+| Port 8080 is taken | Change `EDGE_PORT` in `.env` and `baseUrl` in the Postman environment |
+| Collation error or `SERVER_SHUT_DOWN` | Old volume: `docker compose down --volumes` |
+
+## 8. How to verify the delivery
+
+**With the Postman collection.** Its 38 requests are the fewest that prove the delivery, and the first folder that matters is **authentication**: it registers a customer, signs in, reads the profile, rejects a missing token and a wrong password, and checks the rotation of the refresh token. The others go through the catalogue, the cart, the coupons, the checkout with its idempotency, the ownership of data, the order lifecycle and the audit log. The table of what each folder proves is in the [Postman README](docs/api/postman/README.md) and the map of each criterion to its test in the [acceptance criteria map](docs/quality/acceptance-criteria-map.md). To explore the 73 operations, import `docs/api/openapi/openapi.yaml` in Postman: it generates one request per operation.
 
 **With the automated tests.** The database and concurrency tests run against a throwaway SQL Server:
 
