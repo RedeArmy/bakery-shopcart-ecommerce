@@ -1,0 +1,1732 @@
+{
+  "info": {
+    "name": "ShopCart · Verificación de la Fase 1",
+    "description": "Verifica de punta a punta la entrega de la Fase 1 (base de datos y backend) con las menos peticiones que la prueban: autenticación con rotación del refresh token, roles, propiedad de los datos, catálogo y existencias, límites del carrito, cupones, checkout con la reserva de 15 minutos, idempotencia, ciclo de vida del pedido y bitácora. Ejecute las carpetas en orden (Collection Runner o `newman`). Cada ejecución crea su propio cliente y catálogo, así que se puede repetir; espere un minuto entre ejecuciones porque el inicio de sesión admite cinco intentos por minuto. Vea docs/api/postman/README.md.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "adminEmail",
+      "value": "admin@shopcart.test"
+    },
+    {
+      "key": "adminPassword",
+      "value": ""
+    },
+    {
+      "key": "otherCustomerEmail",
+      "value": "customer2@shopcart.test"
+    },
+    {
+      "key": "customerPassword",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "0 · Entorno",
+      "description": "El entorno está arriba y la base de datos responde con el esquema al día.",
+      "item": [
+        {
+          "name": "Disponibilidad (base de datos y esquema)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/health/ready",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"el esquema está al día\", function () { pm.expect(pm.response.text()).to.not.include(\"outdated\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1 · Autenticación (RF-01)",
+      "description": "Puerta de la Fase 1: registro, inicio de sesión con un token de acceso de corta vida y rechazo de credenciales incorrectas.",
+      "item": [
+        {
+          "name": "Registrar un cliente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/register",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{newEmail}}\",\n  \"password\": \"{{newPassword}}\",\n  \"fullName\": \"Verification Customer\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const authCalls = Number(pm.collectionVariables.get(\"authCalls\") || 0) + 1;",
+                  "pm.collectionVariables.set(\"authCalls\", authCalls);",
+                  "if (authCalls > 5) { setTimeout(function () {}, 6500); }",
+                  "const stamp = Date.now();",
+                  "pm.collectionVariables.set(\"runId\", String(stamp));",
+                  "pm.collectionVariables.set(\"newEmail\", \"verify-\" + stamp + \"@shopcart.test\");",
+                  "pm.collectionVariables.set(\"newPassword\", \"Verify-\" + stamp + \"-Aa1\");",
+                  "const delivery = new Date(Date.now() + 10 * 24 * 3600 * 1000).toISOString().slice(0, 10);",
+                  "pm.collectionVariables.set(\"deliveryDate\", delivery);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"devuelve el id nuevo\", function () { pm.expect(json.idUser).to.be.a(\"number\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Iniciar sesión",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{newEmail}}\",\n  \"password\": \"{{newPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const authCalls = Number(pm.collectionVariables.get(\"authCalls\") || 0) + 1;",
+                  "pm.collectionVariables.set(\"authCalls\", authCalls);",
+                  "if (authCalls > 5) { setTimeout(function () {}, 6500); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"customerToken\", json.accessToken);",
+                  "pm.collectionVariables.set(\"refreshToken\", json.refreshToken);",
+                  "pm.test(\"el token de acceso dura 15 minutos\", function () { pm.expect(json.expiresIn).to.eql(900); });",
+                  "pm.test(\"la cuenta es de cliente\", function () { pm.expect(json.user.role).to.eql(\"Customer\"); });",
+                  "pm.test(\"no se devuelve contraseña ni hash\", function () { pm.expect(pm.response.text()).to.not.match(/passwordHash|\"password\"/i); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Perfil con el token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/auth/me",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const authCalls = Number(pm.collectionVariables.get(\"authCalls\") || 0) + 1;",
+                  "pm.collectionVariables.set(\"authCalls\", authCalls);",
+                  "if (authCalls > 5) { setTimeout(function () {}, 6500); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"es la misma cuenta\", function () { pm.expect(json.email).to.eql(pm.collectionVariables.get(\"newEmail\")); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Perfil sin token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/auth/me",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const authCalls = Number(pm.collectionVariables.get(\"authCalls\") || 0) + 1;",
+                  "pm.collectionVariables.set(\"authCalls\", authCalls);",
+                  "if (authCalls > 5) { setTimeout(function () {}, 6500); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"el código de error es UNAUTHENTICATED\", function () { pm.expect(pm.response.json().error.code).to.eql(\"UNAUTHENTICATED\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Iniciar sesión con contraseña incorrecta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{newEmail}}\",\n  \"password\": \"Not-the-password-1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const authCalls = Number(pm.collectionVariables.get(\"authCalls\") || 0) + 1;",
+                  "pm.collectionVariables.set(\"authCalls\", authCalls);",
+                  "if (authCalls > 5) { setTimeout(function () {}, 6500); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"la respuesta no revela si la cuenta existe\", function () { pm.expect(pm.response.text()).to.not.match(/not found|unknown/i); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2 · Roles (RF-01)",
+      "description": "Un cliente no llega a la administración; el administrador sí. La contraseña del administrador está en su .env local como SEED_ADMIN_PASSWORD.",
+      "item": [
+        {
+          "name": "El cliente pide la lista de usuarios",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/users",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 403\", function () { pm.response.to.have.status(403); });",
+                  "pm.test(\"el código de error es FORBIDDEN\", function () { pm.expect(pm.response.json().error.code).to.eql(\"FORBIDDEN\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Iniciar sesión como administrador",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const authCalls = Number(pm.collectionVariables.get(\"authCalls\") || 0) + 1;",
+                  "pm.collectionVariables.set(\"authCalls\", authCalls);",
+                  "if (authCalls > 5) { setTimeout(function () {}, 6500); }",
+                  "if (!pm.variables.get(\"adminPassword\")) { throw new Error(\"Asigne adminPassword con SEED_ADMIN_PASSWORD de su .env (vea docs/api/postman/README.md)\"); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"adminToken\", json.accessToken);",
+                  "pm.test(\"la cuenta es de administrador\", function () { pm.expect(json.user.role).to.eql(\"Administrator\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3 · Catálogo y existencias (RF-02, RF-03)",
+      "description": "El administrador crea un producto y registra sus existencias; el libro de inventario lo anota.",
+      "item": [
+        {
+          "name": "Crear una categoría",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/categories",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Verification {{runId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"idCategory\", json.idCategory);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear un producto",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/products",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoryId\": {{idCategory}},\n  \"name\": \"Verification cake {{runId}}\",\n  \"description\": \"Created by the Postman collection\",\n  \"leadTimeDays\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"idProduct\", json.idProduct);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear una variante",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/variants",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": {{idProduct}},\n  \"sku\": \"V{{runId}}\",\n  \"price\": \"100.00\",\n  \"attributes\": [\n    {\n      \"name\": \"Size\",\n      \"value\": \"M\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"idVariant\", json.idVariant);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar una entrada de 5 unidades",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/inventory/entries",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idVariant\": {{idVariant}},\n  \"quantity\": 5,\n  \"reason\": \"Initial stock from the verification collection\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 201\", function () { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Un ajuste de existencias exige un motivo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/inventory/adjustments",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idVariant\": {{idVariant}},\n  \"newOnHand\": 3,\n  \"reason\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 400\", function () { pm.response.to.have.status(400); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "El libro muestra la entrada con su saldo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/inventory/ledger?variant={{idVariant}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"un movimiento, una entrada de 5 con saldo resultante de 5\", function () { const row = json.items[0]; pm.expect(json.total).to.eql(1); pm.expect(row.quantity).to.eql(5); pm.expect(row.resultingBalance).to.eql(5); });",
+                  "pm.test(\"el movimiento registra quién lo hizo y cuándo\", function () { pm.expect(json.items[0].idUser).to.be.a(\"number\"); pm.expect(json.items[0].createdAt).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "La tienda pública encuentra el producto",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/products?q=Verification%20cake%20{{runId}}&available=true",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"se encuentra un producto\", function () { pm.expect(json.total).to.eql(1); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4 · Carrito (RF-04)",
+      "description": "El carrito rechaza más que las existencias disponibles y suma con exactitud.",
+      "item": [
+        {
+          "name": "Pedir más que las existencias",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/cart/items/{{idVariant}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 6\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 409\", function () { pm.response.to.have.status(409); });",
+                  "pm.test(\"el código de error es INSUFFICIENT_STOCK\", function () { pm.expect(pm.response.json().error.code).to.eql(\"INSUFFICIENT_STOCK\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pedir 2 unidades",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/cart/items/{{idVariant}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"subtotal, descuento y total son cadenas decimales exactas\", function () { pm.expect(json.subtotal).to.eql(\"200.00\"); pm.expect(json.discount).to.eql(\"0.00\"); pm.expect(json.total).to.eql(\"200.00\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5 · Cupones (RF-05)",
+      "description": "Un cupón que no se puede aplicar se rechaza con su propio código.",
+      "item": [
+        {
+          "name": "Crear un cupón con mínimo de 500",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/coupons",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"MIN{{runId}}\",\n  \"type\": \"Percentage\",\n  \"value\": \"10.00\",\n  \"minimumAmount\": \"500.00\",\n  \"startsAt\": \"2020-01-01T00:00:00Z\",\n  \"endsAt\": \"2099-12-31T00:00:00Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 201\", function () { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Aplicarlo a un carrito de 200",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/cart/coupon",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"MIN{{runId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 422\", function () { pm.response.to.have.status(422); });",
+                  "pm.test(\"el código de error es COUPON_MINIMUM_NOT_MET\", function () { pm.expect(pm.response.json().error.code).to.eql(\"COUPON_MINIMUM_NOT_MET\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear un cupón vencido",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/coupons",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"OLD{{runId}}\",\n  \"type\": \"Percentage\",\n  \"value\": \"10.00\",\n  \"startsAt\": \"2020-01-01T00:00:00Z\",\n  \"endsAt\": \"2021-01-01T00:00:00Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 201\", function () { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Aplicar el cupón vencido",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/cart/coupon",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"OLD{{runId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 422\", function () { pm.response.to.have.status(422); });",
+                  "pm.test(\"el código de error es COUPON_EXPIRED\", function () { pm.expect(pm.response.json().error.code).to.eql(\"COUPON_EXPIRED\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6 · Checkout e idempotencia (RF-06)",
+      "description": "La reserva retiene las existencias 15 minutos; repetir la confirmación no crea un segundo pedido.",
+      "item": [
+        {
+          "name": "Crear una cuenta bancaria",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/bank-accounts",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bankName\": \"Verification Bank {{runId}}\",\n  \"accountType\": \"Checking\",\n  \"accountNumber\": \"ACC-{{runId}}\",\n  \"holderName\": \"Pastelería\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"idBankAccount\", json.idBankAccount);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar una dirección de entrega",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/addresses",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Home\",\n  \"recipient\": \"Verification Customer\",\n  \"phone\": \"55550000\",\n  \"line1\": \"5th Avenue 10-20\",\n  \"municipality\": \"Guatemala\",\n  \"department\": \"Guatemala\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"idAddress\", json.idAddress);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Iniciar el pago: las existencias se reservan 15 minutos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/checkout/start",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"idReservation\", json.idReservation);",
+                  "pm.test(\"la reserva vence en unos 15 minutos\", function () { const minutes = (new Date(json.expiresAt) - new Date()) / 60000; pm.expect(minutes).to.be.within(10, 16); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Confirmar el pedido (primera vez)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{confirmKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/checkout/confirm",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idReservation\": {{idReservation}},\n  \"idAddress\": {{idAddress}},\n  \"deliveryDate\": \"{{deliveryDate}}\",\n  \"method\": \"BANK_DEPOSIT\",\n  \"idBankAccount\": {{idBankAccount}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"confirmKey\", pm.variables.replaceIn(\"{{$guid}}\"));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"idOrder\", json.idOrder);",
+                  "pm.test(\"el número de pedido lleva el año y seis dígitos\", function () { pm.expect(json.orderNumber).to.match(/^PED-\\d{4}-\\d{6}$/); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Confirmar otra vez con la misma llave (doble clic)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{confirmKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/checkout/confirm",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idReservation\": {{idReservation}},\n  \"idAddress\": {{idAddress}},\n  \"deliveryDate\": \"{{deliveryDate}}\",\n  \"method\": \"BANK_DEPOSIT\",\n  \"idBankAccount\": {{idBankAccount}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 201\", function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"es el mismo pedido, no un segundo pedido\", function () { pm.expect(json.idOrder).to.eql(Number(pm.collectionVariables.get(\"idOrder\"))); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7 · Propiedad de los datos (RF-01)",
+      "description": "Otro cliente no puede ver ni tocar este pedido: la respuesta es 404, como si no existiera.",
+      "item": [
+        {
+          "name": "Iniciar sesión como el otro cliente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{otherCustomerEmail}}\",\n  \"password\": \"{{customerPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const authCalls = Number(pm.collectionVariables.get(\"authCalls\") || 0) + 1;",
+                  "pm.collectionVariables.set(\"authCalls\", authCalls);",
+                  "if (authCalls > 5) { setTimeout(function () {}, 6500); }",
+                  "if (!pm.variables.get(\"customerPassword\")) { throw new Error(\"Asigne customerPassword con SEED_CUSTOMER_PASSWORD de su .env (vea docs/api/postman/README.md)\"); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"otherToken\", json.accessToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "El otro cliente lee el pedido",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/orders/{{idOrder}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{otherToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 404\", function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "El otro cliente intenta cancelarlo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/orders/{{idOrder}}/cancel",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{otherToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 404\", function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "8 · Ciclo del pedido, reportes y bitácora (RF-07, RF-08, RF-09)",
+      "description": "Una transición prohibida, la cancelación con su historial, las existencias liberadas y el administrador leyendo la bitácora y los reportes.",
+      "item": [
+        {
+          "name": "Una transición prohibida se rechaza",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/orders/{{idOrder}}/status",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Dispatched\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 422\", function () { pm.response.to.have.status(422); });",
+                  "pm.test(\"el código de error es INVALID_STATE_TRANSITION\", function () { pm.expect(pm.response.json().error.code).to.eql(\"INVALID_STATE_TRANSITION\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "El cliente cancela el pedido",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/orders/{{idOrder}}/cancel",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Cancelled by the verification collection\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"el pedido queda cancelado\", function () { pm.expect(json.statusName).to.eql(\"Cancelled\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "El historial conserva cada estado con su fecha",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/orders/{{idOrder}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"dos entradas: creado en espera de pago y después cancelado desde el estado anterior\", function () { pm.expect(json.history.length).to.eql(2); pm.expect(json.history[0].newStatusName).to.eql(\"PendingPayment\"); pm.expect(json.history[0].createdAt).to.be.a(\"string\"); pm.expect(json.history[1].idPreviousStatus).to.eql(1); pm.expect(json.history[1].newStatusName).to.eql(\"Cancelled\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "La bitácora dice quién cambió el estado",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/audit-log?module=Orders&entityKey={{idOrder}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"un cambio de estado con usuario, fecha, entidad, valor anterior y valor nuevo\", function () { const change = json.items.find(function (e) { return e.action === \"StatusChange\"; }); pm.expect(change).to.not.equal(undefined); pm.expect(change.idUser).to.be.a(\"number\"); pm.expect(change.createdAt).to.be.a(\"string\"); pm.expect(change.entityName).to.be.a(\"string\"); pm.expect(change.previousValue).to.not.equal(null); pm.expect(change.newValue).to.not.equal(null); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Las existencias vuelven a la tienda",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/products/{{idProduct}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"las 5 unidades vuelven a estar disponibles\", function () { pm.expect(json.variants[0].available).to.eql(5); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "El resumen de ventas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/admin/dashboard/summary",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"los montos son cadenas decimales\", function () { pm.expect(json.net).to.match(/^\\d+\\.\\d{2}$/); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "9 · Rotación del refresh token (RF-01)",
+      "description": "Cada renovación devuelve un refresh token nuevo; presentar uno viejo se trata como robo y cierra la sesión. Ejecútela al final: termina la sesión del cliente.",
+      "item": [
+        {
+          "name": "Renovar la sesión",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/refresh",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const authCalls = Number(pm.collectionVariables.get(\"authCalls\") || 0) + 1;",
+                  "pm.collectionVariables.set(\"authCalls\", authCalls);",
+                  "if (authCalls > 5) { setTimeout(function () {}, 6500); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"se emite un refresh token nuevo\", function () { pm.expect(json.refreshToken).to.not.eql(pm.collectionVariables.get(\"refreshToken\")); });",
+                  "pm.collectionVariables.set(\"previousRefreshToken\", pm.collectionVariables.get(\"refreshToken\"));",
+                  "pm.collectionVariables.set(\"refreshToken\", json.refreshToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Presentar otra vez el refresh token viejo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/refresh",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{previousRefreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const authCalls = Number(pm.collectionVariables.get(\"authCalls\") || 0) + 1;",
+                  "pm.collectionVariables.set(\"authCalls\", authCalls);",
+                  "if (authCalls > 5) { setTimeout(function () {}, 6500); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"el código de error es REFRESH_TOKEN_REUSED\", function () { pm.expect(pm.response.json().error.code).to.eql(\"REFRESH_TOKEN_REUSED\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "El token renovado también queda revocado",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/refresh",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const authCalls = Number(pm.collectionVariables.get(\"authCalls\") || 0) + 1;",
+                  "pm.collectionVariables.set(\"authCalls\", authCalls);",
+                  "if (authCalls > 5) { setTimeout(function () {}, 6500); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"responde 401\", function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

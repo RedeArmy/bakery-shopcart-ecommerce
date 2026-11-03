@@ -15,6 +15,7 @@
     "db/tests/tsqlt/install/*.txt",
     "db/tests/tsqlt/install/SHA256SUMS",
     "README.md",
+    "docs/api/postman/ShopCart.postman_collection.es.json",
     "tools/scripts/lib/spelling-rules.ts",
     "tools/scripts/arch-fixtures/**",
     "LICENSE",
