@@ -148,40 +148,81 @@ stateDiagram-v2
   PartiallyReturned --> Returned
 ```
 
-## 7. Inicio rápido
+## 7. Inicio rápido: de cero a una prueba completa
 
-Requisitos: Node.js 26, Docker Desktop (Windows con WSL2) o Docker Engine con el plugin compose (Linux), y Git.
+Siga los pasos en orden. Todo el recorrido toma unos 15 minutos la primera vez, casi todo construyendo las imágenes.
+
+**1. Requisitos.** Node.js 26, Git y Docker: Docker Desktop abierto (Windows con WSL2) o Docker Engine con el plugin compose (Linux). Compruébelos:
+
+```bash
+node -v
+docker info
+```
+
+**2. Descargar e instalar.**
 
 ```bash
 git clone https://github.com/RedeArmy/bakery-shopcart-ecommerce.git
 cd bakery-shopcart-ecommerce
-npm install
+npm ci
+```
+
+Si `npm` no funciona en PowerShell de Windows (por ejemplo, «la ejecución de scripts está deshabilitada»), use `npm.cmd` y `npx.cmd` en lugar de `npm` y `npx` en todos los comandos de esta guía, por ejemplo `npm.cmd ci` y `npm.cmd run up`; o use Git Bash, donde `npm` funciona sin cambios.
+
+**3. Levantar el entorno.**
+
+```bash
 npm run up
 ```
 
-`npm run up` crea `.env` con secretos locales generados si no existe, construye las imágenes, aplica las migraciones y las semillas, y espera a que los servicios estén saludables (la primera vez tarda unos minutos). La API queda en `http://localhost:8080/api/v1` y su estado en `http://localhost:8080/health/ready`; la interfaz de la tienda es un marcador hasta la Fase 2. Para detener todo:
+Crea `.env` con secretos locales generados si no existe, construye las imágenes, aplica las migraciones y las semillas (incluidas las cuentas de prueba) y espera a que los servicios estén saludables. Los servicios son `db`, `db-migrate`, `backend`, `frontend` y `nginx`.
 
-```bash
-npm run down
-```
+**4. Comprobar que está vivo.** Abra estas direcciones en el navegador:
 
-Para empezar de cero, incluida la base de datos, use `docker compose down --volumes`. Perfiles opcionales: `quality` (SonarQube) y `observability`. Más ayuda en el [runbook](docs/operations/runbook.md) y en [Windows y Linux](docs/operations/environment-windows-linux.md).
+| Dirección | Respuesta esperada |
+|---|---|
+| `http://localhost:8080/health/ready` | 200: la base de datos responde y el esquema está al día |
+| `http://localhost:8080/api/v1/categories` | 200: lista pública, vacía hasta que se cree el catálogo |
+| `http://localhost:8080/` | El marcador de la tienda (la interfaz llega en la Fase 2) |
 
-## 8. Cómo verificar la entrega
+`/api/v1` por sí sola no existe y responde 404 `ROUTE_NOT_FOUND`: la API tiene solo rutas concretas.
 
-**Con Postman (lo más rápido).** La carpeta [docs/api/postman](docs/api/postman/README.md) tiene una colección de 44 peticiones y 76 aserciones y su entorno:
+**5. Obtener las contraseñas.** Abra el archivo `.env` de la raíz y copie `SEED_ADMIN_PASSWORD` y `SEED_CUSTOMER_PASSWORD`. Se generan al azar en cada equipo y no están en el repositorio ([credenciales](#10-credenciales-de-prueba)).
 
-1. Ejecute `npm run up` y abra el archivo `.env` que se creó: copie `SEED_ADMIN_PASSWORD` y `SEED_CUSTOMER_PASSWORD`.
-2. En Postman, importe `ShopCart.postman_collection.json` y `ShopCart.local.postman_environment.json`, elija el entorno y pegue las dos contraseñas en `adminPassword` y `customerPassword`.
-3. Ejecute la colección con **Run**, en el orden de las carpetas.
+**6. Probar con Postman.** La carpeta [docs/api/postman](docs/api/postman/README.md) trae la colección en español, la misma en inglés y un entorno:
 
-La primera carpeta que importa es la de **autenticación**: registra un cliente, inicia sesión, lee el perfil, rechaza un token ausente o manipulado y una contraseña incorrecta, y comprueba la rotación del refresh token. Las demás recorren el catálogo, el carrito, los cupones, el checkout con su idempotencia, la propiedad de los datos, el ciclo de vida del pedido y la bitácora. Cada ejecución crea sus propios datos, así que se puede repetir; espere un minuto entre ejecuciones porque el inicio de sesión admite cinco intentos por minuto. Desde una terminal:
+1. En Postman, importe `ShopCart.postman_collection.es.json` y `ShopCart.local.postman_environment.json`.
+2. Elija el entorno **ShopCart · local** y pegue las dos contraseñas en la columna **Current value** de `adminPassword` y `customerPassword`.
+3. Abra la colección, pulse **Run** y deje el orden de las carpetas. Resultado esperado: 38 peticiones, 66 aserciones, 0 fallos.
+
+Cada ejecución crea sus propios datos, así que se puede repetir; espere un minuto entre ejecuciones porque el inicio de sesión admite cinco intentos por minuto.
+
+**7. O desde una terminal**, sin Postman (unos 50 segundos; para la colección en español cambie el archivo por `ShopCart.postman_collection.es.json`):
 
 ```bash
 npx newman run docs/api/postman/ShopCart.postman_collection.json -e docs/api/postman/ShopCart.local.postman_environment.json --env-var "adminPassword=<SEED_ADMIN_PASSWORD>" --env-var "customerPassword=<SEED_CUSTOMER_PASSWORD>"
 ```
 
-Para explorar las 73 operaciones, importe `docs/api/openapi/openapi.yaml` en Postman: genera una petición por operación.
+**8. Detener.**
+
+```bash
+npm run down
+```
+
+Para empezar de cero, incluida la base de datos, use `docker compose down --volumes`, borre `.env` y repita desde el paso 3. Perfiles opcionales: `quality` (SonarQube) y `observability`. Más ayuda en el [runbook](docs/operations/runbook.md) y en [Windows y Linux](docs/operations/environment-windows-linux.md).
+
+| Si ve esto | Qué significa y cómo se arregla |
+|---|---|
+| `db` queda «unhealthy» y el log dice `Login failed for user 'sa'` | Un volumen de una ejecución anterior guarda otra contraseña. Ejecute `docker compose down --volumes` y vuelva al paso 3 |
+| `429 Too Many Requests` al iniciar sesión | Se usaron los cinco intentos por minuto. Espere un minuto |
+| `401` al iniciar sesión como administrador | La contraseña pegada no es la del `.env` actual |
+| `503` en `/health/ready` | Las migraciones no han terminado. Revise `docker compose logs db-migrate` |
+| El puerto 8080 está ocupado | Cambie `EDGE_PORT` en `.env` y `baseUrl` en el entorno de Postman |
+| Error de collation o `SERVER_SHUT_DOWN` | Volumen antiguo: `docker compose down --volumes` |
+
+## 8. Cómo verificar la entrega
+
+**Con la colección de Postman.** Las 38 peticiones son las mínimas que prueban la entrega, y la primera carpeta que importa es la de **autenticación**: registra un cliente, inicia sesión, lee el perfil, rechaza un token ausente y una contraseña incorrecta, y comprueba la rotación del refresh token. Las demás recorren el catálogo, el carrito, los cupones, el checkout con su idempotencia, la propiedad de los datos, el ciclo de vida del pedido y la bitácora. La tabla de qué prueba cada carpeta está en el [README de Postman](docs/api/postman/README.md) y el mapa de cada criterio de la prueba en el [mapa de criterios de aceptación](docs/quality/acceptance-criteria-map.md). Para explorar las 73 operaciones, importe `docs/api/openapi/openapi.yaml` en Postman: genera una petición por operación.
 
 **Con las pruebas automáticas.** Las pruebas de base de datos y de concurrencia corren contra un SQL Server desechable:
 

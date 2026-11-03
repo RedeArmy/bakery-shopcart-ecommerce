@@ -1,12 +1,16 @@
 # Status
 
-_Last updated: Thursday 29 October 2026 (end of the repository hardening session)._
+_Last updated: Saturday 31 October 2026 (end of the verification, architecture and rename session)._
 
 ## Current stage
 
-**Stages 0 and 1 are complete and the repository is hardened. Stage 2 is next.** Delivery Phase 1 is due Monday 2 November 2026, 23:59, so four days remain for Stages 2 to 6.
+**The database, the backend and their verification are done; the delivery is ready to be checked.** Delivery Phase 1 (database and backend) is due Monday 2 November 2026, 23:59, so two days remain. Delivery Phase 2 (frontend and everything complete) is due Monday 9 November 2026, 23:59.
 
 ## Done since the last update
+
+- **The quick start goes from zero to a complete test** (both READMEs, section 7): requirements, install, start, health checks, passwords, Postman or `newman`, stopping, and a table of the usual failures. The Postman collection was reduced to the 38 requests and 66 assertions that prove the delivery (six redundant requests removed) and now exists in Spanish too (`ShopCart.postman_collection.es.json`, same operations and scripts, shared environment). Both were run with `newman` against a fresh stack: 0 failed.
+- **Everything of this session is merged into `main`** (pull requests #39 to #42: the cart stock limit, the start-up gate, the database hardening, and the Postman verification with the architecture diagrams and the rename). The four working branches were deleted, locally and on the remote; only `main` exists.
+- **The bakery is called "Pastelería".** The name "Dulce Aroma" was removed from the READMEs, the API description, the demo account names, the bank holder in test data, the Postman collection and the frontend title with its tests. The original brief in `docs/design/source/` keeps its wording because it is read-only.
 
 - **Continuous integration runs on GitHub.** Nine jobs pass on `main`: `lint`, `typecheck`, `unit`, `architecture`, `secrets`, `sql-lint`, `compose-validate`, `windows-smoke` and `sonarcloud`. The `sql-tests` and `integration` jobs stay switched off until Stage 2.
 - **`main` is protected by an active ruleset:** a pull request is required, all nine checks must pass, history is linear, force pushes and deletion are blocked and nobody can bypass it.
@@ -20,9 +24,10 @@ _Last updated: Thursday 29 October 2026 (end of the repository hardening session
 
 ## Next
 
-1. **Housekeeping:** update the primary checkout (`git pull --ff-only`) and run `npm ci` with Node 26; restart the terminals and tools that still hold the old `PATH`. Automatic deletion of merged branches stays off by the owner's decision, so merged branches are deleted by hand.
-2. **`images` as a required check:** it passed on pull request #24; add its three contexts to the ruleset.
-3. **Stage 3:** tSQLt is vendored and `npm run sql:test` installs it and exports the JUnit XML; next Stage 3 (functions, views and the procedures for auth, catalogue and inventory). The demo seeds (catalogue, coupons, bank account, accounts) are postponed to the end. Use one small pull request per block. When `sql-tests` and `integration` are enabled, add them to the required checks of the ruleset.
+1. **Housekeeping:** update the primary checkout (`git pull --ff-only`). Automatic deletion of merged branches stays off by the owner's decision, so merged branches are deleted by hand.
+2. **Demo seeds:** the catalogue, the coupons (`WELCOME10`, `CAKES25`, `SOLDOUT`, `EXPIRED`), the bank account and the performance data are still to be written.
+3. **Open decision D-08** and the generated API client (`npm run api:generate`), which the frontend needs.
+4. **Delivery Phase 2:** the frontend, due Monday 9 November. Use one small pull request per block.
 
 ## Spike results
 
@@ -31,7 +36,7 @@ _Last updated: Thursday 29 October 2026 (end of the repository hardening session
 - **The demo accounts are created.** `npm run up` generates `SEED_ADMIN_PASSWORD`, `SEED_OPERATOR_PASSWORD` and `SEED_CUSTOMER_PASSWORD` in the local `.env` (also in an older one, without touching its values), and `db-migrate` hashes them with argon2id and creates `admin@`, `operator@`, `customer1@` and `customer2@shopcart.test` through `SP_Users_Provision`, which the application login cannot execute. The step is idempotent and off unless `SEED_DEMO_DATA=true`; `npm run seed` runs it alone. No password and no hash is in the repository. The demo catalogue, coupons, bank account and performance data are still to be written.
 - **The runner no longer races the first start of SQL Server.** Its start-up gate used to treat any failed query as "ready" (a deadlock or a cut connection during the collation change let `CREATE DATABASE` through, which shuts the server down with error 3434). It now fails closed, confirms the settled state twice and, if the server still goes down, stops with `SERVER_SHUT_DOWN` and the fix. Cold starts were sampled every 300 ms to confirm the sequence it relies on.
 - **The architecture diagrams match the system.** No card gateway, one API process with its jobs, the real module dependencies and the order lifecycle with several partial returns.
-- **The delivery can be verified in minutes.** A Postman collection (44 requests, 76 assertions, run against the real stack and repeatable) proves authentication first and then the roles, the stock limit of the cart, the coupons, the 15 minute reservation, idempotency, ownership of data, the order lifecycle and the audit log. The acceptance criteria map links each of the 21 criteria of the brief to its tests, and the README (both languages) is up to date: status per requirement, how controllers and routes are organised, the open decisions in one table, the payment states and how to verify. Still missing before Phase 2: the demo catalogue, coupons and bank account seeds.
+- **The delivery can be verified in minutes.** A Postman collection (38 requests, 66 assertions, in English and Spanish, run against the real stack and repeatable) proves authentication first and then the roles, the stock limit of the cart, the coupons, the 15 minute reservation, idempotency, ownership of data, the order lifecycle and the audit log. The acceptance criteria map links each of the 21 criteria of the brief to its tests, and the README (both languages) is up to date: status per requirement, how controllers and routes are organised, the open decisions in one table, the payment states and how to verify. Still missing before Phase 2: the demo catalogue, coupons and bank account seeds.
 - **The database was reviewed and hardened.** Measured with 50,000 orders: the order list went from up to 483,437 reads and 252 ms to 767 reads and about 20 ms, the abandoned carts from 162,724 reads to 529, the audit log without filters from 3.3 seconds to 38 ms, and the stock ledger of a busy variant from 713 to 29 ms. Causes: `COUNT(*) OVER ()` spooling to `tempdb`, one cached plan for customers and staff, and a non-sargable filter. The database now runs with read committed snapshot isolation, a daily batched purge keeps the tables that only grow bounded, and `npm run sql:bench` guards the figures. Details and what was tried and rejected: [performance](../operations/performance.md).
 - **The cart refuses a quantity above the stock** (RF-04 acceptance criterion). `SP_Cart_SetItemQuantity` answers `409 INSUFFICIENT_STOCK` when the quantity exceeds what is available (not reserved by others, counting the cart's own reservation), before creating anything; the checkout reservation stays the final guarantee. The guest-cart merge at sign-in respects the same limit by clamping (shared function `FU_Cart_AvailableStock`). Thirteen new tSQLt tests and one HTTP flow.
 - **The dashboard exists** (RF-08). Five procedures over two views and three functions: a summary, the sales by day, week or month with the empty periods as zeros, the sales by category, the best sellers and the abandoned carts. Sales follow ADR-0009 (paid, not cancelled, by payment date in Guatemala time, net of returns) and the average ticket uses half-even rounding. Five administrator endpoints under `/admin/dashboard`, 23 tSQLt tests and the OpenAPI contract. The charts themselves belong to the frontend of Delivery Phase 2. Measured with 5,004 orders: the summary takes 4 ms, the best sellers 24 ms, the sales by category 178 ms and the weekly series of a whole year, the slowest, 227 ms, all below the 1 s of the design.
@@ -70,4 +75,4 @@ _Last updated: Thursday 29 October 2026 (end of the repository hardening session
 ## Blockers
 
 - None for development.
-- **Calendar risk:** the roadmap gave one stage per day and Stage 2 has not started on its planned date. Protect the mandatory scope first (schema, critical procedures with their tests, the complete bank deposit flow, authentication, idempotency, IDOR and concurrency) and leave Recurrente and the extras for Delivery Phase 2.
+- **Calendar risk:** Delivery Phase 1 is due in two days. Protect what the evaluator will check: authentication and the database verifiable in Postman, the bank deposit flow, idempotency, IDOR and concurrency. No payment gateway is required.

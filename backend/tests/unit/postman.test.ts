@@ -1,3 +1,4 @@
+// cspell:ignore Autenticación
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,6 +25,7 @@ interface Environment {
 }
 
 const collection = read('ShopCart.postman_collection.json') as Collection;
+const spanishCollection = read('ShopCart.postman_collection.es.json') as Collection;
 const environment = read('ShopCart.local.postman_environment.json') as Environment;
 const spec = parse(
   readFileSync(resolve(here, '../../../docs/api/openapi/openapi.yaml'), 'utf8'),
@@ -57,23 +59,17 @@ const operationOf = (entry: Item): string => {
 const generic = (operation: string): string => operation.replace(/:\w+/g, ':p');
 const specGeneric = new Set([...specOperations].map(generic));
 
-describe('Postman collection', () => {
-  const all = requests(collection.item);
+const FOLDER_NUMBERS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+
+describe.each([
+  ['English', collection, 'Authentication'],
+  ['Spanish', spanishCollection, 'Autenticación'],
+] as const)('Postman collection (%s)', (_language, current, authenticationFolder) => {
+  const all = requests(current.item);
 
   it('verifies the delivery in numbered folders, starting with the environment and authentication', () => {
-    expect(collection.item.map((entry) => entry.name.charAt(0))).toEqual([
-      '0',
-      '1',
-      '2',
-      '3',
-      '4',
-      '5',
-      '6',
-      '7',
-      '8',
-      '9',
-    ]);
-    expect(collection.item[1]?.name).toContain('Authentication');
+    expect(current.item.map((entry) => entry.name.charAt(0))).toEqual(FOLDER_NUMBERS);
+    expect(current.item[1]?.name).toContain(authenticationFolder);
   });
 
   // Si cambia una ruta del contrato, la colección que se entrega al evaluador no puede seguir pidiéndola
@@ -91,23 +87,46 @@ describe('Postman collection', () => {
     expect(silent.map((entry) => entry.name)).toEqual([]);
   });
 
-  it('sends the bearer token of the right session on every protected call', () => {
-    const anonymous = all
-      .filter((entry) => entry.request?.auth?.type === 'noauth')
-      .map((entry) => entry.name);
-    // Solo estas llamadas son públicas a propósito
-    for (const name of anonymous) {
-      expect(name).toMatch(
-        /Liveness|Readiness|Register|Sign in|without a token|Renew|Present the old|renewed token|public store|stock is back|wrong password/i,
-      );
-    }
+  it('asks for no operation twice with the same purpose: every request is needed', () => {
+    // Una operación puede repetirse (iniciar sesión, cancelar), pero nunca con el mismo nombre
+    const names = all.map((entry) => entry.name);
+    expect(new Set(names).size).toBe(names.length);
   });
 
   it('keeps no password, no token and no real address in the collection', () => {
-    const text = JSON.stringify(collection);
-    expect(collection.variable.find((entry) => entry.key === 'adminPassword')?.value).toBe('');
-    expect(collection.variable.find((entry) => entry.key === 'customerPassword')?.value).toBe('');
+    const text = JSON.stringify(current);
+    expect(current.variable.find((entry) => entry.key === 'adminPassword')?.value).toBe('');
+    expect(current.variable.find((entry) => entry.key === 'customerPassword')?.value).toBe('');
     expect(text).not.toMatch(/eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}/);
+  });
+});
+
+describe('Postman collections', () => {
+  const english = requests(collection.item);
+  const spanish = requests(spanishCollection.item);
+  const shape = (entry: Item): string[] => [
+    operationOf(entry),
+    entry.request?.auth?.type ?? 'none',
+    String((entry.event ?? []).length),
+  ];
+
+  it('is the same collection in both languages: same operations, same authentication, same scripts', () => {
+    expect(spanish.map(shape)).toEqual(english.map(shape));
+  });
+
+  it('sends no token only on the calls that are public on purpose', () => {
+    const anonymous = english
+      .filter((entry) => entry.request?.auth?.type === 'noauth')
+      .map((entry) => entry.name);
+    for (const name of anonymous) {
+      expect(name).toMatch(
+        /Readiness|Register|Sign in|without a token|Renew|Present the old|renewed token|public store|stock is back|wrong password/i,
+      );
+    }
+    // La versión en español hereda la autenticación de la inglesa, petición por petición
+    expect(spanish.map((entry) => entry.request?.auth?.type)).toEqual(
+      english.map((entry) => entry.request?.auth?.type),
+    );
   });
 });
 

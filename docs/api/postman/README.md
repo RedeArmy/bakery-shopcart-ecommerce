@@ -1,10 +1,11 @@
 # Postman verification collection
 
-A collection that checks the delivery end to end against the running stack: **44 requests and 76 assertions**. It proves authentication first, which is the gate of Phase 1, and then the rules of the other modules through the API.
+A collection that checks the delivery end to end against the running stack: **38 requests and 66 assertions**, the fewest that prove the delivery: each request is either the set-up of a later one or the only proof of a criterion. It proves authentication first, which is the gate of Phase 1, and then the rules of the other modules through the API.
 
 | File | What it is |
 |---|---|
 | `ShopCart.postman_collection.json` | The requests, with their assertions, in the order to run them |
+| `ShopCart.postman_collection.es.json` | The same collection in Spanish: names, folders, descriptions and assertion titles. Operations, variables and scripts are identical, so the environment is shared |
 | `ShopCart.local.postman_environment.json` | The variables for the local stack: server address, test accounts and two empty password slots |
 
 Both files are versioned and contain no password or token. A test (`backend/tests/unit/postman.test.ts`) fails if a request asks for an operation that the [OpenAPI contract](../openapi/openapi.yaml) does not have, if a request has no assertion, or if a password is written in either file.
@@ -16,7 +17,7 @@ Both files are versioned and contain no password or token. A test (`backend/test
 
 ## Run it in Postman
 
-1. **Import** both files (Import, then drop them in).
+1. **Import** the environment and one collection, English or Spanish (Import, then drop them in).
 2. Select the environment **ShopCart · local** and paste the two passwords in the **Current value** column of `adminPassword` and `customerPassword`.
 3. Open the collection, choose **Run**, keep the folder order and press **Run ShopCart**.
 
@@ -28,14 +29,14 @@ Every run creates its own customer, category, product, coupons and order, so it 
 npx newman run docs/api/postman/ShopCart.postman_collection.json -e docs/api/postman/ShopCart.local.postman_environment.json --env-var "adminPassword=<SEED_ADMIN_PASSWORD>" --env-var "customerPassword=<SEED_CUSTOMER_PASSWORD>"
 ```
 
-Expected result: 44 requests, 76 assertions, 0 failed. It takes about 50 seconds, because the requests to `/api/v1/auth/` are paced: the proxy lets through six at once and then one every six seconds.
+Expected result: 38 requests, 66 assertions, 0 failed. For the Spanish collection use `ShopCart.postman_collection.es.json` in the same command. It takes about 50 seconds, because the requests to `/api/v1/auth/` are paced: the proxy lets through six at once and then one every six seconds.
 
 ## What each folder proves
 
 | Folder | Proves | Requirement |
 |---|---|---|
 | 0 · Environment | The API is alive and the database schema is up to date | |
-| 1 · Authentication | Registration, sign-in with a 15 minute access token, profile, 401 without a token and with a tampered one, 401 for a wrong password that does not reveal whether the account exists | RF-01 |
+| 1 · Authentication | Registration, sign-in with a 15 minute access token, profile, 401 without a token, 401 for a wrong password that does not reveal whether the account exists | RF-01 |
 | 2 · Roles | A customer gets 403 on administration; the administrator gets 200 | RF-01 |
 | 3 · Catalogue and stock | The administrator creates a category, a product and a variant, registers 5 units, and the ledger shows the entry with its balance, the user and the time; an adjustment without a reason is refused; the store finds the product | RF-02, RF-03 |
 | 4 · Cart | Asking for 6 units when 5 exist answers 409 `INSUFFICIENT_STOCK`; 2 units total exactly `200.00` as decimal strings | RF-04 |

@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "ShopCart · Phase 1 verification",
-    "description": "Verifies the Phase 1 delivery (database and backend) end to end: authentication with rotating refresh tokens, roles, ownership of data, catalogue and stock, cart limits, coupons, checkout with the 15 minute reservation, idempotency, order lifecycle and audit log. Run the folders in order (Collection Runner or `newman`). Each run creates its own customer and catalogue, so it can be repeated; wait one minute between runs because sign-in is limited to five attempts per minute. See docs/api/postman/README.md.",
+    "description": "Verifies the Phase 1 delivery (database and backend) end to end with the fewest requests that prove it: authentication with rotating refresh tokens, roles, ownership of data, catalogue and stock, cart limits, coupons, checkout with the 15 minute reservation, idempotency, order lifecycle and audit log. Run the folders in order (Collection Runner or `newman`). Each run creates its own customer and catalogue, so it can be repeated; wait one minute between runs because sign-in is limited to five attempts per minute. See docs/api/postman/README.md.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -29,30 +29,8 @@
   "item": [
     {
       "name": "0 · Environment",
-      "description": "The stack is up and the database answers.",
+      "description": "The stack is up and the database answers with its schema up to date.",
       "item": [
-        {
-          "name": "Liveness",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{baseUrl}}/health/live",
-            "auth": {
-              "type": "noauth"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"answers 200\", function () { pm.response.to.have.status(200); });"
-                ]
-              }
-            }
-          ]
-        },
         {
           "name": "Readiness (database and schema)",
           "request": {
@@ -120,9 +98,7 @@
                   "pm.collectionVariables.set(\"newEmail\", \"verify-\" + stamp + \"@shopcart.test\");",
                   "pm.collectionVariables.set(\"newPassword\", \"Verify-\" + stamp + \"-Aa1\");",
                   "const delivery = new Date(Date.now() + 10 * 24 * 3600 * 1000).toISOString().slice(0, 10);",
-                  "pm.collectionVariables.set(\"deliveryDate\", delivery);",
-                  "const today = new Date(Date.now() - 6 * 3600 * 1000).toISOString().slice(0, 10);",
-                  "pm.collectionVariables.set(\"today\", today);"
+                  "pm.collectionVariables.set(\"deliveryDate\", delivery);"
                 ]
               }
             },
@@ -269,47 +245,6 @@
           ]
         },
         {
-          "name": "Profile with a tampered token",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{baseUrl}}/api/v1/auth/me",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tamperedToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const authCalls = Number(pm.collectionVariables.get(\"authCalls\") || 0) + 1;",
-                  "pm.collectionVariables.set(\"authCalls\", authCalls);",
-                  "if (authCalls > 5) { setTimeout(function () {}, 6500); }",
-                  "pm.collectionVariables.set(\"tamperedToken\", \"eyJhbGciOiJIUzI1NiJ9.e30.not-a-valid-signature\");"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"answers 401\", function () { pm.response.to.have.status(401); });"
-                ]
-              }
-            }
-          ]
-        },
-        {
           "name": "Sign in with a wrong password",
           "request": {
             "method": "POST",
@@ -439,37 +374,6 @@
                   "const json = pm.response.json();",
                   "pm.collectionVariables.set(\"adminToken\", json.accessToken);",
                   "pm.test(\"the account is an administrator\", function () { pm.expect(json.user.role).to.eql(\"Administrator\"); });"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Administrator asks for the user list",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{baseUrl}}/api/v1/admin/users",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"answers 200\", function () { pm.response.to.have.status(200); });",
-                  "const json = pm.response.json();",
-                  "pm.test(\"the list is paged with a total\", function () { pm.expect(json.total).to.be.a(\"number\"); pm.expect(json.items).to.be.an(\"array\"); });"
                 ]
               }
             }
@@ -1404,35 +1308,6 @@
           ]
         },
         {
-          "name": "The other customer reads its payment",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{baseUrl}}/api/v1/orders/{{idOrder}}/payment",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{otherToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"answers 404\", function () { pm.response.to.have.status(404); });"
-                ]
-              }
-            }
-          ]
-        },
-        {
           "name": "The other customer tries to cancel it",
           "request": {
             "method": "POST",
@@ -1483,40 +1358,8 @@
     },
     {
       "name": "8 · Order lifecycle, reports and audit log (RF-07, RF-08, RF-09)",
-      "description": "Status history, a forbidden transition, cancellation, and the administrator reading the reports and the audit log.",
+      "description": "A forbidden transition, cancellation with its history, the stock released, and the administrator reading the audit log and the reports.",
       "item": [
-        {
-          "name": "The owner reads the order and its history",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{baseUrl}}/api/v1/orders/{{idOrder}}",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{customerToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"answers 200\", function () { pm.response.to.have.status(200); });",
-                  "const json = pm.response.json();",
-                  "pm.test(\"the order is waiting for payment\", function () { pm.expect(json.statusName).to.eql(\"PendingPayment\"); });",
-                  "pm.test(\"the history records the new state and the date and time\", function () { const h = json.history[0]; pm.expect(h.newStatusName).to.eql(\"PendingPayment\"); pm.expect(h.createdAt).to.be.a(\"string\"); });"
-                ]
-              }
-            }
-          ]
-        },
         {
           "name": "A forbidden transition is refused",
           "request": {
@@ -1615,7 +1458,7 @@
           ]
         },
         {
-          "name": "The history now keeps the previous state",
+          "name": "The history keeps every state with its date",
           "request": {
             "method": "GET",
             "header": [],
@@ -1639,7 +1482,7 @@
                 "exec": [
                   "pm.test(\"answers 200\", function () { pm.response.to.have.status(200); });",
                   "const json = pm.response.json();",
-                  "pm.test(\"two entries: created, then cancelled from the previous state\", function () { pm.expect(json.history.length).to.eql(2); pm.expect(json.history[1].idPreviousStatus).to.eql(1); pm.expect(json.history[1].newStatusName).to.eql(\"Cancelled\"); });"
+                  "pm.test(\"two entries: created waiting for payment, then cancelled from the previous state\", function () { pm.expect(json.history.length).to.eql(2); pm.expect(json.history[0].newStatusName).to.eql(\"PendingPayment\"); pm.expect(json.history[0].createdAt).to.be.a(\"string\"); pm.expect(json.history[1].idPreviousStatus).to.eql(1); pm.expect(json.history[1].newStatusName).to.eql(\"Cancelled\"); });"
                 ]
               }
             }
@@ -1670,7 +1513,7 @@
                 "exec": [
                   "pm.test(\"answers 200\", function () { pm.response.to.have.status(200); });",
                   "const json = pm.response.json();",
-                  "pm.test(\"a status change with the user, the previous value and the new value\", function () { const change = json.items.find(function (e) { return e.action === \"StatusChange\"; }); pm.expect(change).to.not.equal(undefined); pm.expect(change.idUser).to.be.a(\"number\"); pm.expect(change.previousValue).to.not.equal(null); pm.expect(change.newValue).to.not.equal(null); });"
+                  "pm.test(\"a status change with user, date, entity, previous value and new value\", function () { const change = json.items.find(function (e) { return e.action === \"StatusChange\"; }); pm.expect(change).to.not.equal(undefined); pm.expect(change.idUser).to.be.a(\"number\"); pm.expect(change.createdAt).to.be.a(\"string\"); pm.expect(change.entityName).to.be.a(\"string\"); pm.expect(change.previousValue).to.not.equal(null); pm.expect(change.newValue).to.not.equal(null); });"
                 ]
               }
             }
@@ -1695,37 +1538,6 @@
                   "pm.test(\"answers 200\", function () { pm.response.to.have.status(200); });",
                   "const json = pm.response.json();",
                   "pm.test(\"the 5 units are available again\", function () { pm.expect(json.variants[0].available).to.eql(5); });"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "The audit log of the products module",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{baseUrl}}/api/v1/admin/audit-log?module=Products",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"answers 200\", function () { pm.response.to.have.status(200); });",
-                  "const json = pm.response.json();",
-                  "pm.test(\"entries carry user, date, entity, action and values\", function () { const e = json.items[0]; [\"idUser\", \"createdAt\", \"entityName\", \"action\"].forEach(function (k) { pm.expect(e).to.have.property(k); }); pm.expect(e).to.have.property(\"newValue\"); });"
                 ]
               }
             }
