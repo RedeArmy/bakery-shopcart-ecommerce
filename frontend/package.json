@@ -12,7 +12,7 @@
     "test:coverage": "vitest run --coverage --coverage.reporter=lcov --coverage.reporter=text-summary"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.76.0",
+    "@tanstack/react-query": "^5.105.1",
     "i18next": "^25.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
