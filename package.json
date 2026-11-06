@@ -21,7 +21,7 @@
     "logs": "docker compose logs -f --tail=100",
     "test": "npm run test:unit && npm run test:integration",
     "test:unit": "npm run test --workspaces --if-present",
-    "test:integration": "tsx tools/scripts/not-implemented.ts --pass test:integration 2",
+    "test:integration": "npm run test:integration -w backend",
     "lint": "npm run lint:code && npm run format:check && npm run spell && npm run lint:spelling && npm run lint:readme && npm run lint:figures && npm run sql:lint",
     "lint:code": "eslint .",
     "lint:spelling": "tsx tools/scripts/check-british-spelling.ts",

@@ -1,6 +1,6 @@
 # Backend integration tests
 
-**Responsibility:** Tests against a real SQL Server started with Testcontainers (Stage 2 onwards).
+**Responsibility:** The HTTP flows of the whole API against a real SQL Server (the `integration` job of CI, or the one of the local stack; see [the tSQLt guide](../../../docs/quality/sql-testing-tsqlt.md)).
 
 **May contain:** Stored-procedure and repository tests.
 
