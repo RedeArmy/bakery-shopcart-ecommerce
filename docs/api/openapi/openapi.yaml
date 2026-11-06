@@ -3106,6 +3106,9 @@ components:
           $ref: '#/components/schemas/MoneyText'
         onHandStock:
           type: integer
+        available:
+          type: integer
+          description: Units that can be bought now, the physical stock minus the units reserved by other carts
         isActive:
           type: boolean
         attributes:
