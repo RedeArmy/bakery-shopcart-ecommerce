@@ -143,8 +143,10 @@ npm run sql:concurrency
 ```
 
 ```bash
-SQL_TEST_HOST=localhost SQL_TEST_PORT=14333 SQL_TEST_PASSWORD=<MSSQL_SA_PASSWORD> DB_NAME=ShopCart_CI npm run test:integration -w backend
+SQL_TEST_HOST=localhost SQL_TEST_PORT=14333 SQL_TEST_PASSWORD=<MSSQL_SA_PASSWORD> DB_NAME=ShopCart_CI DB_APP_USER=shopcart_app DB_APP_PASSWORD=<APP_PASSWORD> JWT_ACCESS_SECRET=<24 OR MORE CHARACTERS> JWT_REFRESH_PEPPER=<24 OR MORE CHARACTERS> APP_PUBLIC_URL=http://localhost:8080 npm run test:integration
 ```
+
+`DB_APP_PASSWORD` must be the one the migration used to create the application login (run `db:migrate` with the same value). In CI the three secrets are generated for each run.
 
 ```bash
 npm run sql:bench
