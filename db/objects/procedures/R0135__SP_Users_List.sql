@@ -1,10 +1,10 @@
 /* =====================================================================
    Objeto   : dbo.SP_Users_List
-   Version  : 1.1.0
+   Version  : 1.2.0
    Cambio   : La lista de usuarios omite las cuentas de invitado
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Mismas columnas y mismo orden que 1.0.0. Nunca devuelve el hash de la contraseña. Errores: 50400 paginación inválida.
-   Cambio 1.1.0: mismas columnas y filtros.
+   Cambio 1.2.0: mismas columnas y filtros.
    ===================================================================== */
 CREATE OR ALTER PROCEDURE dbo.SP_Users_List
   @Search     NVARCHAR(100) = NULL,
