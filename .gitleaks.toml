@@ -14,4 +14,6 @@ regexes = [
   '''6f1c2a34-8e0b-4a6e-9a3a-0b1f7c9d2e11''',
   # Contraseña ficticia de la prueba de configuración del banco de rendimiento (la que se lee de .env); no corresponde a ninguna cuenta
   '''FromDotEnv123''',
+  # Clave de idempotencia ficticia de una prueba de sesión; ya no está en el árbol, pero sigue en el historial del PR #50 que gitleaks recorre
+  '''key-12345678''',
 ]
