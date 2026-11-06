@@ -2,10 +2,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError, errorMessage } from '../../../shared/api';
 import { auth, useSession } from '../../../shared/auth';
-import { Button } from '../../../shared/ui/button';
+import { AuthLayout, FormAlert, SubmitButton, fieldError } from '../components/auth-layout';
 import { TextField } from '../../../shared/ui/fields';
 import { registerSchema } from '../model/schemas';
 import type { RegisterValues } from '../model/schemas';
@@ -52,23 +52,26 @@ export function RegisterPage() {
   });
 
   return (
-    <div className="mx-auto max-w-md space-y-6">
-      <header>
-        <h1 className="text-4xl text-stone-900">{t('auth.registerTitle')}</h1>
-        <p className="mt-2 text-stone-600">{t('auth.registerSubtitle')}</p>
-      </header>
+    <AuthLayout
+      title={t('auth.registerTitle')}
+      subtitle={t('auth.registerSubtitle')}
+      question={t('auth.hasAccount')}
+      switchLabel={t('auth.signInTitle')}
+      switchTo="/login"
+      switchState={arrival}
+    >
       <form onSubmit={(event) => void onSubmit(event)} noValidate className="space-y-5">
         <TextField
           label={t('auth.fullName')}
           autoComplete="name"
-          error={errors.fullName?.message === undefined ? undefined : t(errors.fullName.message)}
+          error={fieldError(t, errors.fullName?.message)}
           {...register('fullName')}
         />
         <TextField
           label={t('auth.email')}
           type="email"
           autoComplete="email"
-          error={errors.email?.message === undefined ? undefined : t(errors.email.message)}
+          error={fieldError(t, errors.email?.message)}
           {...register('email')}
         />
         <TextField
@@ -76,33 +79,20 @@ export function RegisterPage() {
           optionalLabel={t('common.optional')}
           type="tel"
           autoComplete="tel"
-          error={errors.phone?.message === undefined ? undefined : t(errors.phone.message)}
+          error={fieldError(t, errors.phone?.message)}
           {...register('phone')}
         />
         <TextField
-          label={t('auth.passwordLabel')}
+          label={t('auth.credentialLabel')}
           type="password"
           autoComplete="new-password"
           hint={t('auth.passwordHint')}
-          error={errors.password?.message === undefined ? undefined : t(errors.password.message)}
+          error={fieldError(t, errors.password?.message)}
           {...register('password')}
         />
-        {formError === null ? null : (
-          <p role="alert" className="rounded-control bg-red-50 px-4 py-3 text-sm text-red-900">
-            {formError}
-          </p>
-        )}
-        <Button type="submit" loading={isSubmitting} className="w-full">
-          {isSubmitting ? t('auth.submitting') : t('auth.registerSubmit')}
-        </Button>
+        <FormAlert message={formError} />
+        <SubmitButton submitting={isSubmitting} label={t('auth.registerSubmit')} />
       </form>
-
-      <p className="text-sm text-stone-600">
-        {t('auth.hasAccount')}{' '}
-        <Link to="/login" state={arrival} className="text-accent hover:underline">
-          {t('auth.signInTitle')}
-        </Link>
-      </p>
-    </div>
+    </AuthLayout>
   );
 }

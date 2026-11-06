@@ -2,10 +2,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError, errorMessage } from '../../../shared/api';
 import { auth, useSession } from '../../../shared/auth';
-import { Button } from '../../../shared/ui/button';
+import { AuthLayout, FormAlert, SubmitButton, fieldError } from '../components/auth-layout';
 import { TextField } from '../../../shared/ui/fields';
 import { loginSchema } from '../model/schemas';
 import type { LoginValues } from '../model/schemas';
@@ -58,42 +58,32 @@ export function LoginPage() {
   });
 
   return (
-    <div className="mx-auto max-w-md space-y-6">
-      <header>
-        <h1 className="text-4xl text-stone-900">{t('auth.signInTitle')}</h1>
-        <p className="mt-2 text-stone-600">{t('auth.signInSubtitle')}</p>
-      </header>
+    <AuthLayout
+      title={t('auth.signInTitle')}
+      subtitle={t('auth.signInSubtitle')}
+      question={t('auth.noAccount')}
+      switchLabel={t('auth.registerTitle')}
+      switchTo="/register"
+      switchState={arrival}
+    >
       <form onSubmit={(event) => void onSubmit(event)} noValidate className="space-y-5">
         <TextField
           label={t('auth.email')}
           type="email"
           autoComplete="email"
-          error={errors.email?.message === undefined ? undefined : t(errors.email.message)}
+          error={fieldError(t, errors.email?.message)}
           {...register('email')}
         />
         <TextField
-          label={t('auth.passwordLabel')}
+          label={t('auth.credentialLabel')}
           type="password"
           autoComplete="current-password"
-          error={errors.password?.message === undefined ? undefined : t(errors.password.message)}
+          error={fieldError(t, errors.password?.message)}
           {...register('password')}
         />
-        {formError === null ? null : (
-          <p role="alert" className="rounded-control bg-red-50 px-4 py-3 text-sm text-red-900">
-            {formError}
-          </p>
-        )}
-        <Button type="submit" loading={isSubmitting} className="w-full">
-          {isSubmitting ? t('auth.submitting') : t('auth.signInSubmit')}
-        </Button>
+        <FormAlert message={formError} />
+        <SubmitButton submitting={isSubmitting} label={t('auth.signInSubmit')} />
       </form>
-
-      <p className="text-sm text-stone-600">
-        {t('auth.noAccount')}{' '}
-        <Link to="/register" state={arrival} className="text-accent hover:underline">
-          {t('auth.registerTitle')}
-        </Link>
-      </p>
-    </div>
+    </AuthLayout>
   );
 }

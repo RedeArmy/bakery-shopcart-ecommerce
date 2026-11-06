@@ -63,7 +63,7 @@ export const esGT = {
     registerTitle: 'Crear cuenta',
     registerSubtitle: 'Solo necesita un correo y una contraseña.',
     email: 'Correo electrónico',
-    passwordLabel: 'Contraseña',
+    credentialLabel: 'Contraseña',
     passwordHint: 'Mínimo 10 caracteres.',
     fullName: 'Nombre completo',
     phone: 'Teléfono',
