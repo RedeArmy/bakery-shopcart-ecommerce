@@ -9,7 +9,7 @@ The file keeps its original name so that existing links work. It is a living doc
 | Revision 2 | 5 November 2026, Delivery Phase 1 complete (baseline `main` at `a446f5a`, pull request #44) |
 | Scope of revision 2 | The whole delivered system: database (migrations, objects, seeds, runner, tSQLt), backend (modules, platform, security), API contract, CI, containers, documentation and the frontend skeleton |
 | Method | Static review of the code and the SQL, execution of the unit tests and of the architecture rules, dependency audit and outdated check, review of the CI results of the open pull request, comparison of every figure in the documents with the repository |
-| Result | **Delivery Phase 1 scope approved to move to Phase 2.** One high finding is open and has a ready fix (D-15: merge pull request #45). Thirty-five items fixed in total, sixteen open (section 5) and eight anticipated (section 6) |
+| Result | **Delivery Phase 1 scope approved to move to Phase 2.** No high finding is open: the vulnerable `multer` (D-15) was fixed by pull request #47. Thirty-six items fixed in total, fifteen open (section 5) and eight anticipated (section 6) |
 
 ## 1. Summary
 
@@ -22,7 +22,7 @@ What it found is concentrated in four places: one vulnerable production dependen
 | Correctness of the data model | Strong | 537 tSQLt tests on the real tables; reconciliation views return zero rows after every scenario; a mutation check on the last-unit return closing and on the ownership condition is caught |
 | Money | Strong | `DECIMAL(18,2)` everywhere, integer cents in calculations, half-even implemented once in SQL and once in TypeScript with shared test vectors |
 | Concurrency | Strong | 16 scenarios with real connections (100 buyers for 1 unit give exactly 1 success); two deadlocks found and fixed |
-| Security | Good, one high finding | Least privilege proven by test, IDOR answers 404, uploads checked by bytes with opaque keys; `multer` has known denial-of-service advisories (D-15) |
+| Security | Good | Least privilege proven by test, IDOR answers 404, uploads checked by bytes with opaque keys; `npm audit --omit=dev` reports zero vulnerabilities since `multer` moved to 2.5.0 (F-36) |
 | Reliability | Good | Idempotent runner, fail-closed start-up gate, jobs behind application locks, bounded shutdown; the connection pool has no error listener (D-19) |
 | Performance | Good | Measured with 50,000 orders: the heaviest list went from 483,437 reads to 767; `npm run sql:bench` guards it |
 | Testability | Good, with a gap in CI | 17 HTTP flows exist but the `integration` job is off (D-03) |
@@ -34,7 +34,7 @@ What it found is concentrated in four places: one vulnerable production dependen
 1. **Rules of the architecture.** `npm run arch:check` passes: no violation in 96 modules and 345 dependencies, and the four deliberate violations of the self-test are detected.
 2. **Unit tests.** 561 pass (backend 331, frontend 18, and 212 across the runner, the SQL test scripts, the tooling and the simulator).
 3. **Inventory of the build.** 12 migrations, 6 seeds, 83 procedures, 17 functions, 6 views, 73 API operations, 537 tSQLt tests and 17 HTTP flows. The OpenAPI contract has the same 73 operations as the routes, and a test keeps it that way.
-4. **Database tests in CI.** The `sql-tests` job (tSQLt, concurrency, procedure coverage) and the other required checks pass on the open pull request #45.
+4. **Database tests in CI.** The `sql-tests` job (tSQLt, concurrency, procedure coverage) and the other required checks pass on pull request #47, and the CI run of `main` after its merge is green.
 5. **Delivery check.** The Postman collection (38 requests, 66 assertions, English and Spanish) was run with `newman` against a fresh stack on 2 November: 0 failed.
 6. **Security controls present in the code.** Helmet and strict CORS; zod at every boundary with a 100 kb JSON limit; access token HS256 with algorithm, issuer and expiry checked; refresh tokens opaque, rotated and revoked as a family on reuse; Argon2id passwords; proofs validated by magic bytes, stored under UUID keys with `wx` and mode `0600`; the application login without table permissions; pino redaction; edge limits on the authentication routes; `trust proxy` set to one hop with `X-Forwarded-For` overwritten by nginx.
 7. **Database discipline.** No `NOLOCK`, no cursors, no dynamic SQL in the objects, no legacy types (`DATETIME`, `MONEY`, `FLOAT`, `TEXT`), no cascading deletes, `SET XACT_ABORT ON` in every procedure that writes, typed parameters.
@@ -47,10 +47,10 @@ What it found is concentrated in four places: one vulnerable production dependen
 | tSQLt tests | 537, all on the real tables |
 | Concurrency scenarios / HTTP flows | 16 / 17 |
 | Procedure coverage by tSQLt | 83 of 83 |
-| Production vulnerabilities | 1 high (`multer`, 9 advisories); fix in pull request #45 |
+| Production vulnerabilities | 0 (`multer` 2.5.0 since pull request #47; it had 9 advisories) |
 | Development-only vulnerabilities | 7 moderate (`typescript-eslint` and `minimatch`, no runtime exposure) |
-| Line coverage | Not re-measured in revision 2; the SonarCloud quality gate passes on pull request #45 |
-| Debt | 16 open, 8 anticipated, 35 fixed |
+| Line coverage | Not re-measured in revision 2; the SonarCloud quality gate passes on pull request #47 |
+| Debt | 15 open, 8 anticipated, 36 fixed |
 
 ## 4. Findings fixed
 
@@ -98,44 +98,46 @@ What it found is concentrated in four places: one vulnerable production dependen
 | F-33 | Low | Database | The tSQLt suite failed (388 errors) when the demo accounts were seeded into the CI database. | The seed step skips databases whose name ends in `_CI` |
 | F-34 | Low | Operability | The recovery model of a new database is `FULL`, which grows the log until the disk is full if nobody backs it up. | Runbook section "Backups and recovery" with the choice per environment (see also A-03) |
 | F-35 | Medium | Frontend | The frontend had no generated API client, no forms library, no charts and no end-to-end tool, and `api:generate` was a placeholder. | `openapi-typescript` and `openapi-fetch` (generated types committed, `npm run api:check` in CI), react-hook-form with zod, Recharts and Playwright with a smoke test; a unit test calls a route through the typed client (5 November) |
+| F-36 | High | Security, dependencies | `multer` 2.0.2 in the proof upload route had nine denial-of-service advisories (was D-15). | Pull request #47 moves it to 2.5.0, with `jose`, `@node-rs/argon2`, `vitest` and others; `npm audit --omit=dev` reports zero and the 17 HTTP flows pass against a real SQL Server (5 November) |
 
 ## 5. Debt register (open)
 
-Severity is the impact if it is never addressed; effort is in working hours of one engineer. The target says when it naturally belongs.
+Ordered by implementation priority, not by severity. The order puts first what blocks the screens of Delivery Phase 2 (1 and 2), then the cheap protections that can travel in the same pull requests (3 and 4), then what protects the work while the frontend is built (5 to 9), and last what can wait until after the delivery (10 to 14). Severity is the impact if it is never addressed; effort is in working hours of one engineer; the target says when it naturally belongs.
 
-| ID | Severity | Area | Description | Recommended action | Effort | Target |
-|---|---|---|---|---|---|---|
-| D-15 | **High** | Security, dependencies | `multer` 2.0.2 is installed and the upload route of payment proofs is production code. `npm audit --omit=dev` lists nine denial-of-service advisories for versions up to 2.4.0 (resource exhaustion, uncontrolled recursion, crafted field names, a file-size bypass through an async filter, incomplete cleanup of aborted uploads). The route limits the size, the file count and the fields, which narrows but does not remove the exposure. | Merge pull request #45 (it moves `multer` to 2.5.0, with `jose` 6.2.15, `@node-rs/argon2` 2.2.2 and `@tanstack/react-query`); all its checks pass (`integration` is skipped) | 0.5 | Now |
-| D-16 | Medium | CI | No job runs `npm audit` or any dependency scan, so D-15 was found by hand. The fix only travels in the weekly grouped pull request of Dependabot (#45). | Add a job `npm audit --omit=dev --audit-level=high` and require it | 1 | Now |
-| D-03 | Medium | Testing, CI | The 17 HTTP flows exist (`npm run test:integration -w backend` against a migrated SQL Server) but the `integration` job is `if: false`, is not a required check, and the `test:integration` script of the root is a placeholder. | Enable the job reusing the SQL Server of `sql-tests`, point the root script at the backend, require it | 3 | Before Phase 2 ends |
-| D-14 | Medium | Delivery | The catalogue (about 60 products), the coupons `WELCOME10`, `CAKES25`, `SOLDOUT` and `EXPIRED` and a bank account are not seeded: a fresh stack has an empty store. The accounts and the performance dataset (`sql:bench`) exist. | Write the demo seeds; the frontend cannot be built or demonstrated without them | 6 | First day of Phase 2 |
-| D-24 | Medium | Security, frontend | Decided in [ADR-0026](../adr/0026-refresh-token-in-an-httponly-cookie.md): the refresh token goes in an `HttpOnly; SameSite=Strict` cookie, as the design says. The backend still returns it only in the body and reads it only from the body. | Set the cookie in `login` and `refresh`, read it first in `refresh` and `logout` (body as fallback), clear it on `logout`, update the OpenAPI document and add the tests | 3 | Before the authentication screens |
-| D-19 | Medium | Backend, reliability | The SQL connection pool has no `error` listener, a fixed maximum of 10 connections and no explicit `requestTimeout`; none is configurable. A broken connection can raise an unhandled `error` event, which would end the process. | Listen to the pool errors and log them, move `max`, `requestTimeout` and `idleTimeoutMillis` to validated environment variables | 2 | Phase 2 |
-| D-20 | Medium | Documentation, configuration | Card payment is described as existing but inactive ("its code exists"). In the repository there is only configuration and the availability rule: `cardAvailable` is hard-coded to `false` in the composition root, there is no Recurrente adapter, and the simulator is a placeholder. The variables `RECURRENTE_*` and `PAYMENTS_CARD_ENABLED` (default `true`) are validated but never read, so setting credentials changes nothing. [ADR-0017](../adr/0017-own-recurrente-adapter.md) and [recurrente](../payments/recurrente.md) describe a design that is not built; Stage 8 of the roadmap was dropped for that reason. | Say "design only" in the READMEs and the two documents, or delete the dead variables, the simulator and the compose service; do not keep a default of `true` that does nothing | 2 | Phase 2 |
-| D-02 | Medium | Security | No `Content-Security-Policy` on the pages served by the edge, and no TLS: nginx listens on plain HTTP, so HSTS has no meaning yet. | Add CSP once the application exists and verify it in a browser; document that TLS ends at the platform in front of nginx and add HSTS there | 3 | Phase 2 |
-| D-17 | Low | CI, tooling | The Playwright scenarios are not part of CI (they need the browser and the complete stack) and `npm run sonar` is still a placeholder. | Run the end-to-end suite in a job that starts the stack, once the deposit scenario exists; the SonarQube profile stays optional | 4 | Phase 2 |
-| D-21 | Low | Documentation | Figures and state drifted: both READMEs say 523 unit tests and 561 pass; `ROADMAP.md` was corrected on 5 November. | Correct the counts, and stop hard-coding what a test can print | 0.5 | Now |
-| D-22 | Low | Supply chain | Dependabot does not watch the images of `docker-compose.yml`: `mssql/server:2022-latest` is a floating tag and the edge uses nginx 1.27 while the frontend image uses 1.31. GitHub Actions and base images are pinned by tag, not by digest. | Watch the compose file, pin the SQL Server image to a cumulative update, align nginx, consider digests | 2 | After Phase 2 |
-| D-23 | Low | Security | The access token uses one symmetric secret, with no `kid` and no audience: rotating the secret signs everybody out and a second service could not verify tokens without sharing it. | Add `aud` and `kid`; move to an asymmetric key only if a second verifier appears | 3 | After Phase 2 |
-| D-25 | Low | Database, documentation | Shipping is out of scope but the schema keeps `Orders.Shipping`, its constraint and trigger, the `ShippingCost` and `FreeShippingFrom` settings and the `shipping` field of the API, always `0.00`. The documents that mirror the schema still mention them. | Decide: accept and document it as reserved, or drop the column and settings with a new migration `V0013` and adjust tests, API and OpenAPI | 4 | After Phase 2 |
-| D-26 | Low | Observability | `platform/telemetry` contains only a README; there are request ids and structured logs but no metrics, and the `observability` compose profile has nothing to collect. A comment in `pool.ts` names a procedure that no longer exists. | Add basic business and database metrics, or state that observability is limited to logs | 4 | After Phase 2 |
-| D-11 | Low | Dependencies | Major upgrades pending: `mssql` 12, `eslint` and `@eslint/js` 10, `react` and `react-dom` 19 with their types, `jsdom` 31, `i18next` 26, `react-i18next` 17, `@vitejs/plugin-react` 6, `commitlint` 21, `cspell` 10, `dependency-cruiser` 18, `lint-staged` 17. | One pull request per major, with tests, after Delivery Phase 2 | 8 | after Phase 2 |
-| D-07 | Low | Database | Constraints refer to fixed status identifiers (`IDOrderStatus IN (1, 6)`), coupling migrations to seed values. | Accepted and documented; revisit only if the states change | 0 | none |
+| Order | ID | Severity | Area | Description | Recommended action | Effort | Target |
+|---|---|---|---|---|---|---|---|
+| 1 | D-24 | Medium | Security, frontend | Decided in [ADR-0026](../adr/0026-refresh-token-in-an-httponly-cookie.md): the refresh token goes in an `HttpOnly; SameSite=Strict` cookie, as the design says. The backend still returns it only in the body and reads it only from the body. | Set the cookie in `login` and `refresh`, read it first in `refresh` and `logout` (body as fallback), clear it on `logout`, update the OpenAPI document and add the tests | 3 | Before the authentication screens |
+| 2 | D-14 | Medium | Delivery | The catalogue (about 60 products), the coupons `WELCOME10`, `CAKES25`, `SOLDOUT` and `EXPIRED` and a bank account are not seeded: a fresh stack has an empty store. The accounts and the performance dataset (`sql:bench`) exist. | Write the demo seeds; the frontend cannot be built or demonstrated without them | 6 | First day of Phase 2 |
+| 3 | D-16 | Medium | CI | No job runs `npm audit` or any dependency scan, so the `multer` vulnerability (D-15, now closed) was found by hand. Fixes only travel in the weekly grouped pull request of Dependabot. | Add a job `npm audit --omit=dev --audit-level=high` and require it | 1 | Now |
+| 4 | D-21 | Low | Documentation | Figures and state drifted: both READMEs say 523 unit tests and 561 pass; `ROADMAP.md` was corrected on 5 November. | Correct the counts, and stop hard-coding what a test can print | 0.5 | Now |
+| 5 | D-03 | Medium | Testing, CI | The 17 HTTP flows exist (`npm run test:integration -w backend` against a migrated SQL Server) but the `integration` job is `if: false`, is not a required check, and the `test:integration` script of the root is a placeholder. The command in [the tSQLt guide](sql-testing-tsqlt.md) does not run as written: the suite also needs `DB_APP_USER`, `DB_APP_PASSWORD`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_PEPPER` and `APP_PUBLIC_URL` (it passes, 17 of 17, when they are set). | Enable the job reusing the SQL Server of `sql-tests`, point the root script at the backend, require it | 3 | Before Phase 2 ends |
+| 6 | D-19 | Medium | Backend, reliability | The SQL connection pool has no `error` listener, a fixed maximum of 10 connections and no explicit `requestTimeout`; none is configurable. A broken connection can raise an unhandled `error` event, which would end the process. | Listen to the pool errors and log them, move `max`, `requestTimeout` and `idleTimeoutMillis` to validated environment variables | 2 | Phase 2 |
+| 7 | D-20 | Medium | Documentation, configuration | Card payment is described as existing but inactive ("its code exists"). In the repository there is only configuration and the availability rule: `cardAvailable` is hard-coded to `false` in the composition root, there is no Recurrente adapter, and the simulator is a placeholder. The variables `RECURRENTE_*` and `PAYMENTS_CARD_ENABLED` (default `true`) are validated but never read, so setting credentials changes nothing. [ADR-0017](../adr/0017-own-recurrente-adapter.md) and [recurrente](../payments/recurrente.md) describe a design that is not built; Stage 8 of the roadmap was dropped for that reason. | Say "design only" in the READMEs and the two documents, or delete the dead variables, the simulator and the compose service; do not keep a default of `true` that does nothing | 2 | Phase 2 |
+| 8 | D-02 | Medium | Security | No `Content-Security-Policy` on the pages served by the edge, and no TLS: nginx listens on plain HTTP, so HSTS has no meaning yet. | Add CSP once the application exists and verify it in a browser; document that TLS ends at the platform in front of nginx and add HSTS there | 3 | Phase 2 |
+| 9 | D-17 | Low | CI, tooling | The Playwright scenarios are not part of CI (they need the browser and the complete stack) and `npm run sonar` is still a placeholder. | Run the end-to-end suite in a job that starts the stack, once the deposit scenario exists; the SonarQube profile stays optional | 4 | Phase 2 |
+| 10 | D-25 | Low | Database, documentation | Shipping is out of scope but the schema keeps `Orders.Shipping`, its constraint and trigger, the `ShippingCost` and `FreeShippingFrom` settings and the `shipping` field of the API, always `0.00`. The documents that mirror the schema still mention them. | Decide: accept and document it as reserved, or drop the column and settings with a new migration `V0013` and adjust tests, API and OpenAPI | 4 | After Phase 2 |
+| 11 | D-22 | Low | Supply chain | Dependabot does not watch the images of `docker-compose.yml`: `mssql/server:2022-latest` is a floating tag and the edge uses nginx 1.27 while the frontend image uses 1.31. GitHub Actions and base images are pinned by tag, not by digest. | Watch the compose file, pin the SQL Server image to a cumulative update, align nginx, consider digests | 2 | After Phase 2 |
+| 12 | D-23 | Low | Security | The access token uses one symmetric secret, with no `kid` and no audience: rotating the secret signs everybody out and a second service could not verify tokens without sharing it. | Add `aud` and `kid`; move to an asymmetric key only if a second verifier appears | 3 | After Phase 2 |
+| 13 | D-26 | Low | Observability | `platform/telemetry` contains only a README; there are request ids and structured logs but no metrics, and the `observability` compose profile has nothing to collect. A comment in `pool.ts` names a procedure that no longer exists. | Add basic business and database metrics, or state that observability is limited to logs | 4 | After Phase 2 |
+| 14 | D-11 | Low | Dependencies | Major upgrades pending: `mssql` 12, `eslint` and `@eslint/js` 10, `react` and `react-dom` 19 with their types, `jsdom` 31, `i18next` 26, `react-i18next` 17, `@vitejs/plugin-react` 6, `commitlint` 21, `cspell` 10, `dependency-cruiser` 18, `lint-staged` 17. | One pull request per major, with tests, after Delivery Phase 2 | 8 | after Phase 2 |
+| - | D-07 | Low | Database | Constraints refer to fixed status identifiers (`IDOrderStatus IN (1, 6)`), coupling migrations to seed values. | Accepted and documented; revisit only if the states change | 0 | none |
+
+Effort before the delivery (orders 1 to 9): about 24 working hours, of which the first four (about 10 hours) block or cheaply protect the screens. Orders 10 to 14 add about 21 hours and belong after Delivery Phase 2.
 
 ## 6. Anticipated debt
 
-Not defects today. Each one becomes a problem at a stated point, and the table says what to do then.
+Not defects today. Each one becomes a problem at a stated point, and the table says what to do then. They are ordered by how soon the trigger is likely to arrive.
 
 | ID | Area | What will happen | Trigger | Plan |
 |---|---|---|---|---|
-| A-01 | Rate limiting | Counters live in memory and use a fixed window: they reset on restart, are per instance, and allow twice the limit across a window boundary. | A second replica of the API | The store is a port; add a shared adapter (ADR-0010) |
-| A-02 | File storage | Proofs sit on a named volume of one node, outside any backup, and a database failure after the file is saved relies on the compensating delete. | More than one node, or any backup requirement | Object storage adapter behind `FileStoragePort`, and a job that lists files without a row |
 | A-03 | Recovery | One SQL Server instance, no automated backup, no stated recovery point or recovery time. | Any production use | Define RPO and RTO, schedule full, differential and log backups, test a restore |
-| A-04 | Data growth | The ledgers (`InventoryMovements`, the financial ledger, the audit log) are append-only by design and the retention job leaves them alone. | Years of volume; the 50,000-order benchmark is comfortable | Archive or partition by date; keep the reconciliation views valid across the archive |
-| A-05 | Money | The half-even rule exists in SQL and in TypeScript. The shared vectors catch drift, but a new rule must be written twice. | Any new discount or tax rule | Keep the differential tests as a gate; prefer doing new rules in SQL only |
-| A-06 | API contract | One hand-written OpenAPI file of about 3,600 lines, kept equal to the routes by a test. | Client generation and more operations | Split by module, generate the client, add Schemathesis |
+| A-02 | File storage | Proofs sit on a named volume of one node, outside any backup, and a database failure after the file is saved relies on the compensating delete. | More than one node, or any backup requirement | Object storage adapter behind `FileStoragePort`, and a job that lists files without a row |
+| A-01 | Rate limiting | Counters live in memory and use a fixed window: they reset on restart, are per instance, and allow twice the limit across a window boundary. | A second replica of the API | The store is a port; add a shared adapter (ADR-0010) |
 | A-07 | Jobs | Background jobs run inside the API process; the application locks make several replicas safe, but a heavy job competes with traffic. | Long reconciliation runs | Run the same runner as a separate worker process |
 | A-08 | Database | Read committed snapshot keeps row versions in `tempdb`; a long transaction makes the version store grow. | A slow report or a stuck session | Alert on the version store size and on the oldest open transaction |
+| A-04 | Data growth | The ledgers (`InventoryMovements`, the financial ledger, the audit log) are append-only by design and the retention job leaves them alone. | Years of volume; the 50,000-order benchmark is comfortable | Archive or partition by date; keep the reconciliation views valid across the archive |
+| A-06 | API contract | One hand-written OpenAPI file of about 3,600 lines, kept equal to the routes by a test. | Client generation and more operations | Split by module, generate the client, add Schemathesis |
+| A-05 | Money | The half-even rule exists in SQL and in TypeScript. The shared vectors catch drift, but a new rule must be written twice. | Any new discount or tax rule | Keep the differential tests as a gate; prefer doing new rules in SQL only |
 
 ## 7. Risks for Delivery Phase 2 (Monday 9 November, 23:59)
 
@@ -144,13 +146,13 @@ Not defects today. Each one becomes a problem at a stated point, and the table s
 | Four days for every screen of the shop, the administration and the dashboard | High | High | Build the route in the order customer purchase, deposit proof, review queue, dashboard; cut charts and extras before the purchase flow |
 | Empty store while developing and demonstrating | High | High | D-14 on the first day |
 | Authentication screens built on an unresolved token decision | Medium | High | Backend change of ADR-0026 first, then the screens (D-24) |
-| A vulnerable dependency reaches the delivery | Medium | Medium | D-15 and D-16 now |
+| A vulnerable dependency reaches the delivery | Low | Medium | D-16: the audit step in CI. D-15 is closed |
 | The `integration` job stays off and a regression reaches `main` unseen | Medium | Medium | D-03, using the SQL Server that `sql-tests` already starts |
 | CSP breaks the application at the end | Medium | Medium | Add it in a branch and verify in a browser, not on the last day (D-02) |
 
 ## 8. Not verified in this revision
 
-- The tSQLt, concurrency and HTTP suites were not run locally today; their evidence is the CI run of pull request #45 (`sql-tests` passes, `integration` is skipped) and the runs of the previous days.
+- The tSQLt and concurrency suites were not run locally today; their evidence is the CI run of pull request #47 (`sql-tests` passes, `integration` is skipped) and the runs of the previous days. The 17 HTTP flows were run locally against a real SQL Server after the `multer` upgrade: all pass.
 - Line coverage was not re-measured.
 - The behaviour of the application in a browser, including any security header on the pages.
 - Restoring a backup, and the behaviour of the stack under sustained load beyond `sql:bench`.
@@ -158,7 +160,7 @@ Not defects today. Each one becomes a problem at a stated point, and the table s
 
 ## 9. Recommendations
 
-1. Merge pull request #45 (D-15) and add the audit step to CI (D-16). Both are under two hours.
+1. Add the audit step to CI (D-16), under one hour. D-15 is closed: pull request #47 is merged.
 2. Fix the figures and the roadmap (D-21) so that the documents do not contradict the repository.
 3. Write the demo seeds (D-14) and implement the cookie of ADR-0026 (D-24) before the first screen.
 4. Enable the `integration` job (D-03) while the frontend is being built, so that API regressions stay visible.
