@@ -8,7 +8,15 @@ import type { SessionState } from '../../src/shared/auth/session-store';
 const user = (role: 'Customer' | 'Operator' | 'Administrator'): SessionState => ({
   status: 'authenticated',
   accessToken: 'token',
-  user: { idUser: 1, role, email: 'a@b.test', fullName: 'Ana', phone: null, isActive: true },
+  user: {
+    idUser: 1,
+    role,
+    email: 'a@b.test',
+    fullName: 'Ana',
+    phone: null,
+    isActive: true,
+    isGuest: false,
+  },
 });
 
 describe('routeAccess', () => {

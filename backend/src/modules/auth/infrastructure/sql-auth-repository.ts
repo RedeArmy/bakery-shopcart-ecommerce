@@ -15,6 +15,8 @@ interface UserRow {
   FullName: string;
   Phone: string | null;
   IsActive: boolean;
+  /** SP_Users_GetByEmail no lo devuelve: quien inicia sesión por correo nunca es un invitado */
+  IsGuest?: boolean;
 }
 
 interface LoginRow extends UserRow {
@@ -30,6 +32,7 @@ const toUser = (row: UserRow): UserRecord => ({
   fullName: row.FullName,
   phone: row.Phone,
   isActive: row.IsActive,
+  isGuest: row.IsGuest ?? false,
 });
 
 /** Adaptador SQL de la autenticación: no hay SQL en línea, solo llamadas a procedimientos con parámetros tipados. */
@@ -115,6 +118,42 @@ export function createSqlAuthRepository(execute: ProcedureExecutor): AuthReposit
         outcome: result.output['Outcome'] as RotateOutcome,
         idUser: (result.output['IDUser'] as number | null | undefined) ?? null,
       };
+    },
+
+    async createGuest() {
+      const result = await execute(
+        'dbo.SP_Users_CreateGuest',
+        [],
+        [{ name: 'IDUser', type: sql.Int }],
+      );
+      return result.output['IDUser'] as number;
+    },
+
+    async setGuestContact(input) {
+      await execute('dbo.SP_Users_SetGuestContact', [
+        { name: 'IDUser', type: sql.Int, value: input.idUser },
+        { name: 'Email', type: sql.NVarChar(256), value: input.email },
+        { name: 'FullName', type: sql.NVarChar(120), value: input.fullName },
+        { name: 'Phone', type: sql.NVarChar(20), value: input.phone },
+      ]);
+    },
+
+    async setRecoveryCode(idUser, codeHash) {
+      await execute('dbo.SP_Users_SetRecoveryCode', [
+        { name: 'IDUser', type: sql.Int, value: idUser },
+        { name: 'CodeHash', type: sql.Char(64), value: codeHash },
+      ]);
+    },
+
+    async findGuestsByEmail(email) {
+      const result = await execute<{ IDUser: number; GuestRecoveryHash: string }>(
+        'dbo.SP_Users_FindGuestsByEmail',
+        [{ name: 'Email', type: sql.NVarChar(256), value: email }],
+      );
+      return result.rows.map((row) => ({
+        idUser: row.IDUser,
+        recoveryHash: row.GuestRecoveryHash,
+      }));
     },
 
     async revokeFamily(tokenHash) {

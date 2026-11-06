@@ -734,6 +734,180 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
     ).toBe(400);
   });
 
+  it('lets a guest use a coupon, check out with a deposit and recover the order, while made-to-order products and personalisation need an account', async () => {
+    // Un producto por encargo (pide dos días) y uno del mismo día (el de los demás flujos)
+    const category = await post(administrator, '/admin/categories', { name: `IT Custom ${runId}` });
+    const madeToOrder = await post(administrator, '/admin/products', {
+      categoryId: num(category.body, 'idCategory'),
+      name: `IT Custom cake ${runId}`,
+      description: 'Made to order',
+      leadTimeDays: 2,
+    });
+    const customVariant = await post(administrator, '/admin/variants', {
+      productId: num(madeToOrder.body, 'idProduct'),
+      sku: `ITC${runId}`.toUpperCase(),
+      price: '300.00',
+      attributes: [{ name: 'Size', value: 'L' }],
+    });
+    const idCustomVariant = num(customVariant.body, 'idVariant');
+    await post(administrator, '/admin/inventory/entries', {
+      idVariant: idCustomVariant,
+      quantity: 5,
+      reason: 'Initial stock',
+    });
+    const couponCode = `GUEST${runId}`.toUpperCase();
+    const coupon = await post(administrator, '/admin/coupons', {
+      code: couponCode,
+      type: 'Percentage',
+      value: '10.00',
+      startsAt: '2020-01-01T00:00:00Z',
+      endsAt: '2099-12-31T00:00:00Z',
+      perCustomerUsageLimit: 1,
+    });
+    expect(coupon.status).toBe(201);
+
+    const startGuest = async (): Promise<{ token: string; idUser: number; cookie: string }> => {
+      const started = await api().post('/api/v1/auth/guest');
+      expect(started.status).toBe(201);
+      expect(field(started.body, 'user.isGuest')).toBe(true);
+      const cookie = ((started.headers['set-cookie'] as string[] | undefined) ?? [])[0] ?? '';
+      expect(cookie).toMatch(/HttpOnly/);
+      return {
+        token: str(started.body, 'accessToken'),
+        idUser: num(started.body, 'user.idUser'),
+        cookie,
+      };
+    };
+    const guest = await startGuest();
+
+    // Una cuenta de invitado no pide productos por encargo ni personalización; un visitante con token tampoco
+    const tooCustom = await as(
+      guest.token,
+      api().put(`/api/v1/cart/items/${idCustomVariant}`),
+    ).send({
+      quantity: 1,
+    });
+    expect(tooCustom.status).toBe(422);
+    expect(str(tooCustom.body, 'error.code')).toBe('ACCOUNT_REQUIRED');
+    const personalised = await as(guest.token, api().put(`/api/v1/cart/items/${idVariant}`)).send({
+      quantity: 1,
+      inscription: 'Happy birthday',
+    });
+    expect(personalised.status).toBe(422);
+    expect(str(personalised.body, 'error.code')).toBe('ACCOUNT_REQUIRED');
+    const visitor = await api()
+      .put(`/api/v1/cart/items/${idCustomVariant}`)
+      .set('X-Cart-Token', '9d3f1c52-7a41-4a3e-9d1b-2f6c0b1e4a77')
+      .send({ quantity: 1 });
+    expect(visitor.status).toBe(422);
+    expect(str(visitor.body, 'error.code')).toBe('ACCOUNT_REQUIRED');
+
+    // Un producto del mismo día sí, y con él el cupón
+    const cart = await as(guest.token, api().put(`/api/v1/cart/items/${idVariant}`)).send({
+      quantity: 2,
+    });
+    expect(cart.status).toBe(200);
+    const applied = await post(guest.token, '/cart/coupon', { code: couponCode });
+    expect(applied.status).toBe(200);
+    expect(str(applied.body, 'couponCode')).toBe(couponCode);
+    expect(str(applied.body, 'discount')).toBe('20.00');
+    expect(str(applied.body, 'total')).toBe('180.00');
+
+    // Sin correo de contacto no se crea el pedido
+    const address = await post(guest.token, '/addresses', {
+      label: 'Home',
+      recipient: 'Guest Buyer',
+      phone: '55550000',
+      line1: '5th Avenue 10-20',
+      municipality: 'Guatemala',
+      department: 'Guatemala',
+    });
+    expect(address.status).toBe(201);
+    const started = await post(guest.token, '/checkout/start');
+    expect(started.status).toBe(201);
+    const confirmBody = {
+      idReservation: num(started.body, 'idReservation'),
+      idAddress: num(address.body, 'idAddress'),
+      deliveryDate,
+      method: 'BANK_DEPOSIT',
+      idBankAccount,
+    };
+    const withoutContact = await post(guest.token, '/checkout/confirm', confirmBody);
+    expect(withoutContact.status).toBe(422);
+    expect(str(withoutContact.body, 'error.code')).toBe('GUEST_CONTACT_REQUIRED');
+
+    // El correo de una cuenta registrada no sirve de contacto: esa persona debe iniciar sesión
+    const guestEmail = `it-guest-${runId}@shopcart.test`;
+    const taken = await as(guest.token, api().put('/api/v1/auth/guest/contact')).send({
+      email: `it-ana-${runId}@shopcart.test`,
+      fullName: 'Impostor',
+    });
+    expect(taken.status).toBe(409);
+    expect(str(taken.body, 'error.code')).toBe('EMAIL_BELONGS_TO_ACCOUNT');
+    const contact = await as(guest.token, api().put('/api/v1/auth/guest/contact')).send({
+      email: guestEmail,
+      fullName: 'Guest Buyer',
+      phone: '55551234',
+    });
+    expect(contact.status).toBe(200);
+    expect(str(contact.body, 'email')).toBe(guestEmail);
+
+    const confirmed = await post(guest.token, '/checkout/confirm', confirmBody);
+    expect(confirmed.status).toBe(201);
+    const idOrder = num(confirmed.body, 'idOrder');
+    const order = await get(guest.token, `/orders/${idOrder}`);
+    expect(order.status).toBe(200);
+    expect(str(order.body, 'discount')).toBe('20.00');
+    // Es del invitado y de nadie más
+    expect((await get(customerA.token, `/orders/${idOrder}`)).status).toBe(404);
+    expect((await get(customerB.token, `/orders/${idOrder}/payment`)).status).toBe(404);
+
+    // El código de recuperación se muestra una vez y con él, desde otro navegador, vuelve la sesión del invitado
+    const issued = await post(guest.token, '/auth/guest/recovery-code');
+    expect(issued.status).toBe(201);
+    const code = str(issued.body, 'code');
+    // cspell:disable-next-line
+    expect(code).toMatch(/^[0-9A-HJKMNP-TV-Z]{10}$/);
+    const wrong = await api()
+      .post('/api/v1/auth/guest/recover')
+      .send({ email: guestEmail, code: 'AAAAAAAAAA' });
+    expect(wrong.status).toBe(401);
+    expect(str(wrong.body, 'error.code')).toBe('RECOVERY_INVALID');
+    const recovered = await api()
+      .post('/api/v1/auth/guest/recover')
+      .send({ email: guestEmail.toUpperCase(), code: code.toLowerCase() });
+    expect(recovered.status).toBe(200);
+    expect(num(recovered.body, 'user.idUser')).toBe(guest.idUser);
+    const orders = await get(str(recovered.body, 'accessToken'), '/orders');
+    expect(list(orders.body, 'items').map((row) => row['idOrder'])).toContain(idOrder);
+
+    // Un segundo invitado con el mismo correo no reutiliza un cupón de un uso por cliente: el límite cuenta por correo
+    const second = await startGuest();
+    await as(second.token, api().put(`/api/v1/cart/items/${idVariant}`)).send({ quantity: 1 });
+    await post(second.token, '/cart/coupon', { code: couponCode });
+    await as(second.token, api().put('/api/v1/auth/guest/contact')).send({
+      email: guestEmail,
+      fullName: 'Guest Buyer again',
+    });
+    const reused = await get(second.token, '/cart');
+    expect(str(reused.body, 'discount')).toBe('0.00');
+    expect(reused.body).toHaveProperty('couponReason');
+    expect(field(reused.body, 'couponReason')).not.toBeNull();
+
+    // Un invitado nunca inicia sesión por correo y contraseña; quien se registra después con ese correo no queda bloqueado
+    const guestLogin = await api().post('/api/v1/auth/login').send({ email: guestEmail, password });
+    expect(guestLogin.status).toBe(401);
+    const registered = await api()
+      .post('/api/v1/auth/register')
+      .send({ email: guestEmail, password, fullName: 'Guest Buyer' });
+    expect(registered.status).toBe(201);
+    const accountLogin = await api()
+      .post('/api/v1/auth/login')
+      .send({ email: guestEmail, password });
+    expect(accountLogin.status).toBe(200);
+    expect(field(accountLogin.body, 'user.isGuest')).toBe(false);
+  });
+
   it('keeps the money and the stock reconciled after all the flows', async () => {
     const money = await admin.query('SELECT Total = COUNT(*) FROM dbo.VW_Reconciliation_Amounts');
     expect(money.recordset[0]?.['Total']).toBe(0);

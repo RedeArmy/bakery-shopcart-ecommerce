@@ -24,7 +24,14 @@ export const session = (name = 'Ana', role = 'Customer', token = 'token-1') => (
   accessToken: token,
   refreshToken: 'r'.repeat(40),
   expiresIn: 900,
-  user: { idUser: 1, role, email: 'ana@shopcart.test', fullName: name, isActive: true },
+  user: {
+    idUser: 1,
+    role,
+    email: 'ana@shopcart.test',
+    fullName: name,
+    isActive: true,
+    isGuest: false,
+  },
 });
 
 /**
