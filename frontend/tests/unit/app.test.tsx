@@ -1,12 +1,17 @@
-// cspell:ignore Pastelería Bienvenido Ocurrió inesperado Intente nuevo
+// cspell:ignore Pastelería Ocurrió inesperado Intente nuevo Pasteles hornean celebración
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppProviders } from '../../src/app/providers';
 import { ErrorBoundary } from '../../src/app/error-boundary';
 import { config } from '../../src/shared/config/env';
 import '../../src/shared/i18n';
+import { installFakeApi, json } from './support/fake-api';
+import { page } from './support/render';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 function Boom(): never {
   throw new Error('render failure');
@@ -14,12 +19,16 @@ function Boom(): never {
 
 describe('application shell', () => {
   it('renders the layout and the home page through the browser router', async () => {
+    installFakeApi({
+      'GET /api/v1/categories': json([]),
+      'GET /api/v1/products': json(page([])),
+    });
     render(<AppProviders />);
     expect(await screen.findByRole('heading', { level: 1 })).toHaveProperty(
       'textContent',
-      'Bienvenido a la Pastelería',
+      'Pasteles que se hornean para su celebración',
     );
-    expect(screen.getByText('Pastelería')).toBeDefined();
+    expect(screen.getAllByText('Pastelería').length).toBeGreaterThan(0);
   });
 });
 

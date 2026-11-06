@@ -1240,6 +1240,8 @@ export interface components {
             sku: string;
             price: components["schemas"]["MoneyText"];
             onHandStock?: number;
+            /** @description Units that can be bought now, the physical stock minus the units reserved by other carts */
+            available?: number;
             isActive?: boolean;
             attributes?: {
                 name?: string;

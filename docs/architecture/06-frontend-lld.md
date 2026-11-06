@@ -7,10 +7,12 @@
 | Server state | TanStack Query with homogeneous `loading`, `error` and `empty` states |
 | API client | Types generated from `openapi.yaml` with `openapi-typescript` (`npm run api:generate`, committed, checked in CI by `npm run api:check`) and called through the typed `openapi-fetch` client in `src/shared/api/client.ts`. Amounts are shown with `Intl.NumberFormat` **from the string** and never operated on |
 | Authentication | Access token in memory; refresh token in a `HttpOnly; SameSite=Strict` cookie ([ADR-0026](../adr/0026-refresh-token-in-an-httponly-cookie.md)); the session is restored by a renewal when the page loads; interceptor with **single-flight**: on a 401 only one renewal runs while the other requests wait and retry |
-| Forms | react-hook-form with zod, messages per field |
+| Forms | react-hook-form with zod, messages per field. The schemas answer with i18n keys, so the Spanish text lives only in the resource files |
 | Tables | Reusable `DataTable<T>` with server-side pagination, sorting and filters |
 | Charts | Recharts: sales by period, by category, top 10 |
-| UI states | `LoadingSkeleton`, `EmptyState`, `ErrorState` in every view |
+| UI states | `LoadingSkeleton`, `EmptyState`, `ErrorState` in every view; the error shows the Spanish text of the stable error `code` and never the English message |
+| Look | Minimal and warm: `stone` neutrals, one berry accent, Fraunces for headings and Inter for text (both self-hosted through `@fontsource-variable`), 8 px radius, a 64 px header, one primary button per view, visible focus and `prefers-reduced-motion` respected. The tokens are in `src/index.css` |
+| Sessions | A flag in `localStorage` (`shopcart.session`) tells the browser it had a session; only then does the page ask for a renewal when it opens. It is not a credential: it only saves the visitors without a session a call to `/auth/refresh`, which the edge limits to 10 a minute |
 | Responsive | Mobile-first with Tailwind; tables collapse into cards |
 | Language | Spanish (`es-GT`) in i18n resource files, British English keys, API `code` mapped to Spanish copy |
 | Business logic | None. Components present; the API dictates amounts |
@@ -48,7 +50,7 @@ Dashboard, products, categories, inventory and ledger, coupons, orders, users, a
 
 ## Tests
 
-Vitest for model and helper logic. Playwright end-to-end in `tests/e2e`: buy with a deposit (upload, reject, re-upload, approve). Install the browser once with `npx playwright install chromium`, start the stack with `npm run up` and run `npm run test:e2e`; `E2E_BASE_URL` changes the address (default `http://localhost:8080`). The card scenario is dropped with the gateway.
+Vitest for model and helper logic. Playwright end-to-end in `tests/e2e`: buy with a deposit (upload, reject, re-upload, approve). Install the browser once with `npx playwright install chromium`, start the stack with `npm run up` and run `npm run test:e2e`; `E2E_BASE_URL` changes the address (default `http://localhost:8080`). The card scenario is dropped with the gateway. Today `tests/e2e` has 8 scenarios against the real stack: the home page, the catalogue (category, search, product and variants, a shared link, not-found views) and the session (register, keep the session after a reload through the cookie, sign out, and anonymous visitors that do not ask for a renewal). The edge lets 10 calls a minute through to `/auth`, and the session scenario uses 4, so do not run the suite twice within the same minute. The deposit purchase scenario arrives with the checkout.
 
 ## Phase 2 scope and order
 
