@@ -8,6 +8,8 @@ _Last updated: Saturday 31 October 2026 (end of the verification, architecture a
 
 ## Done since the last update
 
+- **The foundations of Delivery Phase 2 are in place** (5 November). The API client is generated from the contract (`npm run api:generate`; `api:check` runs in CI), and react-hook-form with zod, Recharts and Playwright are installed and wired. The refresh token goes in an `HttpOnly` cookie ([ADR-0026](../adr/0026-refresh-token-in-an-httponly-cookie.md)), the order and scope of the screens are fixed in the [frontend design](../architecture/06-frontend-lld.md#phase-2-scope-and-order), and Stage 8 (card payments) is dropped from the roadmap.
+- **The technical audit was updated** (revision 2 of [QA-AUD-001](../quality/technical-audit-stage-2.md), 5 November): 34 findings fixed, 16 debts open and 8 anticipated. The one high item is a vulnerable `multer` in the proof upload route; its fix is in the open Dependabot pull request #45. The rest is listed by severity with effort and target, together with the risks for Phase 2.
 - **The quick start goes from zero to a complete test** (both READMEs, section 7): requirements, install, start, health checks, passwords, Postman or `newman`, stopping, and a table of the usual failures. The Postman collection was reduced to the 38 requests and 66 assertions that prove the delivery (six redundant requests removed) and now exists in Spanish too (`ShopCart.postman_collection.es.json`, same operations and scripts, shared environment). Both were run with `newman` against a fresh stack: 0 failed.
 - **Everything of this session is merged into `main`** (pull requests #39 to #42: the cart stock limit, the start-up gate, the database hardening, and the Postman verification with the architecture diagrams and the rename). The four working branches were deleted, locally and on the remote; only `main` exists.
 - **The bakery is called "Pastelería".** The name "Dulce Aroma" was removed from the READMEs, the API description, the demo account names, the bank holder in test data, the Postman collection and the frontend title with its tests. The original brief in `docs/design/source/` keeps its wording because it is read-only.
@@ -24,10 +26,11 @@ _Last updated: Saturday 31 October 2026 (end of the verification, architecture a
 
 ## Next
 
-1. **Housekeeping:** update the primary checkout (`git pull --ff-only`). Automatic deletion of merged branches stays off by the owner's decision, so merged branches are deleted by hand.
-2. **Demo seeds:** the catalogue, the coupons (`WELCOME10`, `CAKES25`, `SOLDOUT`, `EXPIRED`), the bank account and the performance data are still to be written.
-3. **Open decision D-08** and the generated API client (`npm run api:generate`), which the frontend needs.
-4. **Delivery Phase 2:** the frontend, due Monday 9 November. Use one small pull request per block.
+1. **Demo seeds:** the catalogue, the coupons (`WELCOME10`, `CAKES25`, `SOLDOUT`, `EXPIRED`) and the bank account; without them the store is empty.
+2. **The cookie of ADR-0026 in the backend** (`login`, `refresh`, `logout`, tests and OpenAPI), before the authentication screens.
+3. **Merge the Dependabot pull request #45** (`multer` 2.5.0 fixes nine denial-of-service advisories) and add `npm audit` to CI.
+4. **The screens, in the order of the frontend design:** authentication and shell, catalogue, cart, checkout and deposit, my orders, the deposit review queue, staff orders, the dashboard, then the rest of the administration. Use one small pull request per block.
+5. **Housekeeping:** update the primary checkout (`git pull --ff-only`). Merged branches are deleted by hand, by the owner's decision.
 
 ## Spike results
 

@@ -8,3 +8,4 @@ tools/scripts/arch-fixtures
 *.sql
 *.pdf
 storage
+frontend/src/shared/api/generated

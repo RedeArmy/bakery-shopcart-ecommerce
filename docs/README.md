@@ -50,7 +50,7 @@ All documents are British English. The only Spanish files are the root `README.m
 | [quality/sql-testing-tsqlt](quality/sql-testing-tsqlt.md) | tSQLt layers, rules and cases |
 | [quality/definition-of-done](quality/definition-of-done.md) | When work counts as done |
 | [quality/ci-pipeline](quality/ci-pipeline.md) | CI jobs and gates |
-| [quality/technical-audit-stage-2](quality/technical-audit-stage-2.md) | Audit at the end of Stage 2: findings, fixes, open debt and risks |
+| [quality/technical-audit-stage-2](quality/technical-audit-stage-2.md) | Living technical audit (revision 2, Delivery Phase 1 complete): findings, fixes, open and anticipated debt and risks for Phase 2 |
 | [operations/runbook](operations/runbook.md) | Running, resetting and troubleshooting |
 | [operations/environment-windows-linux](operations/environment-windows-linux.md) | Windows and Linux setup |
 | [operations/configuration-reference](operations/configuration-reference.md) | Every environment variable |
