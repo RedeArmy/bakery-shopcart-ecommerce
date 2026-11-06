@@ -8,6 +8,7 @@ import { Price } from '../../../shared/ui/price';
 import { ProductImage } from '../../../shared/ui/product-image';
 import { EmptyState, ErrorState, LoadingSkeleton } from '../../../shared/ui/states';
 import { ButtonLink } from '../../../shared/ui/button';
+import { AddToCart } from '../../cart/components/add-to-cart';
 import { useProduct } from '../hooks/use-catalogue-queries';
 import { stockState } from '../model/catalogue-query';
 
@@ -131,7 +132,16 @@ export function ProductPage() {
           </div>
         </fieldset>
 
-        {variant === undefined ? null : <VariantSummary variant={variant} />}
+        {variant === undefined ? null : (
+          <>
+            <VariantSummary variant={variant} />
+            <AddToCart
+              key={variant.idVariant}
+              idVariant={variant.idVariant}
+              available={variant.available}
+            />
+          </>
+        )}
 
         <LeadTimeNote days={item.leadTimeDays} />
       </div>

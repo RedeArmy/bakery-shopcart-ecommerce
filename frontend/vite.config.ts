@@ -14,6 +14,8 @@ export default defineConfig({
     setupFiles: ['tests/unit/support/setup.ts'],
     // jsdom permite montar componentes y el router del navegador en las pruebas unitarias
     environment: 'jsdom',
+    // La primera prueba de cada archivo carga pantallas con import() diferido y en máquinas lentas pasa de los 5 s de fábrica
+    testTimeout: 15_000,
     coverage: {
       provider: 'v8',
       // Se mide solo el código de producción, no las pruebas ni la configuración

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { CartLink } from '../features/cart/components/cart-link';
 import { auth, useSession } from '../shared/auth';
 import { Button, ButtonLink } from '../shared/ui/button';
 import { CloseIcon, MenuIcon, UserIcon } from '../shared/ui/icons';
@@ -33,17 +34,17 @@ export function Header() {
           <UserIcon />
           <span className="max-w-40 truncate">{session.user.fullName}</span>
         </span>
-        <Button variant="ghost" onClick={signOut}>
+        <Button variant="ghost" className="whitespace-nowrap" onClick={signOut}>
           {t('nav.signOut')}
         </Button>
       </div>
     ) : (
       <div className="flex items-center gap-1">
-        <ButtonLink to="/login" variant="ghost">
+        <ButtonLink to="/login" variant="ghost" className="whitespace-nowrap">
           {t('nav.signIn')}
         </ButtonLink>
-        {/* Envuelto: `hidden` y `inline-flex` en el mismo elemento se pisan; en el teléfono "Crear cuenta" va en el menú */}
-        <span className="hidden md:block">
+        {/* Envuelto: `hidden` y `inline-flex` en el mismo elemento se pisan. "Crear cuenta" cabe desde pantallas grandes; antes va en el menú o en la pantalla de iniciar sesión */}
+        <span className="hidden lg:block">
           <ButtonLink to="/register" variant="secondary">
             {t('nav.register')}
           </ButtonLink>
@@ -80,7 +81,10 @@ export function Header() {
           {t('common.appName')}
         </Link>
 
-        <div className="flex justify-end">{account}</div>
+        <div className="flex items-center justify-end gap-1">
+          <CartLink />
+          {account}
+        </div>
       </div>
 
       <nav

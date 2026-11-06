@@ -1,10 +1,13 @@
 import { useTranslation } from 'react-i18next';
 import { Outlet } from 'react-router-dom';
+import { useCartSync } from '../features/cart/hooks/use-cart-sync';
 import { Footer } from './footer';
 import { Header } from './header';
 
 export function Layout() {
   const { t } = useTranslation();
+  // Entrega el carrito del visitante a su cuenta al iniciar sesión
+  useCartSync();
   return (
     <div className="flex min-h-screen flex-col">
       <a
