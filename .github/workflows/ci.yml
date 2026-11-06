@@ -199,11 +199,20 @@ jobs:
           path: test-results/tsqlt-junit.xml
       - run: npm run sql:coverage
 
-  # Etapa 2 en adelante: pruebas de integración y concurrencia con Testcontainers (SQL Server real)
+  # Los flujos HTTP de la API completa contra un SQL Server real, con el login de la aplicación (solo EXECUTE) como en producción
   integration:
-    if: false
     runs-on: ubuntu-latest
     needs: [unit]
+    timeout-minutes: 20
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        ports: ['1433:1433']
+        env:
+          ACCEPT_EULA: 'Y'
+          MSSQL_SA_PASSWORD: ${{ secrets.CI_SA_PASSWORD }}
+          # Mismo collation que la base de datos del proyecto (ADR-0025)
+          MSSQL_COLLATION: Latin1_General_100_CI_AS_SC
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -211,7 +220,34 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci --ignore-scripts
+      # Credenciales de usar y tirar: nacen en esta ejecución, se enmascaran en el registro y no hace falta ningún secreto más
+      - name: Generate the credentials of this run
+        run: |
+          app_password="Ci-$(openssl rand -hex 16)"
+          access_secret="$(openssl rand -hex 32)"
+          refresh_pepper="$(openssl rand -hex 32)"
+          for value in "$app_password" "$access_secret" "$refresh_pepper"; do echo "::add-mask::$value"; done
+          {
+            echo "DB_APP_PASSWORD=$app_password"
+            echo "JWT_ACCESS_SECRET=$access_secret"
+            echo "JWT_REFRESH_PEPPER=$refresh_pepper"
+          } >> "$GITHUB_ENV"
+      # Con DB_APP_PASSWORD el runner crea el login de la aplicación, que la suite usa para llamar a los procedimientos
+      - run: npm run db:migrate
+        env:
+          MIGRATION_HOST: localhost
+          MIGRATION_PORT: '1433'
+          MIGRATION_PASSWORD: ${{ secrets.CI_SA_PASSWORD }}
+          DB_NAME: ShopCart_CI
+          DB_APP_USER: shopcart_app
       - run: npm run test:integration
+        env:
+          SQL_TEST_HOST: localhost
+          SQL_TEST_PORT: '1433'
+          SQL_TEST_PASSWORD: ${{ secrets.CI_SA_PASSWORD }}
+          DB_NAME: ShopCart_CI
+          DB_APP_USER: shopcart_app
+          APP_PUBLIC_URL: http://localhost:8080
 
   # Humo en Windows: dependencias nativas (argon2) y checksum con fin de línea CRLF
   windows-smoke:
