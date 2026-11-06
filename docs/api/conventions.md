@@ -39,7 +39,7 @@ HTTP codes: 400 validation or missing key, 401 missing or expired token, 403 ins
 | `ACCOUNT_DISABLED` | 403 | The account was deactivated |
 | `EMAIL_ALREADY_REGISTERED` | 409 | The email already has an account |
 | `EMAIL_BELONGS_TO_ACCOUNT` | 409 | A guest gave the email of a registered account; that shopper must sign in |
-| `ACCOUNT_REQUIRED` | 422 | A visitor or a guest asked for a made-to-order product (`leadTimeDays` above 0) or for a personalisation, which need an account |
+| `ACCOUNT_REQUIRED` | 422 | A visitor or a guest asked for a coupon, a made-to-order product (`leadTimeDays` above 0) or a personalisation, which need a registered account |
 | `GUEST_CONTACT_REQUIRED` | 422 | A guest tried to create an order without giving a contact email |
 | `RECOVERY_INVALID` | 401 | The email or the recovery code of a guest is wrong (the same answer for an unknown email) |
 | `REFRESH_TOKEN_INVALID` | 401 | The refresh token is unknown, expired or its account is inactive |

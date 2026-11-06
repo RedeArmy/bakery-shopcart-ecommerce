@@ -175,7 +175,7 @@ A shopper who does not want to register buys with a **guest account** (`Users.Is
 - `SP_Users_SetRecoveryCode(@IDUser, @CodeHash)` stores the SHA-256 of the code the guest uses to recover the order (each new code replaces the old; it needs a real contact email). `SP_Users_FindGuestsByEmail(@Email)` returns the active guests of an email with their hash so the backend compares the code; it never raises for an unknown email.
 - A guest never logs in by email (`SP_Users_GetByEmail` and `SP_Users_RecordFailedAttempt` skip guests), is not part of the user list, and `SP_Users_Register` ignores guest emails.
 - **Made to order and personalisation need an account.** `SP_Cart_SetItemQuantity` answers `50422 ACCOUNT_REQUIRED` to a visitor (token) or a guest who sends an inscription or asks for a product with `LeadTimeDays > 0`; `SP_Inventory_ReserveStock` repeats the check for a guest cart (a product can become made to order after it was added), and `SP_Orders_CreateOrder` answers `50422 GUEST_CONTACT_REQUIRED` for a guest without a real email.
-- **Coupons count by email.** `FU_Coupons_Status` counts the usages of every account with the same email as the customer, so creating another guest does not restart a limit of one use per customer.
+- **Coupons need a registered account.** `SP_Cart_ApplyCoupon` answers `50422 ACCOUNT_REQUIRED` to a guest (a guest account is created without verifying anyone, so it could reuse coupons of one use per customer) and `SP_Orders_CreateOrder` refuses a guest order whose cart carries a coupon.
 
 ### Stock ledger (built)
 

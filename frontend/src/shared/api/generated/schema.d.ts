@@ -92,7 +92,7 @@ export interface paths {
         put?: never;
         /**
          * Start a guest session
-         * @description Creates a guest account (no password, no email yet) and signs it in, so a shopper can use a coupon and check out without registering. The refresh token is also set in the `refreshToken` cookie (ADR-0026 and ADR-0027). A guest cannot order made-to-order products or add a personalisation (`ACCOUNT_REQUIRED`).
+         * @description Creates a guest account (no password, no email yet) and signs it in, so a shopper can check out without registering. The refresh token is also set in the `refreshToken` cookie (ADR-0026 and ADR-0027). A guest cannot use a coupon, order made-to-order products or add a personalisation (`ACCOUNT_REQUIRED`).
          */
         post: operations["startGuestSession"];
         delete?: never;
@@ -442,7 +442,7 @@ export interface paths {
         put?: never;
         /**
          * Apply a coupon
-         * @description An expired, exhausted or already used coupon answers with its own code (COUPON_EXPIRED, COUPON_EXHAUSTED, COUPON_ALREADY_USED).
+         * @description An expired, exhausted or already used coupon answers with its own code (COUPON_EXPIRED, COUPON_EXHAUSTED, COUPON_ALREADY_USED). A guest account answers 422 `ACCOUNT_REQUIRED`: coupons are for registered accounts.
          */
         post: operations["applyCoupon"];
         /** Remove the coupon */

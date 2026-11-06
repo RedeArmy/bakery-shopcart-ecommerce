@@ -275,10 +275,10 @@ Each entry uses the template in section 7. Common fields for V0001 to V0009 (V00
 |---|---|
 | File | `db/migrations/V0013__add_guest_accounts.sql` |
 | SHA-256 | `e1de8a98fad204cb3dab8257e140add6d223b6a1e220a95d9ef1c6e78b7658a9` |
-| Description | Lets a shopper buy and use a coupon without registering. A guest is a row of `Users` flagged `IsGuest`, with an invented email, no password and its own session, so the cart, reservation, order, payment and address keep hanging from an `IDUser` and every ownership rule (a customer only sees what is theirs) holds for guests as it does for customers |
+| Description | Lets a shopper buy without registering. A guest is a row of `Users` flagged `IsGuest`, with an invented email, no password and its own session, so the cart, reservation, order, payment and address keep hanging from an `IDUser` and every ownership rule (a customer only sees what is theirs) holds for guests as it does for customers |
 | Objects created | Columns `Users.IsGuest` (default 0) and `Users.GuestRecoveryHash` (SHA-256 of the code a guest uses to recover an order); check `CK_Users_GuestIsCustomer`; unique filtered index `UX_Users_Email_Accounts (Email) WHERE IsGuest = 0`; filtered index `IX_Users_Email_Guests (Email) WHERE IsGuest = 1` |
 | Objects dropped | `UQ_Users_Email`: the email stays unique among real accounts through the filtered index, but several guests may buy with the same email |
-| Key rules | A guest can only be a customer. An email of a registered account cannot be taken by a guest (`EMAIL_BELONGS_TO_ACCOUNT`). Someone can register with the email they used as a guest. Guests never log in by email and never appear in the user list. Personalisation and made-to-order products (`LeadTimeDays > 0`) need a real account. A coupon limit per customer counts by email |
+| Key rules | A guest can only be a customer. An email of a registered account cannot be taken by a guest (`EMAIL_BELONGS_TO_ACCOUNT`). Someone can register with the email they used as a guest. Guests never log in by email and never appear in the user list. Personalisation, made-to-order products (`LeadTimeDays > 0`) and coupons need a real account |
 | Depends on | V0001, V0002, V0004 |
 | Data migration | None: every existing user keeps `IsGuest = 0` |
 | Online impact | Metadata change for the columns; the new indexes are built on `Users`, a small table |
