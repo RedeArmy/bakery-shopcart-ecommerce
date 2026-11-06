@@ -30,7 +30,7 @@ frontend/src/
 
 ## Customer screens
 
-Catalogue, product detail (size, flavour, inscription), cart, checkout, my orders and detail, login and register.
+Catalogue, product detail (size and flavour), cart, checkout (with the personalisation of each product), my orders and detail, login and register.
 
 | Payment screen | Behaviour |
 |---|---|
@@ -44,10 +44,11 @@ Catalogue, product detail (size, flavour, inscription), cart, checkout, my order
 
 - **Whose cart it is.** With a session the server identifies the cart by the access token. A visitor sends `X-Cart-Token`, a UUID the browser creates the first time the visitor adds something and keeps in `localStorage` (`shopcart.cartToken`); it is not a credential. A visitor who has added nothing has no token and the cart screen is empty without calling the server.
 - **Merge at sign-in.** `useCartSync` (mounted in the layout) calls `POST /cart/merge` with the token when the session becomes authenticated, stores the returned cart, and forgets the token. If the merge fails the token stays and is tried again at the next sign in; the customer is never blocked. On sign out the cart of the account is removed from memory.
+- **Personalisation is written at checkout, not on the product page.** The inscription lives in the cart line and is copied to the order line (`Inscription`, up to 60 characters; the order confirmation has no field for it, so it must be saved in the cart before the order is confirmed). The product page only asks for the quantity; `/checkout` shows one optional message field per product with a counter and a save button, which sends `PUT /cart/items/{variantId}` with the same quantity. Adding more units from the product page re-sends the inscription the line already had, because `PUT` replaces the line. There is no order-level note: the API and the tables only know the inscription per line, so a general comment would need a migration and a contract change.
 - **Operations return the whole cart.** Adding, changing a quantity, removing and the coupon replace the stored cart with the answer; there is no second request. Adding sets the quantity to what the cart already had plus what was chosen (the contract has `PUT`, not "add"), capped at 99; the server decides the stock (`INSUFFICIENT_STOCK`).
 - **Coupons** are for accounts with a session; a visitor is invited to sign in. Each apply carries an `Idempotency-Key`. The refusals (`COUPON_EXPIRED`, `COUPON_EXHAUSTED`, ...) are mapped to Spanish, and so is `couponReason`, the reason an applied coupon stopped discounting.
 - **Money.** Subtotal, discount, total and VAT are shown exactly as the database returns them; the client only checks whether the discount text is zero to hide an empty line.
-- **Payment button.** A visitor goes to sign in and comes back to the cart; a line that is sold out or asks for more than what is left blocks it. The `/checkout` route arrives with the next block.
+- **Payment button.** A visitor goes to sign in and comes back to the cart; a line that is sold out or asks for more than what is left blocks it. It leads to `/checkout`, a route for customers (a visitor is sent to sign in, staff accounts see the forbidden view). The first step of `/checkout` is the personalisation; the address, the delivery date and the deposit are added in the next block.
 
 ## Administration screens
 
