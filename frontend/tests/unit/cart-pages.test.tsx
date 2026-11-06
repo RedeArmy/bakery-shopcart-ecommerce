@@ -279,7 +279,7 @@ describe('cart page with an account', () => {
 });
 
 describe('adding from the product page', () => {
-  it('adds as a visitor with the token, the quantity and the inscription', async () => {
+  it('adds as a visitor with the token and the quantity, without asking for a personalisation', async () => {
     const user = userEvent.setup();
     const { calls } = installFakeApi({
       'GET /api/v1/products/7': detail,
@@ -288,13 +288,14 @@ describe('adding from the product page', () => {
     renderApp('/catalogue/7');
     await screen.findByRole('heading', { level: 1, name: 'Pastel Tres Leches' });
 
-    await user.type(screen.getByLabelText(/Inscripción/), 'Feliz cumpleaños');
+    // La personalización se escribe al pagar, no en la ficha del producto
+    expect(screen.queryByLabelText(/Inscripción|Mensaje/)).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Una unidad más' }));
     await user.click(screen.getByRole('button', { name: 'Agregar al carrito' }));
 
     expect(await screen.findByText('Agregado al carrito.')).toBeDefined();
     const put = callsTo(calls, 'PUT', '/api/v1/cart/items/11')[0];
-    expect(put?.body).toEqual({ quantity: 2, inscription: 'Feliz cumpleaños' });
+    expect(put?.body).toEqual({ quantity: 2, inscription: null });
     expect(put?.headers.get('X-Cart-Token')).toBe(peekGuestToken());
     expect(peekGuestToken()).not.toBeNull();
     // El encabezado ya muestra cuántos productos lleva
@@ -317,6 +318,26 @@ describe('adding from the product page', () => {
     expect(callsTo(calls, 'PUT', '/api/v1/cart/items/11')[0]?.body).toEqual({
       quantity: 3,
       inscription: null,
+    });
+  });
+
+  it('keeps the personalisation of the line when it adds more units', async () => {
+    getGuestToken();
+    const user = userEvent.setup();
+    const { calls } = installFakeApi({
+      'GET /api/v1/products/7': detail,
+      'GET /api/v1/cart': json(
+        cartOf([line(11, 'Pastel Tres Leches', 1, 145, { inscription: 'Para Ana' })]),
+      ),
+      'PUT /api/v1/cart/items/11': json(cartOf([line(11, 'Pastel Tres Leches', 2, 145)])),
+    });
+    renderApp('/catalogue/7');
+    await screen.findByText('Ya tiene 1 unidad en su carrito.');
+    await user.click(screen.getByRole('button', { name: 'Agregar al carrito' }));
+    await screen.findByText('Agregado al carrito.');
+    expect(callsTo(calls, 'PUT', '/api/v1/cart/items/11')[0]?.body).toEqual({
+      quantity: 2,
+      inscription: 'Para Ana',
     });
   });
 

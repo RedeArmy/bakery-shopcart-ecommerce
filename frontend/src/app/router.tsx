@@ -2,6 +2,7 @@ import { createBrowserRouter } from 'react-router-dom';
 import type { RouteObject } from 'react-router-dom';
 import { HomePage } from '../features/catalogue/pages/home-page';
 import { Layout } from './layout';
+import { ProtectedRoute } from './protected-route';
 import { NotFoundPage } from './pages/not-found-page';
 import { Splash } from './pages/splash';
 
@@ -32,6 +33,18 @@ export const routes: RouteObject[] = [
         lazy: async () => ({
           Component: (await import('../features/cart/pages/cart-page')).CartPage,
         }),
+      },
+      {
+        // El pago es de clientes con sesión; quien no la tiene va a iniciar sesión y vuelve aquí
+        element: <ProtectedRoute roles={['Customer']} />,
+        children: [
+          {
+            path: 'checkout',
+            lazy: async () => ({
+              Component: (await import('../features/checkout/pages/checkout-page')).CheckoutPage,
+            }),
+          },
+        ],
       },
       {
         path: 'login',

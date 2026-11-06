@@ -2,7 +2,8 @@
 import { expect, test } from '@playwright/test';
 
 // Usa los datos de demostración (npm run up con SEED_DEMO_DATA=true): Pastel Tres Leches de 6 porciones a Q145.00 y el
-// cupón WELCOME10 (10 % con mínimo de Q100.00). El borde deja pasar 10 llamadas por minuto a /auth: este archivo usa 2 (el registro y el inicio de sesión) y el de la sesión otros 4.
+// cupón WELCOME10 (10 % con mínimo de Q100.00). El borde deja pasar 10 llamadas por minuto a /auth: este archivo usa 2 (el registro y el inicio de sesión)
+// y el de la sesión otros 4.
 
 test('a visitor fills a cart, keeps it when registering and applies a coupon', async ({ page }) => {
   const stamp = Date.now();
@@ -11,12 +12,12 @@ test('a visitor fills a cart, keeps it when registering and applies a coupon', a
   const password = `E2e-${stamp}-Aa1x`;
   const header = page.getByRole('banner');
 
-  // Como visitante: se elige el producto, una inscripción y dos unidades
+  // Como visitante: se elige el producto y dos unidades; la personalización se escribe al pagar
   await page.goto('/catalogue');
   await page.getByLabel('Buscar').fill('tres leches');
   await page.getByRole('link', { name: /Pastel Tres Leches/ }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Pastel Tres Leches' })).toBeVisible();
-  await page.getByLabel(/Inscripción/).fill('Feliz cumpleaños');
+  await expect(page.getByLabel(/Inscripción|Mensaje/)).toHaveCount(0);
   await page.getByRole('button', { name: 'Una unidad más' }).click();
   await page.getByRole('button', { name: 'Agregar al carrito' }).click();
   await expect(page.getByText('Agregado al carrito.')).toBeVisible();
@@ -25,7 +26,6 @@ test('a visitor fills a cart, keeps it when registering and applies a coupon', a
   // El carrito muestra los importes que calculó el servidor y el cambio de cantidad los actualiza
   await page.getByRole('link', { name: 'Ver carrito' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Su carrito' })).toBeVisible();
-  await expect(page.getByText('Inscripción: Feliz cumpleaños')).toBeVisible();
   const summary = page.getByRole('complementary');
   await expect(summary.getByText('Q290.00').first()).toBeVisible();
   await page.getByRole('button', { name: 'Una unidad menos' }).click();
@@ -60,7 +60,15 @@ test('a visitor fills a cart, keeps it when registering and applies a coupon', a
   await expect(summary.getByText('WELCOME10')).toBeVisible();
   await expect(summary.getByText('−Q14.50')).toBeVisible();
   await expect(summary.getByText('Q130.50')).toBeVisible();
-  await expect(summary.getByRole('link', { name: 'Continuar con el pago' })).toBeVisible();
+
+  // Al pagar, la personalización de cada producto se guarda en su línea del carrito
+  await summary.getByRole('link', { name: 'Continuar con el pago' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Finalizar compra' })).toBeVisible();
+  await page.getByLabel('Mensaje para Pastel Tres Leches').fill('Feliz cumpleaños');
+  await page.getByRole('button', { name: 'Guardar el mensaje de Pastel Tres Leches' }).click();
+  await expect(page.getByText('Guardado')).toBeVisible();
+  await page.getByRole('link', { name: 'Volver al carrito' }).click();
+  await expect(page.getByText('Inscripción: Feliz cumpleaños')).toBeVisible();
 
   // Se quita el cupón y la línea; el carrito vuelve a estar vacío
   await summary.getByRole('button', { name: 'Quitar cupón' }).click();
