@@ -10,6 +10,7 @@ export default tseslint.config(
       '**/coverage/**',
       '**/node_modules/**',
       'docs/**',
+      'frontend/src/shared/api/generated/**',
       'tools/scripts/arch-fixtures/**',
     ],
   },

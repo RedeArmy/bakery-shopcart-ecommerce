@@ -41,7 +41,9 @@
     "sql:bench": "tsx db/tests/scripts/run-bench.ts",
     "sql:coverage": "tsx db/tests/scripts/sp-coverage.ts",
     "seed": "tsx db/runner/src/cli.ts seed",
-    "api:generate": "tsx tools/scripts/not-implemented.ts api:generate 7",
+    "api:generate": "npm run api:generate -w frontend",
+    "api:check": "npm run api:generate && git diff --exit-code -- frontend/src/shared/api/generated",
+    "test:e2e": "npm run test:e2e -w frontend",
     "sonar": "tsx tools/scripts/not-implemented.ts sonar 9",
     "test:coverage": "npm run test:coverage --workspaces --if-present"
   },

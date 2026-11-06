@@ -17,6 +17,8 @@ export default defineConfig({
       provider: 'v8',
       // Se mide solo el código de producción, no las pruebas ni la configuración
       include: ['src/**/*.{ts,tsx}'],
+      // Código generado desde el contrato: no se mide ni se edita
+      exclude: ['src/shared/api/generated/**'],
     },
   },
 });
