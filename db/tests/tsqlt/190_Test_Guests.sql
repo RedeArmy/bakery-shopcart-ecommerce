@@ -326,57 +326,32 @@ BEGIN
 END;
 GO
 
--- Cupones: el cliente es el correo -----------------------------------------------------------
+-- Cupones: solo cuentas registradas -----------------------------------------------------------
 
-CREATE PROCEDURE Test_Guests.[test the per customer limit counts the usages of every account with the same email]
+CREATE PROCEDURE Test_Guests.[test a guest account cannot apply a coupon]
 AS
 BEGIN
-    EXEC Test_Fixtures.CreateBaseData;
-    INSERT INTO dbo.Coupons (Code, Type, Value, MinimumAmount, StartsAt, EndsAt, PerCustomerUsageLimit)
-    VALUES (N'WELCOME10', N'Percentage', 10.00, 100.00, '2020-01-01', '2099-12-31', 1);
-    DECLARE @IDOrder INT = (SELECT IDOrder FROM dbo.Orders WHERE OrderNumber = N'FIX-0001');
-    DECLARE @Coupon INT = (SELECT IDCoupon FROM dbo.Coupons WHERE Code = N'WELCOME10');
-    DECLARE @Now DATETIME2(3) = '2030-06-01T12:00:00';
+    INSERT INTO dbo.Coupons (Code, Type, Value, MinimumAmount, StartsAt, EndsAt)
+    VALUES (N'GUEST10', N'Percentage', 10.00, 0.00, '2020-01-01', '2099-12-31');
+    DECLARE @Guest INT, @IDCart INT, @Cookie INT = Test_Shop.VariantId(N'B-COOKIE');
+    EXEC dbo.SP_Users_CreateGuest @IDUser = @Guest OUTPUT;
+    EXEC dbo.SP_Cart_SetItemQuantity @IDUser = @Guest, @IDVariant = @Cookie, @Quantity = 3, @IDCart = @IDCart OUTPUT;
 
-    -- Dos compras sin registro con el mismo correo: la primera usó el cupón
-    DECLARE @First INT, @Second INT, @Other INT, @Registered INT;
-    EXEC dbo.SP_Users_CreateGuest @IDUser = @First OUTPUT;
-    EXEC dbo.SP_Users_SetGuestContact @IDUser = @First, @Email = N'shared@example.test', @FullName = N'First purchase';
-    EXEC dbo.SP_Users_CreateGuest @IDUser = @Second OUTPUT;
-    EXEC dbo.SP_Users_SetGuestContact @IDUser = @Second, @Email = N'SHARED@example.test', @FullName = N'Second purchase';
-    EXEC dbo.SP_Users_CreateGuest @IDUser = @Other OUTPUT;
-    EXEC dbo.SP_Users_SetGuestContact @IDUser = @Other, @Email = N'someone.else@example.test', @FullName = N'Someone else';
-    INSERT INTO dbo.CouponUsages (IDCoupon, IDUser, IDOrder, DiscountAmount, IsVoided) VALUES (@Coupon, @First, @IDOrder, 10.00, 0);
-
-    -- Después ese correo se registra como cuenta real
-    EXEC dbo.SP_Users_Register @Email = N'shared@example.test', @PasswordHash = N'hash', @FullName = N'Registered', @IDUser = @Registered OUTPUT;
-
-    DECLARE @ForFirst VARCHAR(20) = (SELECT Reason FROM dbo.FU_Coupons_Status(@Coupon, @First, 20000, @Now));
-    DECLARE @ForSecond VARCHAR(20) = (SELECT Reason FROM dbo.FU_Coupons_Status(@Coupon, @Second, 20000, @Now));
-    DECLARE @ForRegistered VARCHAR(20) = (SELECT Reason FROM dbo.FU_Coupons_Status(@Coupon, @Registered, 20000, @Now));
-    DECLARE @ForOther VARCHAR(20) = (SELECT Reason FROM dbo.FU_Coupons_Status(@Coupon, @Other, 20000, @Now));
-    EXEC tSQLt.AssertEqualsString @Expected = 'PerCustomerLimit', @Actual = @ForFirst;
-    EXEC tSQLt.AssertEqualsString @Expected = 'PerCustomerLimit', @Actual = @ForSecond;
-    EXEC tSQLt.AssertEqualsString @Expected = 'PerCustomerLimit', @Actual = @ForRegistered;
-    EXEC tSQLt.AssertEqualsString @Expected = 'Valid', @Actual = @ForOther;
+    EXEC tSQLt.ExpectException @ExpectedMessagePattern = N'ACCOUNT_REQUIRED%', @ExpectedErrorNumber = 50422;
+    EXEC dbo.SP_Cart_ApplyCoupon @IDUser = @Guest, @Code = N'GUEST10';
 END;
 GO
 
-CREATE PROCEDURE Test_Guests.[test a guest that has not given an email yet never shares a coupon count]
+CREATE PROCEDURE Test_Guests.[test a registered account still applies the same coupon]
 AS
 BEGIN
-    EXEC Test_Fixtures.CreateBaseData;
-    INSERT INTO dbo.Coupons (Code, Type, Value, MinimumAmount, StartsAt, EndsAt, PerCustomerUsageLimit)
-    VALUES (N'WELCOME10', N'Percentage', 10.00, 100.00, '2020-01-01', '2099-12-31', 1);
-    DECLARE @Customer INT = Test_Shop.UserId(N'fixture.customer@shopcart.test');
-    DECLARE @IDOrder INT = (SELECT IDOrder FROM dbo.Orders WHERE OrderNumber = N'FIX-0001');
-    DECLARE @Coupon INT = (SELECT IDCoupon FROM dbo.Coupons WHERE Code = N'WELCOME10');
-    INSERT INTO dbo.CouponUsages (IDCoupon, IDUser, IDOrder, DiscountAmount, IsVoided) VALUES (@Coupon, @Customer, @IDOrder, 10.00, 0);
-
-    DECLARE @Guest INT;
-    EXEC dbo.SP_Users_CreateGuest @IDUser = @Guest OUTPUT;
-    DECLARE @Reason VARCHAR(20) = (SELECT Reason FROM dbo.FU_Coupons_Status(@Coupon, @Guest, 20000, '2030-06-01T12:00:00'));
-    EXEC tSQLt.AssertEqualsString @Expected = 'Valid', @Actual = @Reason;
+    INSERT INTO dbo.Coupons (Code, Type, Value, MinimumAmount, StartsAt, EndsAt)
+    VALUES (N'GUEST10', N'Percentage', 10.00, 0.00, '2020-01-01', '2099-12-31');
+    DECLARE @Ana INT = Test_Shop.UserId(N'ana@shopcart.test'), @IDCart INT, @Cookie INT = Test_Shop.VariantId(N'B-COOKIE');
+    EXEC dbo.SP_Cart_SetItemQuantity @IDUser = @Ana, @IDVariant = @Cookie, @Quantity = 3, @IDCart = @IDCart OUTPUT;
+    EXEC dbo.SP_Cart_ApplyCoupon @IDUser = @Ana, @Code = N'GUEST10';
+    DECLARE @Applied INT = (SELECT COUNT(*) FROM dbo.Carts WHERE IDCart = @IDCart AND IDCoupon IS NOT NULL);
+    EXEC tSQLt.AssertEquals @Expected = 1, @Actual = @Applied;
 END;
 GO
 
@@ -451,5 +426,24 @@ BEGIN
 
     EXEC tSQLt.ExpectException @ExpectedMessagePattern = N'ACCOUNT_REQUIRED%', @ExpectedErrorNumber = 50422;
     EXEC dbo.SP_Inventory_ReserveStock @IDUser = @Guest, @IDCart = @IDCart, @Now = '2030-06-01T12:00:00', @IDReservation = @IDReservation OUTPUT;
+END;
+GO
+
+CREATE PROCEDURE Test_GuestOrders.[test an order of a guest cannot carry a coupon even if the cart had one]
+AS
+BEGIN
+    DECLARE @Guest INT, @Address INT, @IDReservation INT, @IDOrder INT, @IDPayment INT, @Number NVARCHAR(20), @Expires DATETIME2(3);
+    EXEC Test_GuestOrders.NewGuestWithCart @IDUser = @Guest OUTPUT, @IDAddress = @Address OUTPUT;
+    EXEC dbo.SP_Users_SetGuestContact @IDUser = @Guest, @Email = N'coupon.guest@example.test', @FullName = N'Guest';
+    DECLARE @IDCart INT = (SELECT IDCart FROM dbo.Carts WHERE IDUser = @Guest);
+    -- Un cupón que llegara al carrito por otro camino (no por SP_Cart_ApplyCoupon, que lo rechaza)
+    UPDATE dbo.Carts SET IDCoupon = (SELECT IDCoupon FROM dbo.Coupons WHERE Code = N'ONCE10') WHERE IDCart = @IDCart;
+    EXEC dbo.SP_Inventory_ReserveStock @IDUser = @Guest, @IDCart = @IDCart, @Now = '2030-06-01T12:00:00', @IDReservation = @IDReservation OUTPUT;
+    DECLARE @Bank INT = Test_Orders.BankId(N'Test Bank');
+
+    EXEC tSQLt.ExpectException @ExpectedMessagePattern = N'ACCOUNT_REQUIRED%', @ExpectedErrorNumber = 50422;
+    EXEC dbo.SP_Orders_CreateOrder @IDUser = @Guest, @IDReservation = @IDReservation, @IDAddress = @Address, @RequestedDeliveryDate = '2030-06-10',
+         @IDPaymentMethod = 2, @IDBankAccount = @Bank, @IdempotencyKey = N'key-guest-3', @Now = '2030-06-01T12:05:00',
+         @IDOrder = @IDOrder OUTPUT, @IDPayment = @IDPayment OUTPUT, @OrderNumber = @Number OUTPUT, @PaymentExpiresAt = @Expires OUTPUT;
 END;
 GO

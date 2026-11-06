@@ -1,11 +1,10 @@
 /* =====================================================================
    Objeto   : dbo.FU_Coupons_Status
-   Version  : 1.1.0
-   Cambio   : El límite por cliente cuenta por correo electrónico
+   Version  : 1.0.0
+   Cambio   : Primera versión: por qué un cupón se puede o no aplicar a un cliente y a un importe elegible
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Nueva. Una fila siempre. Reason: Valid, NotFound, Inactive, NotStarted, Expired, Exhausted, PerCustomerLimit,
               NoEligibleItems o BelowMinimum, en ese orden de precedencia.
-   Cambio 1.1.0: la firma y las razones son las mismas; con correos distintos el resultado no cambia.
    ===================================================================== */
 CREATE OR ALTER FUNCTION dbo.FU_Coupons_Status (@IDCoupon INT, @IDUser INT, @EligibleCents BIGINT, @Now DATETIME2(3))
 RETURNS TABLE
@@ -20,14 +19,8 @@ RETURN
       WHEN @Now > c.EndsAt THEN 'Expired'
       WHEN c.TotalUsageLimit IS NOT NULL AND c.UsageCount >= c.TotalUsageLimit THEN 'Exhausted'
       WHEN c.PerCustomerUsageLimit IS NOT NULL
-           -- El cliente es el correo: los usos de cualquier cuenta con el mismo correo (un invitado que vuelve a comprar, o
-           -- el cliente que se registró después) cuentan juntos. Sin esto, crear otro invitado reiniciaría el límite.
            AND (SELECT COUNT(*) FROM dbo.CouponUsages AS cu
-                WHERE cu.IDCoupon = c.IDCoupon AND cu.IsVoided = 0
-                  AND cu.IDUser IN (SELECT u.IDUser FROM dbo.Users AS u
-                                    WHERE u.IDUser = @IDUser
-                                       OR u.Email = (SELECT me.Email FROM dbo.Users AS me WHERE me.IDUser = @IDUser))
-               ) >= c.PerCustomerUsageLimit THEN 'PerCustomerLimit'
+                WHERE cu.IDCoupon = c.IDCoupon AND cu.IDUser = @IDUser AND cu.IsVoided = 0) >= c.PerCustomerUsageLimit THEN 'PerCustomerLimit'
       WHEN ISNULL(@EligibleCents, 0) <= 0 THEN 'NoEligibleItems'
       WHEN @EligibleCents < CAST(c.MinimumAmount * 100 AS BIGINT) THEN 'BelowMinimum'
       ELSE 'Valid' END AS VARCHAR(20))

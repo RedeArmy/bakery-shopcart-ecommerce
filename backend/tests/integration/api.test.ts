@@ -734,7 +734,7 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
     ).toBe(400);
   });
 
-  it('lets a guest use a coupon, check out with a deposit and recover the order, while made-to-order products and personalisation need an account', async () => {
+  it('lets a guest check out with a deposit and recover the order, while coupons, made-to-order products and personalisation need an account', async () => {
     // Un producto por encargo (pide dos días) y uno del mismo día (el de los demás flujos)
     const category = await post(administrator, '/admin/categories', { name: `IT Custom ${runId}` });
     const madeToOrder = await post(administrator, '/admin/products', {
@@ -762,7 +762,6 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
       value: '10.00',
       startsAt: '2020-01-01T00:00:00Z',
       endsAt: '2099-12-31T00:00:00Z',
-      perCustomerUsageLimit: 1,
     });
     expect(coupon.status).toBe(201);
 
@@ -802,16 +801,15 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
     expect(visitor.status).toBe(422);
     expect(str(visitor.body, 'error.code')).toBe('ACCOUNT_REQUIRED');
 
-    // Un producto del mismo día sí, y con él el cupón
+    // Un producto del mismo día sí; el cupón no: es de las cuentas registradas
     const cart = await as(guest.token, api().put(`/api/v1/cart/items/${idVariant}`)).send({
       quantity: 2,
     });
     expect(cart.status).toBe(200);
-    const applied = await post(guest.token, '/cart/coupon', { code: couponCode });
-    expect(applied.status).toBe(200);
-    expect(str(applied.body, 'couponCode')).toBe(couponCode);
-    expect(str(applied.body, 'discount')).toBe('20.00');
-    expect(str(applied.body, 'total')).toBe('180.00');
+    const refusedCoupon = await post(guest.token, '/cart/coupon', { code: couponCode });
+    expect(refusedCoupon.status).toBe(422);
+    expect(str(refusedCoupon.body, 'error.code')).toBe('ACCOUNT_REQUIRED');
+    expect(str((await get(guest.token, '/cart')).body, 'discount')).toBe('0.00');
 
     // Sin correo de contacto no se crea el pedido
     const address = await post(guest.token, '/addresses', {
@@ -857,7 +855,8 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
     const idOrder = num(confirmed.body, 'idOrder');
     const order = await get(guest.token, `/orders/${idOrder}`);
     expect(order.status).toBe(200);
-    expect(str(order.body, 'discount')).toBe('20.00');
+    expect(str(order.body, 'discount')).toBe('0.00');
+    expect(str(order.body, 'total')).toBe('200.00');
     // Es del invitado y de nadie más
     expect((await get(customerA.token, `/orders/${idOrder}`)).status).toBe(404);
     expect((await get(customerB.token, `/orders/${idOrder}/payment`)).status).toBe(404);
@@ -880,19 +879,6 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
     expect(num(recovered.body, 'user.idUser')).toBe(guest.idUser);
     const orders = await get(str(recovered.body, 'accessToken'), '/orders');
     expect(list(orders.body, 'items').map((row) => row['idOrder'])).toContain(idOrder);
-
-    // Un segundo invitado con el mismo correo no reutiliza un cupón de un uso por cliente: el límite cuenta por correo
-    const second = await startGuest();
-    await as(second.token, api().put(`/api/v1/cart/items/${idVariant}`)).send({ quantity: 1 });
-    await post(second.token, '/cart/coupon', { code: couponCode });
-    await as(second.token, api().put('/api/v1/auth/guest/contact')).send({
-      email: guestEmail,
-      fullName: 'Guest Buyer again',
-    });
-    const reused = await get(second.token, '/cart');
-    expect(str(reused.body, 'discount')).toBe('0.00');
-    expect(reused.body).toHaveProperty('couponReason');
-    expect(field(reused.body, 'couponReason')).not.toBeNull();
 
     // Un invitado nunca inicia sesión por correo y contraseña; quien se registra después con ese correo no queda bloqueado
     const guestLogin = await api().post('/api/v1/auth/login').send({ email: guestEmail, password });

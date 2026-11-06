@@ -1,13 +1,14 @@
 /* =====================================================================
    Objeto   : dbo.SP_Orders_CreateOrder
    Version  : 1.1.0
-   Cambio   : Un invitado necesita un correo de contacto real para crear el pedido
+   Cambio   : Un invitado necesita un correo de contacto real y no lleva cupón
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Nueva. El backend NO envía importes: todo se recalcula aquí en centavos enteros. Es idempotente por llave: repetir
               la llamada con la misma llave y la misma reserva devuelve el mismo pedido. Errores: 50400 parámetros,
               50404 reserva, dirección o cuenta inexistentes o ajenas, 50409 reserva vencida, cupón agotado, existencias o llave
               repetida, 50422 reglas de negocio. Los mensajes de cupón, reserva y depósito empiezan por el código de la API.
-   Cambio 1.1.0: sin cambios para una cuenta real; 50422 GUEST_CONTACT_REQUIRED para un invitado sin contacto.
+   Cambio 1.1.0: sin cambios para una cuenta real; 50422 GUEST_CONTACT_REQUIRED para un invitado sin contacto y 50422
+              ACCOUNT_REQUIRED para un invitado con un cupón en el carrito.
    ===================================================================== */
 CREATE OR ALTER PROCEDURE dbo.SP_Orders_CreateOrder
   @IDUser                INT,
@@ -134,6 +135,11 @@ BEGIN
 
   IF @IDCoupon IS NOT NULL
   BEGIN
+    -- Defensa en profundidad: un carrito de invitado no puede llevar cupón (SP_Cart_ApplyCoupon lo impide), pero el pedido
+    -- tampoco debe aceptar uno que llegara por otro camino
+    IF EXISTS (SELECT 1 FROM dbo.Users WHERE IDUser = @IDUser AND IsGuest = 1)
+      THROW 50422, 'ACCOUNT_REQUIRED: Coupons are only available with an account.', 1;
+
     DECLARE @LockResource NVARCHAR(100) = CONCAT(N'Coupon:', @IDCoupon, N':', @IDUser), @LockResult INT;
     EXEC @LockResult = sp_getapplock @Resource = @LockResource, @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 5000;
     IF @LockResult < 0
