@@ -96,6 +96,10 @@ export const esGT = {
       placeholder: 'Escriba su código',
       apply: 'Aplicar cupón',
       applied: 'Cupón aplicado:',
+      locked: {
+        title: 'Los cupones se aplican con una cuenta',
+        text: 'Puede seguir comprando sin cuenta, pero un cupón de descuento necesita que inicie sesión o cree una. Lo que tiene en el carrito pasa con usted.',
+      },
       remove: 'Quitar cupón',
       reasons: {
         Expired: 'Este cupón ya venció y no descuenta.',
@@ -130,12 +134,12 @@ export const esGT = {
       title: '¿Cómo quiere pagar?',
       guest: {
         title: 'Comprar como invitado',
-        text: 'Sin crear una cuenta: solo necesitamos sus datos de contacto. Puede usar cupones y pagar por depósito.',
+        text: 'Sin crear una cuenta: solo necesitamos sus datos de contacto. Puede pagar por depósito los productos que se entregan el mismo día.',
         action: 'Continuar como invitado',
       },
       account: {
         title: 'Tengo una cuenta',
-        text: 'Con una cuenta también puede personalizar sus productos, pedir productos por encargo y ver sus pedidos.',
+        text: 'Con una cuenta también puede usar cupones, personalizar sus productos, pedir productos por encargo y ver sus pedidos.',
         signIn: 'Iniciar sesión',
         register: 'Crear cuenta',
       },
@@ -279,7 +283,7 @@ export const esGT = {
       FORBIDDEN: 'Su cuenta no tiene permiso para hacer esto.',
       INVALID_CREDENTIALS: 'El correo o la contraseña no son correctos.',
       ACCOUNT_REQUIRED:
-        'Los productos por encargo y la personalización se piden con una cuenta. Inicie sesión o cree una.',
+        'Los cupones, los productos por encargo y la personalización se piden con una cuenta. Inicie sesión o cree una.',
       GUEST_CONTACT_REQUIRED: 'Complete sus datos de contacto para continuar.',
       EMAIL_BELONGS_TO_ACCOUNT: 'Ese correo ya tiene una cuenta. Inicie sesión para continuar.',
       RECOVERY_INVALID: 'El correo o el código no son correctos.',

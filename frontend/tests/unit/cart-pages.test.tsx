@@ -102,7 +102,7 @@ describe('cart page as a visitor', () => {
     expect(callsTo(calls, 'GET', '/api/v1/cart')).toHaveLength(0);
   });
 
-  it('lists the lines with the totals of the server and lets a visitor use a coupon and go to the payment', async () => {
+  it('lists the lines with the totals of the server and lets a visitor go to the payment but not use a coupon', async () => {
     getGuestToken();
     installFakeApi({
       'GET /api/v1/cart': json(
@@ -121,8 +121,9 @@ describe('cart page as a visitor', () => {
     // Sin descuento no se muestra la línea
     expect(within(summary).queryByText('Descuento')).toBeNull();
 
-    // Un visitante usa cupones y paga sin cuenta: la sesión de invitado se abre cuando hace falta
-    expect(within(summary).getByLabelText('Cupón de descuento')).toBeDefined();
+    // Un visitante paga sin cuenta, pero los cupones son de las cuentas registradas
+    expect(within(summary).queryByLabelText('Cupón de descuento')).toBeNull();
+    expect(within(summary).getByText('Los cupones se aplican con una cuenta')).toBeDefined();
     const pay = within(summary).getByRole('link', { name: 'Continuar con el pago' });
     expect(pay.getAttribute('href')).toBe('/checkout');
   });

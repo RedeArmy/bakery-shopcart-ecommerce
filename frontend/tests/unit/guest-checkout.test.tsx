@@ -27,7 +27,7 @@ const orderOf = (calls: Call[], method: string, path: string) =>
 
 const oneLine = cartOf([line(11, 'Pastel Tres Leches', 1)]);
 
-describe('a visitor becomes a guest only when it is needed', () => {
+describe('a visitor becomes a guest only when it chooses to', () => {
   it('opens the guest session and hands the cart over when the visitor continues as a guest', async () => {
     const token = getGuestToken();
     const user = userEvent.setup();
@@ -50,56 +50,34 @@ describe('a visitor becomes a guest only when it is needed', () => {
     expect(callsTo(calls, 'POST', '/api/v1/auth/guest')).toHaveLength(1);
   });
 
-  it('applies a coupon for a visitor: the guest session opens, the cart goes with it and then the coupon is applied', async () => {
+  it('does not open a guest session for a coupon: it tells the visitor that coupons need an account', async () => {
     getGuestToken();
-    const user = userEvent.setup();
-    const discounted = cartOf([line(11, 'Pastel Tres Leches', 1)], {
-      couponCode: 'WELCOME10',
-      discount: '29.00',
-      total: '261.00',
-    });
-    let applied = false;
-    const { calls } = installFakeApi({
-      'GET /api/v1/cart': () => json(applied ? discounted : oneLine),
-      'POST /api/v1/auth/guest': json(guestSession()),
-      'POST /api/v1/cart/merge': json(oneLine),
-      'POST /api/v1/cart/coupon': () => {
-        applied = true;
-        return json(discounted);
-      },
-    });
+    const { calls } = installFakeApi({ 'GET /api/v1/cart': json(oneLine) });
     renderApp('/cart');
     await screen.findByText('Pastel Tres Leches');
-    await user.type(screen.getByLabelText('Cupón de descuento'), 'WELCOME10');
-    await user.click(screen.getByRole('button', { name: 'Aplicar cupón' }));
-
-    expect(await screen.findByText('WELCOME10')).toBeDefined();
-    expect(screen.getByText('−Q29.00')).toBeDefined();
-    const guest = orderOf(calls, 'POST', '/api/v1/auth/guest');
-    const merge = orderOf(calls, 'POST', '/api/v1/cart/merge');
-    const coupon = orderOf(calls, 'POST', '/api/v1/cart/coupon');
-    expect(guest).toBeLessThan(merge);
-    expect(merge).toBeLessThan(coupon);
-    expect(callsTo(calls, 'POST', '/api/v1/cart/coupon')[0]?.headers.get('Authorization')).toBe(
-      'Bearer guest-token',
+    const summary = within(screen.getByRole('complementary'));
+    expect(summary.getByText('Los cupones se aplican con una cuenta')).toBeDefined();
+    expect(summary.queryByLabelText('Cupón de descuento')).toBeNull();
+    expect(summary.getByRole('link', { name: 'Iniciar sesión' }).getAttribute('href')).toBe(
+      '/login',
     );
+    expect(summary.getByRole('link', { name: 'Crear cuenta' }).getAttribute('href')).toBe(
+      '/register',
+    );
+    expect(callsTo(calls, 'POST', '/api/v1/auth/guest')).toHaveLength(0);
   });
 
-  it('shows the reason in Spanish when the coupon of a visitor is refused, and keeps the guest session', async () => {
-    getGuestToken();
-    const user = userEvent.setup();
-    installFakeApi({
-      'GET /api/v1/cart': json(oneLine),
-      'POST /api/v1/auth/guest': json(guestSession()),
-      'POST /api/v1/cart/merge': json(oneLine),
-      'POST /api/v1/cart/coupon': apiError(422, 'COUPON_EXPIRED'),
-    });
+  it('keeps the coupon locked for a guest too, who can still go to the payment', async () => {
+    await signInAsGuest('maria@example.test');
+    installFakeApi({ 'GET /api/v1/cart': json(oneLine) });
     renderApp('/cart');
     await screen.findByText('Pastel Tres Leches');
-    await user.type(screen.getByLabelText('Cupón de descuento'), 'OLD');
-    await user.click(screen.getByRole('button', { name: 'Aplicar cupón' }));
-    expect(await screen.findByText('Este cupón ya venció.')).toBeDefined();
-    expect(auth.getState().user?.isGuest).toBe(true);
+    const summary = within(screen.getByRole('complementary'));
+    expect(summary.getByText('Los cupones se aplican con una cuenta')).toBeDefined();
+    expect(summary.queryByLabelText('Cupón de descuento')).toBeNull();
+    expect(summary.getByRole('link', { name: 'Continuar con el pago' }).getAttribute('href')).toBe(
+      '/checkout',
+    );
   });
 });
 
@@ -229,7 +207,7 @@ describe('made to order products need an account', () => {
     await user.click(await screen.findByRole('button', { name: 'Agregar al carrito' }));
     expect(
       await screen.findByText(
-        /Los productos por encargo y la personalización se piden con una cuenta/,
+        /Los cupones, los productos por encargo y la personalización se piden con una cuenta/,
       ),
     ).toBeDefined();
   });
