@@ -40,6 +40,15 @@ Catalogue, product detail (size, flavour, inscription), cart, checkout, my order
 | Payment status | Badge `Pending`, `Under review`, `Approved`, `Rejected` (with the reason and an "Upload another proof" button while attempts remain), `Expired`. It refreshes with `refetchInterval` until the status is terminal |
 | Card | Not built: no payment gateway is required, so the card selector and `/orders/:number/payment-result` do not exist |
 
+### The cart
+
+- **Whose cart it is.** With a session the server identifies the cart by the access token. A visitor sends `X-Cart-Token`, a UUID the browser creates the first time the visitor adds something and keeps in `localStorage` (`shopcart.cartToken`); it is not a credential. A visitor who has added nothing has no token and the cart screen is empty without calling the server.
+- **Merge at sign-in.** `useCartSync` (mounted in the layout) calls `POST /cart/merge` with the token when the session becomes authenticated, stores the returned cart, and forgets the token. If the merge fails the token stays and is tried again at the next sign in; the customer is never blocked. On sign out the cart of the account is removed from memory.
+- **Operations return the whole cart.** Adding, changing a quantity, removing and the coupon replace the stored cart with the answer; there is no second request. Adding sets the quantity to what the cart already had plus what was chosen (the contract has `PUT`, not "add"), capped at 99; the server decides the stock (`INSUFFICIENT_STOCK`).
+- **Coupons** are for accounts with a session; a visitor is invited to sign in. Each apply carries an `Idempotency-Key`. The refusals (`COUPON_EXPIRED`, `COUPON_EXHAUSTED`, ...) are mapped to Spanish, and so is `couponReason`, the reason an applied coupon stopped discounting.
+- **Money.** Subtotal, discount, total and VAT are shown exactly as the database returns them; the client only checks whether the discount text is zero to hide an empty line.
+- **Payment button.** A visitor goes to sign in and comes back to the cart; a line that is sold out or asks for more than what is left blocks it. The `/checkout` route arrives with the next block.
+
 ## Administration screens
 
 Dashboard, products, categories, inventory and ledger, coupons, orders, users, audit log, and:
@@ -50,7 +59,7 @@ Dashboard, products, categories, inventory and ledger, coupons, orders, users, a
 
 ## Tests
 
-Vitest for model and helper logic. Playwright end-to-end in `tests/e2e`: buy with a deposit (upload, reject, re-upload, approve). Install the browser once with `npx playwright install chromium`, start the stack with `npm run up` and run `npm run test:e2e`; `E2E_BASE_URL` changes the address (default `http://localhost:8080`). The card scenario is dropped with the gateway. Today `tests/e2e` has 8 scenarios against the real stack: the home page, the catalogue (category, search, product and variants, a shared link, not-found views) and the session (register, keep the session after a reload through the cookie, sign out, and anonymous visitors that do not ask for a renewal). The edge lets 10 calls a minute through to `/auth`, and the session scenario uses 4, so do not run the suite twice within the same minute. The deposit purchase scenario arrives with the checkout.
+Vitest for model and helper logic. Playwright end-to-end in `tests/e2e`: buy with a deposit (upload, reject, re-upload, approve). Install the browser once with `npx playwright install chromium`, start the stack with `npm run up` and run `npm run test:e2e`; `E2E_BASE_URL` changes the address (default `http://localhost:8080`). The card scenario is dropped with the gateway. Today `tests/e2e` has 9 scenarios against the real stack: the home page, the catalogue (category, search, product and variants, a shared link, not-found views), the session (register, keep the session after a reload through the cookie, sign out, and anonymous visitors that do not ask for a renewal) and the cart (a visitor fills it, keeps it when registering and applies a valid and an expired coupon). The edge lets 10 calls a minute through to `/auth` (a burst of 5), the session scenario uses 4 and the cart scenario 2, so do not run the suite twice within the same minute. The deposit purchase scenario arrives with the checkout.
 
 ## Phase 2 scope and order
 
@@ -61,7 +70,7 @@ Fixed on 5 November, with four days left before Delivery Phase 2. The order prot
 | Done | Foundations | Typed client, forms with validation, charts and the end-to-end tool are installed and wired | `npm run api:generate`, `api:check`, `test:e2e` |
 | 1 | Authentication and shell | Login, register, restore session, sign out, role guard, role menus, `LoadingSkeleton`, `EmptyState`, `ErrorState`, `DataTable` | `POST /auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout`; `GET /auth/me` |
 | 1 | Catalogue | List with search and category filter; detail with its variants and available units | `GET /categories`, `/products`, `/products/{id}` |
-| 1 | Cart and addresses | Cart, quantity with the `INSUFFICIENT_STOCK` message, coupon, merge at sign-in, addresses | `GET /cart`; `PUT`, `DELETE /cart/items/{variantId}`; `POST`, `DELETE /cart/coupon`; `POST /cart/merge`; `GET`, `POST /addresses`; `PUT /addresses/{id}` |
+| 1 | Cart and addresses (the cart is done; addresses arrive with the checkout) | Cart, quantity with the `INSUFFICIENT_STOCK` message, coupon, merge at sign-in, addresses | `GET /cart`; `PUT`, `DELETE /cart/items/{variantId}`; `POST`, `DELETE /cart/coupon`; `POST /cart/merge`; `GET`, `POST /addresses`; `PUT /addresses/{id}` |
 | 1 | Checkout and deposit | Payment step, reservation countdown, confirm with `Idempotency-Key`, deposit instructions, proof upload, new attempt, payment status | `GET /checkout/payment-methods`; `POST /checkout/start`, `/checkout/confirm`; `GET /orders/{id}/payment`; `POST /orders/{id}/payment/attempts`, `/payment/proofs`; `GET /orders/{id}/payment/proofs/{proofId}` |
 | 1 | My orders | List, detail with history, cancel | `GET /orders`, `/orders/{id}`; `POST /orders/{id}/cancel` |
 | 2 | Deposit review queue | Table with server-side filters, proof panel, approve, reject with reason, bank accounts | `GET /admin/payments/deposits`; `GET /admin/payments/{id}/proofs/{proofId}`; `POST /admin/payments/{id}/approve`, `/reject`; `GET`, `POST /admin/bank-accounts`; `PUT /admin/bank-accounts/{id}` |

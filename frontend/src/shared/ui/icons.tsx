@@ -47,6 +47,13 @@ export const SearchIcon = (props: Readonly<SVGProps<SVGSVGElement>>) => (
   </Icon>
 );
 
+export const BagIcon = (props: Readonly<SVGProps<SVGSVGElement>>) => (
+  <Icon {...props}>
+    <path d="M5 8h14l-1 12H6z" />
+    <path d="M9 8V6a3 3 0 0 1 6 0v2" />
+  </Icon>
+);
+
 export const CakeIcon = (props: Readonly<SVGProps<SVGSVGElement>>) => (
   <Icon {...props}>
     <path d="M4 20h16M5 20v-6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6" />

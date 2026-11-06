@@ -28,6 +28,12 @@ export const routes: RouteObject[] = [
         }),
       },
       {
+        path: 'cart',
+        lazy: async () => ({
+          Component: (await import('../features/cart/pages/cart-page')).CartPage,
+        }),
+      },
+      {
         path: 'login',
         lazy: async () => ({
           Component: (await import('../features/auth/pages/login-page')).LoginPage,
