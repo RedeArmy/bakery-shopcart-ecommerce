@@ -42,6 +42,7 @@
     "sql:coverage": "tsx db/tests/scripts/sp-coverage.ts",
     "seed": "tsx db/runner/src/cli.ts seed",
     "api:generate": "npm run api:generate -w frontend",
+    "audit": "npm audit --omit=dev --audit-level=high",
     "api:check": "npm run api:generate && git diff --exit-code -- frontend/src/shared/api/generated",
     "test:e2e": "npm run test:e2e -w frontend",
     "sonar": "tsx tools/scripts/not-implemented.ts sonar 9",
