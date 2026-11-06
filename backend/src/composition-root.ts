@@ -106,6 +106,8 @@ export function buildContainer(env: Env, options: ContainerOptions = {}): Contai
     tokens,
     clock,
     accessMinutes: env.ACCESS_TOKEN_MINUTES,
+    refreshTokenDays: env.REFRESH_TOKEN_DAYS,
+    secureCookies: new URL(env.APP_PUBLIC_URL).protocol === 'https:',
     authenticate: kit.authenticate,
     limitAuthentication: rateLimit(POLICIES.authentication),
     limitRefresh: rateLimit(POLICIES.refresh),

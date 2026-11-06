@@ -72,7 +72,7 @@ export interface paths {
         put?: never;
         /**
          * Sign in
-         * @description The same 401 answers a wrong password and an unknown email. A locked account answers 423 without checking the password.
+         * @description The same 401 answers a wrong password and an unknown email. A locked account answers 423 without checking the password. The refresh token is also set in the `refreshToken` cookie (ADR-0026).
          */
         post: operations["login"];
         delete?: never;
@@ -92,7 +92,7 @@ export interface paths {
         put?: never;
         /**
          * Rotate the refresh token
-         * @description Reusing a rotated token revokes its whole family (REFRESH_TOKEN_REUSED).
+         * @description Uses the token of the body when there is one and the `refreshToken` cookie otherwise (an explicit token wins over the ambient cookie). Reusing a rotated token revokes its whole family (REFRESH_TOKEN_REUSED). Every 401 also clears the cookie.
          */
         post: operations["refreshSession"];
         delete?: never;
@@ -110,7 +110,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Revoke the refresh token family */
+        /**
+         * Revoke the refresh token family
+         * @description Uses the token of the body when there is one and the `refreshToken` cookie otherwise (an explicit token wins over the ambient cookie). Without a token there is nothing to revoke and the answer is still 204. It always clears the cookie.
+         */
         post: operations["logout"];
         delete?: never;
         options?: never;
@@ -1896,6 +1899,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description The refresh token that the browser sends by itself. The `refreshToken` field of the body, when sent, takes precedence; clients that are not a browser use it. */
+        RefreshTokenCookie: string;
         /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
         IdempotencyKey: string;
         /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
@@ -1906,7 +1911,10 @@ export interface components {
         Size: number;
     };
     requestBodies: never;
-    headers: never;
+    headers: {
+        /** @description The refresh token as a cookie: `HttpOnly`, `SameSite=Strict`, `Path=/api/v1/auth`, `Max-Age` of the token life, and `Secure` when the application is served over https. On logout and on a rejected renewal it is sent expired to clear it. */
+        RefreshTokenCookie: string;
+    };
     pathItems: never;
 }
 export type $defs = Record<string, never>;
@@ -2002,6 +2010,7 @@ export interface operations {
             /** @description Success */
             200: {
                 headers: {
+                    "Set-Cookie": components["headers"]["RefreshTokenCookie"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2020,17 +2029,21 @@ export interface operations {
             query?: never;
             header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                /** @description The refresh token that the browser sends by itself. The `refreshToken` field of the body, when sent, takes precedence; clients that are not a browser use it. */
+                refreshToken?: components["parameters"]["RefreshTokenCookie"];
+            };
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "application/json": components["schemas"]["RefreshRequest"];
             };
         };
         responses: {
-            /** @description Success */
+            /** @description Success. The rotated token replaces the cookie. */
             200: {
                 headers: {
+                    "Set-Cookie": components["headers"]["RefreshTokenCookie"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2047,9 +2060,12 @@ export interface operations {
             query?: never;
             header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                /** @description The refresh token that the browser sends by itself. The `refreshToken` field of the body, when sent, takes precedence; clients that are not a browser use it. */
+                refreshToken?: components["parameters"]["RefreshTokenCookie"];
+            };
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "application/json": components["schemas"]["RefreshRequest"];
             };
@@ -2058,6 +2074,7 @@ export interface operations {
             /** @description Signed out */
             204: {
                 headers: {
+                    "Set-Cookie": components["headers"]["RefreshTokenCookie"];
                     [name: string]: unknown;
                 };
                 content?: never;

@@ -27,8 +27,8 @@ All configuration comes from environment variables, validated with zod at start-
 | `LOG_LEVEL` | `info` | pino level |
 | `JWT_ACCESS_SECRET` | generated | Signing secret of access tokens |
 | `JWT_REFRESH_PEPPER` | generated | Pepper for the SHA-256 hash of refresh tokens |
-| `ACCESS_TTL` | `15m` | Access token lifetime |
-| `REFRESH_TTL` | `7d` | Refresh token lifetime |
+| `ACCESS_TOKEN_MINUTES` | `15` | Access token lifetime in minutes |
+| `REFRESH_TOKEN_DAYS` | `7` | Refresh token lifetime in days, also the `Max-Age` of its cookie |
 | `CORS_ORIGINS` | `http://localhost:8080` | Comma-separated allow-list |
 | `APP_PUBLIC_URL` | `http://localhost:8080` | Public shop URL (gateway `success_url` and `cancel_url`) |
 | `JOBS_ENABLED` | `true` | `false` stops this instance from running the background jobs (the other replicas keep running them) |

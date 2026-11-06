@@ -167,3 +167,7 @@ Responses answer **429** with the standard error, `Retry-After` and `RateLimit-L
 | `GET /admin/system/jobs` | Administrator | 1 | State of each background job **in the instance that answers** |
 | `GET /admin/system/reconciliation` | Administrator | 1 | Current money and inventory discrepancies; empty when everything adds up |
 | `GET /health/live`, `/health/ready` | Public | 1 | `ready` checks the database and schema version |
+
+## Session cookie
+
+`POST /auth/login` and `POST /auth/refresh` set the refresh token in the `refreshToken` cookie: `HttpOnly`, `SameSite=Strict`, `Path=/api/v1/auth`, `Max-Age` equal to `REFRESH_TOKEN_DAYS`, and `Secure` when `APP_PUBLIC_URL` is https. The body keeps returning the same field. `POST /auth/refresh` and `POST /auth/logout` use the `refreshToken` field of the body when it is present and the cookie otherwise (an explicit token wins over the ambient cookie), so Postman and any client that is not a browser keep working. A `401` on renewal clears the cookie, and `logout` always clears it (a logout without a token answers `204`). See [ADR-0026](../adr/0026-refresh-token-in-an-httponly-cookie.md).

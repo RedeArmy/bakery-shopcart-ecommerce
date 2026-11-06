@@ -18,6 +18,9 @@ export interface AuthModuleDependencies {
   tokens: TokenService;
   clock: Clock;
   accessMinutes: number;
+  refreshTokenDays: number;
+  /** Marca `Secure` en la cookie del refresh token: solo cuando la aplicación se sirve por https */
+  secureCookies: boolean;
   authenticate: RequestHandler;
   limitAuthentication: RequestHandler;
   limitRefresh: RequestHandler;
@@ -38,6 +41,10 @@ export function createAuthModule(deps: AuthModuleDependencies): { router: Router
       authenticate: deps.authenticate,
       limitAuthentication: deps.limitAuthentication,
       limitRefresh: deps.limitRefresh,
+      refreshCookie: {
+        maxAgeMs: deps.refreshTokenDays * 24 * 3600 * 1000,
+        secure: deps.secureCookies,
+      },
     }),
   };
 }

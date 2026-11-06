@@ -1,6 +1,6 @@
 # Module: auth
 
-**Responsibility:** Registration, login, JWT access tokens and rotating refresh tokens (light treatment).
+**Responsibility:** Registration, login, JWT access tokens and rotating refresh tokens delivered in an `HttpOnly` cookie, with the body also accepted and taking precedence (light treatment).
 
 **May contain:** The four layer folders and the module public surface (index.ts).
 

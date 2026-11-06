@@ -109,7 +109,7 @@ The brief leaves some decisions open on purpose. These are the positions taken; 
 | VAT | 12 % included in the price; each order stores the taxable base and the VAT |
 | Time zone | Guatemala (UTC-6). The reports group by the payment date in local time |
 | Staff accounts | They are not created through the API: they are seeded. Public registration only creates customers, so that a mistake cannot create an administrator |
-| Session | 15 minute JWT access token; opaque refresh token with rotation and reuse detection; progressive account lockout |
+| Session | 15 minute JWT access token; opaque refresh token with rotation and reuse detection, delivered in an `HttpOnly; SameSite=Strict` cookie (the body repeats it for Postman); progressive account lockout |
 | Money | `DECIMAL(18,2)` in tables, `BIGINT` cents in the calculations, half-even rounding applied once and decimal strings in the API |
 
 **Naming standard.** The brief defines the format (`SP_Module_Process`, `VW_`, `FU_`, `ID<Entity>` keys, first letter of each word in capitals) and gives examples in Spanish, such as `SP_Pedidos_CrearPedido`. The format is followed by every object, and the names are in British English by decision of the team ([ADR-0024](docs/adr/0024-language-and-spelling-conventions.md)): `SP_Orders_CreateOrder`, `IDProduct`. The [glossary](docs/glossary.md) gives the equivalent of every term of the brief. <!-- spelling-ignore -->

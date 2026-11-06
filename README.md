@@ -109,7 +109,7 @@ El enunciado deja algunas decisiones a propósito. Estas son las posturas tomada
 | IVA | 12 % incluido en el precio; cada pedido guarda la base imponible y el IVA |
 | Zona horaria | Guatemala (UTC-6). Los reportes agrupan por la fecha de pago en hora local |
 | Cuentas de personal | No se crean por la API: se siembran. El registro público solo crea clientes, para que un error no pueda crear un administrador |
-| Sesión | Access token JWT de 15 minutos; refresh token opaco con rotación y detección de reutilización; bloqueo progresivo de la cuenta |
+| Sesión | Access token JWT de 15 minutos; refresh token opaco con rotación y detección de reutilización, entregado en una cookie `HttpOnly; SameSite=Strict` (el cuerpo lo repite para Postman); bloqueo progresivo de la cuenta |
 | Dinero | `DECIMAL(18,2)` en tablas, `BIGINT` en centavos en los cálculos, redondeo half-even una sola vez y cadenas decimales en la API |
 
 **Estándar de nomenclatura.** El enunciado define el formato (`SP_Módulo_Proceso`, `VW_`, `FU_`, llaves `ID<Entidad>`, primera letra de cada palabra en mayúscula) y da ejemplos en español, como `SP_Pedidos_CrearPedido`. Se cumple el formato en todos los objetos, y los nombres están en inglés británico por decisión del equipo ([ADR-0024](docs/adr/0024-language-and-spelling-conventions.md)): `SP_Orders_CreateOrder`, `IDProduct`. El [glosario](docs/glossary.md) da la equivalencia de cada término del enunciado.
