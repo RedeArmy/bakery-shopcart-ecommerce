@@ -33,53 +33,57 @@ const rules: FigureRule[] = [
       (total, name) => total + countTsqltTests(read(join('db/tests/tsqlt', name))),
       0,
     ),
-    patterns: both(/(\d+) de base de datos \(tSQLt\)/, /(\d+) for the database \(tSQLt\)/).concat(
-      both(/(\d+) pruebas de base de datos/, /(\d+) database tests/),
-    ),
+    patterns: both(
+      /(\d{1,5}) de base de datos \(tSQLt\)/,
+      /(\d{1,5}) for the database \(tSQLt\)/,
+    ).concat(both(/(\d{1,5}) pruebas de base de datos/, /(\d{1,5}) database tests/)),
   },
   {
     label: 'HTTP flows',
     actual: countIntegrationFlows(read('backend/tests/integration/api.test.ts')),
-    patterns: both(/(\d+) flujos HTTP/, /(\d+) HTTP flows/).concat(
-      both(/Flujos HTTP contra SQL Server \((\d+)\)/, /HTTP flows against SQL Server \((\d+)\)/),
+    patterns: both(/(\d{1,5}) flujos HTTP/, /(\d{1,5}) HTTP flows/).concat(
+      both(
+        /Flujos HTTP contra SQL Server \((\d{1,5})\)/,
+        /HTTP flows against SQL Server \((\d{1,5})\)/,
+      ),
     ),
   },
   {
     label: 'stored procedures',
     actual: sqlFiles('db/objects/procedures').length,
-    patterns: both(/(\d+) procedimientos/, /(\d+) (?:stored )?procedures/).concat(
-      both(/\((\d+) de \d+\)/, /\((\d+) of \d+\)/),
+    patterns: both(/(\d{1,5}) procedimientos/, /(\d{1,5}) (?:stored )?procedures/).concat(
+      both(/\((\d{1,5}) de \d{1,5}\)/, /\((\d{1,5}) of \d{1,5}\)/),
     ),
   },
   {
     label: 'table functions',
     actual: sqlFiles('db/objects/functions').length,
-    patterns: both(/(\d+) funciones de tabla/, /(\d+) table functions/),
+    patterns: both(/(\d{1,5}) funciones de tabla/, /(\d{1,5}) table functions/),
   },
   {
     label: 'views',
     actual: sqlFiles('db/objects/views').length,
-    patterns: both(/(\d+) vistas/, /(\d+) views/),
+    patterns: both(/(\d{1,5}) vistas/, /(\d{1,5}) views/),
   },
   {
     label: 'migrations',
     actual: sqlFiles('db/migrations', 'V').length,
-    patterns: both(/(\d+) migraciones/, /(\d+) migrations/),
+    patterns: both(/(\d{1,5}) migraciones/, /(\d{1,5}) migrations/),
   },
   {
     label: 'API operations',
     actual: countOperations(read('docs/api/openapi/openapi.yaml')),
-    patterns: both(/(\d+) operaciones/, /(\d+)[ -]operations?/),
+    patterns: both(/(\d{1,5}) operaciones/, /(\d{1,5})[ -]operations?/),
   },
   {
     label: 'Postman requests',
     actual: postman.requests,
-    patterns: both(/(\d+) peticiones/, /(\d+) requests/),
+    patterns: both(/(\d{1,5}) peticiones/, /(\d{1,5}) requests/),
   },
   {
     label: 'Postman assertions',
     actual: postman.assertions,
-    patterns: both(/(\d+) aserciones/, /(\d+) assertions/),
+    patterns: both(/(\d{1,5}) aserciones/, /(\d{1,5}) assertions/),
   },
 ];
 

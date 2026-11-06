@@ -14,36 +14,32 @@ export interface FigureRule {
   patterns: readonly FigurePattern[];
 }
 
+/** Los problemas de una frase de un documento: no se leyó, ya no existe, o cita una cifra distinta de la real. */
+function problemsOf(
+  label: string,
+  actual: number,
+  { file, regex }: FigurePattern,
+  documents: Readonly<Record<string, string>>,
+): string[] {
+  const text = documents[file];
+  if (text === undefined) return [`${label}: ${file} was not read`];
+  const cited = [...text.matchAll(new RegExp(regex.source, 'g'))].map((match) => Number(match[1]));
+  if (cited.length === 0) {
+    return [`${label}: ${file} no longer has the sentence ${String(regex)}`];
+  }
+  return cited
+    .filter((value) => value !== actual)
+    .map((value) => `${label}: ${file} says ${value} but the repository has ${actual}`);
+}
+
 /** Compara cada cifra citada con la real. Una frase que ya no existe también es un problema: la regla quedaría muda. */
 export function checkFigures(
   documents: Readonly<Record<string, string>>,
   rules: readonly FigureRule[],
 ): string[] {
-  const problems: string[] = [];
-  for (const rule of rules) {
-    for (const { file, regex } of rule.patterns) {
-      const text = documents[file];
-      if (text === undefined) {
-        problems.push(`${rule.label}: ${file} was not read`);
-        continue;
-      }
-      const cited = [...text.matchAll(new RegExp(regex.source, 'g'))].map((match) =>
-        Number(match[1]),
-      );
-      if (cited.length === 0) {
-        problems.push(`${rule.label}: ${file} no longer has the sentence ${String(regex)}`);
-        continue;
-      }
-      for (const value of cited) {
-        if (value !== rule.actual) {
-          problems.push(
-            `${rule.label}: ${file} says ${value} but the repository has ${rule.actual}`,
-          );
-        }
-      }
-    }
-  }
-  return problems;
+  return rules.flatMap((rule) =>
+    rule.patterns.flatMap((pattern) => problemsOf(rule.label, rule.actual, pattern, documents)),
+  );
 }
 
 /** Pruebas tSQLt: cada procedimiento `Test_<Clase>.[test ...]` es un caso (los SetUp no cuentan). */
