@@ -57,6 +57,10 @@
     "/^.*<!--\\s*spelling-ignore\\s*-->.*$/gm"
   ],
   "words": [
+    "Fraunces",
+    "fraunces",
+    "fontsource",
+    "unstub",
     "noauth",
     "prerequest",
     "Cutoff",
