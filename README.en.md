@@ -39,7 +39,7 @@ The nine modules of the brief are built in the database and the backend. What ea
 | RF-08 Dashboard and reports | Complete (the charts belong to Phase 2) | [ADR-0009](docs/adr/0009-definition-of-completed-order-for-reports.md) |
 | RF-09 Audit log | Complete | [Data model](docs/database/er-diagram.md) |
 
-The 21 acceptance criteria of the brief are in the [criteria map](docs/quality/acceptance-criteria-map.md): for each one it says what makes it hold and which test proves it. The tests are 537 for the database (tSQLt), 16 concurrency scenarios with real connections, 18 HTTP flows against SQL Server and more than 550 unit tests.
+The 21 acceptance criteria of the brief are in the [criteria map](docs/quality/acceptance-criteria-map.md): for each one it says what makes it hold and which test proves it. The tests are 566 for the database (tSQLt), 16 concurrency scenarios with real connections, 18 HTTP flows against SQL Server and more than 550 unit tests.
 
 ## 3. Architecture
 
@@ -116,7 +116,7 @@ The brief leaves some decisions open on purpose. These are the positions taken; 
 
 ## 6. Data model and lifecycle
 
-The full diagram and the order of the migrations are in [docs/database/er-diagram.md](docs/database/er-diagram.md). The database has 40 tables, 83 stored procedures, 17 table functions, 6 views and 11 triggers. Summary of the main relationships:
+The full diagram and the order of the migrations are in [docs/database/er-diagram.md](docs/database/er-diagram.md). The database has 40 tables, 87 stored procedures, 17 table functions, 6 views and 11 triggers. Summary of the main relationships:
 
 ```mermaid
 erDiagram
@@ -228,10 +228,10 @@ To start from scratch, database included, use `docker compose down --volumes`, d
 | What is tested | Command |
 |---|---|
 | Unit tests of the backend, the runner and the scripts | `npm test` |
-| 537 database tests (tSQLt) | `npm run sql:test:up` and then `npm run sql:test` |
+| 566 database tests (tSQLt) | `npm run sql:test:up` and then `npm run sql:test` |
 | 16 concurrency scenarios with real connections | `npm run sql:concurrency` |
 | HTTP flows against SQL Server (18) | `npm run test:integration -w backend`, with the test server migrated ([commands](docs/quality/sql-testing-tsqlt.md#concurrency-http-and-performance-suites)) |
-| Procedure coverage by tests (83 of 83) | `npm run sql:coverage` |
+| Procedure coverage by tests (87 of 87) | `npm run sql:coverage` |
 | Timings of lists and reports with 50,000 orders | `npm run sql:bench` |
 
 ## 9. Commands
@@ -292,7 +292,7 @@ Full index in [docs/README.md](docs/README.md). API contract in [docs/api/openap
 
 ## 14. Delivery status
 
-**Phase 1, database and backend: complete.** 12 migrations, 83 procedures, the 73-operation API, authentication with token rotation, the simulated payment, the background jobs (expiry of reservations and payments, data purge, reconciliation of amounts and stock) and the tests described in section 8. The history of changes and the decisions are in [STATUS](docs/progress/STATUS.md) and [ROADMAP](docs/progress/ROADMAP.md).
+**Phase 1, database and backend: complete.** 13 migrations, 87 procedures, the 73-operation API, authentication with token rotation, the simulated payment, the background jobs (expiry of reservations and payments, data purge, reconciliation of amounts and stock) and the tests described in section 8. The history of changes and the decisions are in [STATUS](docs/progress/STATUS.md) and [ROADMAP](docs/progress/ROADMAP.md).
 
 **Demo data.** When the environment starts there are the four test accounts and a small shop: 60 products in 6 categories (97 variants and 2,230 units, three out of stock on purpose), the coupons `WELCOME10`, `CAKES25`, `SOLDOUT` and `EXPIRED`, and two fictitious bank accounts. They are created through the real procedures and running the step again duplicates nothing ([details and how to see each coupon message](docs/operations/demo-data.md)). The Postman collection still creates its own data.
 

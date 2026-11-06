@@ -1,12 +1,13 @@
 /* =====================================================================
    Objeto   : dbo.SP_Orders_CreateOrder
-   Version  : 1.0.0
-   Cambio   : Primera versión: crea el pedido en PendingPayment, atómico, a partir de una reserva activa (ADR-0014)
+   Version  : 1.1.0
+   Cambio   : Un invitado necesita un correo de contacto real para crear el pedido
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Nueva. El backend NO envía importes: todo se recalcula aquí en centavos enteros. Es idempotente por llave: repetir
               la llamada con la misma llave y la misma reserva devuelve el mismo pedido. Errores: 50400 parámetros,
               50404 reserva, dirección o cuenta inexistentes o ajenas, 50409 reserva vencida, cupón agotado, existencias o llave
               repetida, 50422 reglas de negocio. Los mensajes de cupón, reserva y depósito empiezan por el código de la API.
+   Cambio 1.1.0: sin cambios para una cuenta real; 50422 GUEST_CONTACT_REQUIRED para un invitado sin contacto.
    ===================================================================== */
 CREATE OR ALTER PROCEDURE dbo.SP_Orders_CreateOrder
   @IDUser                INT,
@@ -52,6 +53,11 @@ BEGIN
 
   IF @IDCart IS NULL
     THROW 50404, 'Reservation not found.', 1;
+
+  -- Un invitado debe haber dado su correo de contacto antes de pedir: es lo que identifica al cliente en el pedido, en el
+  -- límite de cupones por correo y en la recuperación del pedido
+  IF EXISTS (SELECT 1 FROM dbo.Users WHERE IDUser = @IDUser AND IsGuest = 1 AND Email LIKE N'%@guest.invalid')
+    THROW 50422, 'GUEST_CONTACT_REQUIRED: A guest must give a contact email before ordering.', 1;
 
   IF @ReservationOrder IS NOT NULL
   BEGIN

@@ -1,11 +1,12 @@
 /* =====================================================================
    Objeto   : dbo.SP_Cart_SetItemQuantity
-   Version  : 1.2.0
-   Cambio   : La existencia disponible se calcula con FU_Cart_AvailableStock, que también usa la fusión del carrito (R0203)
+   Version  : 1.3.0
+   Cambio   : Personalización y productos por encargo solo con una cuenta real
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Compatible con 1.1.0: mismo resultado. Rechaza una cantidad sobre la existencia disponible (RF-04, desde 1.1.0). Errores: 50400, 50404 variante inexistente,
               50409 otra solicitud crea el carrito o INSUFFICIENT_STOCK (cantidad sobre la existencia, como en el checkout),
               50422 variante no disponible.
+   Cambio 1.3.0: sin cambios para una cuenta real; un visitante o un invitado recibe 50422 ACCOUNT_REQUIRED.
    ===================================================================== */
 CREATE OR ALTER PROCEDURE dbo.SP_Cart_SetItemQuantity
   @IDUser      INT              = NULL,
@@ -28,6 +29,17 @@ BEGIN
     THROW 50400, 'IDVariant and a Quantity between 1 and 99 are required.', 1;
 
   SET @Now = ISNULL(@Now, SYSUTCDATETIME());
+
+  -- La personalización y los productos por encargo (los que piden días de anticipación) requieren una cuenta real: un
+  -- visitante con token y una cuenta de invitado no pueden pedirlos. La regla vive aquí y no solo en la pantalla.
+  IF @IDUser IS NULL OR EXISTS (SELECT 1 FROM dbo.Users WHERE IDUser = @IDUser AND IsGuest = 1)
+  BEGIN
+    IF @Inscription IS NOT NULL
+      THROW 50422, 'ACCOUNT_REQUIRED: Personalisation is only available with an account.', 1;
+    IF EXISTS (SELECT 1 FROM dbo.Variants AS v JOIN dbo.Products AS p ON p.IDProduct = v.IDProduct
+               WHERE v.IDVariant = @IDVariant AND p.LeadTimeDays > 0)
+      THROW 50422, 'ACCOUNT_REQUIRED: Made-to-order products can only be bought with an account.', 1;
+  END;
 
   DECLARE @OwnsTransaction BIT = CASE WHEN @@TRANCOUNT = 0 THEN 1 ELSE 0 END;
   IF @OwnsTransaction = 1 BEGIN TRANSACTION;

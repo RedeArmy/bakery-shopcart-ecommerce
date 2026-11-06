@@ -56,6 +56,7 @@ Environment states used in the register: **Verified** (run and checked), **Pendi
 | V0010 | `V0010__add_foreign_key_indexes.sql` | Foreign key support indexes | Schema, additive | Low | Applied |
 | V0011 | `V0011__add_one_active_reservation_per_cart.sql` | One active reservation per cart | Schema, additive | Low | Applied |
 | V0012 | `V0012__add_retention_indexes_and_category_foreign_key.sql` | Operation and retention indexes, category foreign key | Schema, additive | Low | Draft |
+| V0013 | `V0013__add_guest_accounts.sql` | Guest accounts | Schema, additive | Medium | Draft |
 
 Risk is the impact of a defect in the migration, not of running it: all nine run on an empty database, take no meaningful locks and move no data. **High** marks the migrations that protect money (V0007) or that can block legitimate writes if wrong (V0009).
 
@@ -268,6 +269,27 @@ Each entry uses the template in section 7. Common fields for V0001 to V0009 (V00
 | Reviewer | Repository owner |
 | Environments | Local Verified (applied on an empty database and on one with 50,000 orders; `db:verify` clean; 533 tSQLt tests and the concurrency checks passed); CI Pending; Production Not deployed |
 
+### V0013: Guest accounts
+
+| Field | Value |
+|---|---|
+| File | `db/migrations/V0013__add_guest_accounts.sql` |
+| SHA-256 | `e1de8a98fad204cb3dab8257e140add6d223b6a1e220a95d9ef1c6e78b7658a9` |
+| Description | Lets a shopper buy and use a coupon without registering. A guest is a row of `Users` flagged `IsGuest`, with an invented email, no password and its own session, so the cart, reservation, order, payment and address keep hanging from an `IDUser` and every ownership rule (a customer only sees what is theirs) holds for guests as it does for customers |
+| Objects created | Columns `Users.IsGuest` (default 0) and `Users.GuestRecoveryHash` (SHA-256 of the code a guest uses to recover an order); check `CK_Users_GuestIsCustomer`; unique filtered index `UX_Users_Email_Accounts (Email) WHERE IsGuest = 0`; filtered index `IX_Users_Email_Guests (Email) WHERE IsGuest = 1` |
+| Objects dropped | `UQ_Users_Email`: the email stays unique among real accounts through the filtered index, but several guests may buy with the same email |
+| Key rules | A guest can only be a customer. An email of a registered account cannot be taken by a guest (`EMAIL_BELONGS_TO_ACCOUNT`). Someone can register with the email they used as a guest. Guests never log in by email and never appear in the user list. Personalisation and made-to-order products (`LeadTimeDays > 0`) need a real account. A coupon limit per customer counts by email |
+| Depends on | V0001, V0002, V0004 |
+| Data migration | None: every existing user keeps `IsGuest = 0` |
+| Online impact | Metadata change for the columns; the new indexes are built on `Users`, a small table |
+| Compatibility | Existing calls keep working. `SP_Users_GetById` returns one more column (`IsGuest`) at the end |
+| Rollback | Compensating migration: delete the guest rows once their orders are handled, drop the two indexes and the check, recreate `UQ_Users_Email` and drop the columns |
+| Tests | `Test_Guests` and `Test_GuestOrders` (new), plus `Test_Constraints` and `Test_Auth` adjusted to the new index and column |
+| Author, date | Eder Yafeth Garcia Quiroa, 6 November 2026 |
+| Pull request | Pending |
+| Reviewer | Repository owner |
+| Environments | Local Pending; CI Pending; Production Not deployed |
+
 ### Reference seeds
 
 Seeds are idempotent `MERGE` scripts applied after the migrations. They are registered because the code, the API and the tests assume exactly these values. The common fields are the same as above, except the pull request, which is the one that adds them (see the revision history), and the rollback, which is to correct the seed and let the runner apply the new version.
@@ -344,3 +366,4 @@ Programmable objects and seeds: a change to an `R####` object needs only the ver
 | 30 October 2026 | V0010 added after the technical audit | Eder Yafeth Garcia Quiroa |
 | 30 October 2026 | V0011 added with the stock reservation; V0010 and V0011 set to Applied after pull requests #20 and #28 | Eder Yafeth Garcia Quiroa |
 | 30 October 2026 | V0012 and S0006 added with the database review: operation and retention indexes, the category foreign key and the retention settings | Eder Yafeth Garcia Quiroa |
+| 6 November 2026 | V0013 added: guest accounts | Eder Yafeth Garcia Quiroa |

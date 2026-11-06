@@ -599,7 +599,9 @@ BEGIN
     UPDATE dbo.Variants SET OnHandStock = 200 WHERE IDVariant = @Cake;
     EXEC dbo.SP_Cart_SetItemQuantity @IDUser = @Ana, @IDVariant = @Cake, @Quantity = 90, @Inscription = N'Mine', @IDCart = @UserCart OUTPUT;
     EXEC dbo.SP_Cart_SetItemQuantity @IDUser = @Ana, @IDVariant = @Cookie, @Quantity = 2, @IDCart = @UserCart OUTPUT;
-    EXEC dbo.SP_Cart_SetItemQuantity @GuestToken = '11111111-1111-1111-1111-111111111111', @IDVariant = @Cake, @Quantity = 20, @Inscription = N'Guest', @IDCart = @GuestCart OUTPUT;
+    EXEC dbo.SP_Cart_SetItemQuantity @GuestToken = '11111111-1111-1111-1111-111111111111', @IDVariant = @Cake, @Quantity = 20, @IDCart = @GuestCart OUTPUT;
+    -- Un visitante ya no puede pedir una inscripción (SP_Cart_SetItemQuantity 1.3.0), pero un carrito anterior pudo traerla
+    UPDATE dbo.CartItems SET Inscription = N'Guest' WHERE IDCart = @GuestCart AND IDVariant = @Cake;
     EXEC dbo.SP_Cart_SetItemQuantity @GuestToken = '11111111-1111-1111-1111-111111111111', @IDVariant = @Cupcake, @Quantity = 4, @IDCart = @GuestCart OUTPUT;
 
     EXEC dbo.SP_Cart_MergeGuest @IDUser = @Ana, @GuestToken = '11111111-1111-1111-1111-111111111111', @IDCart = @Merged OUTPUT;
