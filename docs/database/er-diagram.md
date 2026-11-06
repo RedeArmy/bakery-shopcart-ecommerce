@@ -135,7 +135,7 @@ The complete DDL is in `db/migrations/V0001` to `V0009`, translated from the des
 |---|---|---|
 | `WELCOME10` | 10 % off the whole cart, minimum purchase Q100.00, one use per customer | Percentage coupon, minimum and per-customer limit |
 | `CAKES25` | Q25.00 off, only for the Pasteles category | Fixed-amount coupon limited to a category |
-| `SOLDOUT` | Valid dates, total usage limit already reached | `COUPON_EXHAUSTED` |
+| `SOLDOUT` | Valid dates, a total usage limit of one | `COUPON_EXHAUSTED` once an order holds the only use ([demo data](../operations/demo-data.md)) |
 | `EXPIRED` | End date in the past | `COUPON_EXPIRED` |
 
 The codes are British English and are seed data; the category name stays in Spanish because catalogue content is Spanish data. A coupon that does not reach its minimum answers `COUPON_MINIMUM_NOT_MET`.

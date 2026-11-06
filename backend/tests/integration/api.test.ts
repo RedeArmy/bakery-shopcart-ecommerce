@@ -269,6 +269,48 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
     expect((await api().get('/api/v1/nope')).status).toBe(404);
   });
 
+  it('keeps the session in an HttpOnly cookie: renews from it, detects a reused token and clears it on logout', async () => {
+    const email = `it-cookie-${runId}@shopcart.test`;
+    await api().post('/api/v1/auth/register').send({ email, password, fullName: 'IT cookie' });
+    const cookieOf = (response: { headers: Record<string, unknown> }): string =>
+      ((response.headers['set-cookie'] as string[] | undefined) ?? [])[0] ?? '';
+    const pair = (cookie: string): string => cookie.split(';')[0] ?? '';
+
+    const signedIn = await api().post('/api/v1/auth/login').send({ email, password });
+    expect(signedIn.status).toBe(200);
+    const firstCookie = cookieOf(signedIn);
+    expect(firstCookie).toMatch(/HttpOnly/);
+    expect(firstCookie).toMatch(/SameSite=Strict/);
+    expect(firstCookie).toContain('Path=/api/v1/auth');
+    expect(pair(firstCookie)).toBe(`refreshToken=${str(signedIn.body, 'refreshToken')}`);
+
+    // Solo con la cookie, como lo hace el navegador: sin cuerpo
+    const renewed = await api().post('/api/v1/auth/refresh').set('Cookie', pair(firstCookie));
+    expect(renewed.status).toBe(200);
+    const secondCookie = cookieOf(renewed);
+    expect(pair(secondCookie)).not.toBe(pair(firstCookie));
+    expect(str(renewed.body, 'accessToken').length).toBeGreaterThan(20);
+
+    // El token viejo ya se usó: la base de datos cierra toda la familia y la cookie se borra
+    const reused = await api().post('/api/v1/auth/refresh').set('Cookie', pair(firstCookie));
+    expect(reused.status).toBe(401);
+    expect(str(reused.body, 'error.code')).toBe('REFRESH_TOKEN_REUSED');
+    expect(cookieOf(reused)).toContain('Expires=Thu, 01 Jan 1970');
+    const afterReuse = await api().post('/api/v1/auth/refresh').set('Cookie', pair(secondCookie));
+    expect(afterReuse.status).toBe(401);
+
+    const again = await api().post('/api/v1/auth/login').send({ email, password });
+    const loggedOut = await api()
+      .post('/api/v1/auth/logout')
+      .set('Cookie', pair(cookieOf(again)));
+    expect(loggedOut.status).toBe(204);
+    expect(cookieOf(loggedOut)).toContain('Expires=Thu, 01 Jan 1970');
+    const afterLogout = await api()
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', pair(cookieOf(again)));
+    expect(afterLogout.status).toBe(401);
+  });
+
   it('rate limits the login after five attempts in a minute', async () => {
     const attempts = await inOrder([1, 2, 3, 4, 5, 6], async () => {
       const response = await request(limited.app)

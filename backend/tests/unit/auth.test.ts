@@ -43,6 +43,7 @@ class FakeRepository implements AuthRepositoryPort {
   failedAttempts: string[] = [];
   successes: number[] = [];
   revoked: string[] = [];
+  rotatedFrom: string[] = [];
   rotation: { outcome: RotateOutcome; idUser: number | null } = { outcome: 'Rotated', idUser: 1 };
 
   register(input: { email: string; passwordHash: string; fullName: string; phone: string | null }) {
@@ -81,7 +82,8 @@ class FakeRepository implements AuthRepositoryPort {
     this.saved.push({ idUser: input.idUser, tokenHash: input.tokenHash });
     return Promise.resolve();
   }
-  rotateRefreshToken() {
+  rotateRefreshToken(input: { tokenHash: string }) {
+    this.rotatedFrom.push(input.tokenHash);
     return Promise.resolve(this.rotation);
   }
   revokeFamily(tokenHash: string) {
@@ -94,7 +96,7 @@ const passThrough: express.RequestHandler = (_req, _res, next) => {
   next();
 };
 
-function build(repository: FakeRepository) {
+function build(repository: FakeRepository, secure = false) {
   const service = new AuthService(repository, hasher, tokens, clock, 15);
   const app = express();
   app.use((_req, res, next) => {
@@ -108,6 +110,7 @@ function build(repository: FakeRepository) {
       authenticate: createAuthenticate(tokens),
       limitAuthentication: passThrough,
       limitRefresh: passThrough,
+      refreshCookie: { maxAgeMs: 7 * 24 * 3600 * 1000, secure },
     }),
   );
   app.use(createErrorHandler(logger));
@@ -273,5 +276,113 @@ describe('refresh, logout and profile', () => {
     expect(
       (await request(app).get('/auth/me').set('Authorization', `Bearer ${ghost}`)).status,
     ).toBe(404);
+  });
+});
+
+describe('refresh token cookie (ADR-0026)', () => {
+  let repository: FakeRepository;
+  const refreshToken = 'r'.repeat(40);
+  const otherToken = 's'.repeat(40);
+  const cookieOf = (response: { headers: Record<string, unknown> }): string[] =>
+    (response.headers['set-cookie'] as string[] | undefined) ?? [];
+
+  beforeEach(async () => {
+    repository = new FakeRepository();
+    await request(build(repository)).post('/auth/register').send(validRegistration);
+  });
+
+  it('sets the cookie on login with the attributes that keep scripts and other sites out', async () => {
+    const response = await request(build(repository))
+      .post('/auth/login')
+      .send({ email: 'ana@shopcart.test', password: validRegistration.password });
+    expect(response.status).toBe(200);
+    const [cookie] = cookieOf(response);
+    const body = response.body as { refreshToken: string };
+    expect(cookie).toContain(`refreshToken=${body.refreshToken}`);
+    expect(cookie).toContain('Path=/api/v1/auth');
+    expect(cookie).toContain('Max-Age=604800');
+    expect(cookie).toContain('HttpOnly');
+    expect(cookie).toContain('SameSite=Strict');
+    expect(cookie).not.toContain('Secure');
+  });
+
+  it('adds Secure when the application is served over https', async () => {
+    const response = await request(build(repository, true))
+      .post('/auth/login')
+      .send({ email: 'ana@shopcart.test', password: validRegistration.password });
+    expect(cookieOf(response)[0]).toContain('Secure');
+  });
+
+  it('does not set the cookie when the credentials are wrong', async () => {
+    const response = await request(build(repository))
+      .post('/auth/login')
+      .send({ email: 'ana@shopcart.test', password: 'a wrong password' });
+    expect(response.status).toBe(401);
+    expect(cookieOf(response)).toEqual([]);
+  });
+
+  it('renews from the cookie alone and replaces it with the rotated token', async () => {
+    const response = await request(build(repository))
+      .post('/auth/refresh')
+      .set('Cookie', `refreshToken=${refreshToken}`);
+    expect(response.status).toBe(200);
+    expect(repository.rotatedFrom).toEqual([tokens.hashRefresh(refreshToken)]);
+    const body = response.body as { refreshToken: string };
+    expect(cookieOf(response)[0]).toContain(`refreshToken=${body.refreshToken}`);
+  });
+
+  it('prefers a token sent in the body over the ambient cookie, and uses the cookie when there is no body', async () => {
+    await request(build(repository))
+      .post('/auth/refresh')
+      .set('Cookie', `refreshToken=${refreshToken}`)
+      .send({ refreshToken: otherToken });
+    await request(build(repository))
+      .post('/auth/refresh')
+      .set('Cookie', `refreshToken=${refreshToken}`);
+    expect(repository.rotatedFrom).toEqual([
+      tokens.hashRefresh(otherToken),
+      tokens.hashRefresh(refreshToken),
+    ]);
+  });
+
+  it('answers 400 when no token comes at all or the token has an impossible shape', async () => {
+    const none = await request(build(repository)).post('/auth/refresh');
+    expect(none.status).toBe(400);
+    const short = await request(build(repository))
+      .post('/auth/refresh')
+      .send({ refreshToken: 'x' });
+    expect(short.status).toBe(400);
+    expect(repository.rotatedFrom).toEqual([]);
+  });
+
+  it.each<RotateOutcome>(['ReuseDetected', 'NotFound', 'Expired'])(
+    'clears the cookie together with the 401 when the outcome is %s',
+    async (outcome) => {
+      repository.rotation = { outcome, idUser: outcome === 'ReuseDetected' ? 1 : null };
+      const response = await request(build(repository))
+        .post('/auth/refresh')
+        .set('Cookie', `refreshToken=${refreshToken}`);
+      expect(response.status).toBe(401);
+      const [cookie] = cookieOf(response);
+      expect(cookie).toContain('refreshToken=;');
+      expect(cookie).toContain('Expires=Thu, 01 Jan 1970');
+      expect(cookie).toContain('Path=/api/v1/auth');
+    },
+  );
+
+  it('logs out from the cookie, revokes the family and clears the cookie', async () => {
+    const response = await request(build(repository))
+      .post('/auth/logout')
+      .set('Cookie', `refreshToken=${refreshToken}`);
+    expect(response.status).toBe(204);
+    expect(repository.revoked).toEqual([tokens.hashRefresh(refreshToken)]);
+    expect(cookieOf(response)[0]).toContain('Expires=Thu, 01 Jan 1970');
+  });
+
+  it('logs out without any token as a no-op that still clears the cookie', async () => {
+    const response = await request(build(repository)).post('/auth/logout');
+    expect(response.status).toBe(204);
+    expect(repository.revoked).toEqual([]);
+    expect(cookieOf(response)[0]).toContain('Expires=Thu, 01 Jan 1970');
   });
 });

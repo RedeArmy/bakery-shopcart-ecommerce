@@ -56,6 +56,7 @@ All documents are British English. The only Spanish files are the root `README.m
 | [operations/configuration-reference](operations/configuration-reference.md) | Every environment variable |
 | [operations/performance](operations/performance.md) | Database figures at 50,000 orders, what was changed and rejected, and how to repeat it |
 | [operations/test-accounts](operations/test-accounts.md) | Test accounts and how their passwords are generated |
+| [operations/demo-data](operations/demo-data.md) | The demo shop: catalogue, stock, coupons and bank accounts, and how to see each coupon message |
 | [operations/branch-protection-and-sonarcloud](operations/branch-protection-and-sonarcloud.md) | Ruleset for `main` and SonarCloud setup |
 
 ## Original inputs (read-only)

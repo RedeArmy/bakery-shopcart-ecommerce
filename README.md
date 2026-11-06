@@ -39,7 +39,7 @@ Los nueve módulos del enunciado están construidos en la base de datos y el bac
 | RF-08 Tablero y reportes | Completo (las gráficas son de la Fase 2) | [ADR-0009](docs/adr/0009-definition-of-completed-order-for-reports.md) |
 | RF-09 Bitácora | Completo | [Modelo de datos](docs/database/er-diagram.md) |
 
-Los 21 criterios de aceptación del enunciado están en el [mapa de criterios](docs/quality/acceptance-criteria-map.md): para cada uno dice qué lo hace cumplir y qué prueba lo demuestra. Las pruebas son 537 de base de datos (tSQLt), 16 escenarios de concurrencia con conexiones reales, 17 flujos HTTP contra SQL Server y 523 pruebas unitarias.
+Los 21 criterios de aceptación del enunciado están en el [mapa de criterios](docs/quality/acceptance-criteria-map.md): para cada uno dice qué lo hace cumplir y qué prueba lo demuestra. Las pruebas son 537 de base de datos (tSQLt), 16 escenarios de concurrencia con conexiones reales, 18 flujos HTTP contra SQL Server y más de 550 pruebas unitarias.
 
 ## 3. Arquitectura
 
@@ -109,7 +109,7 @@ El enunciado deja algunas decisiones a propósito. Estas son las posturas tomada
 | IVA | 12 % incluido en el precio; cada pedido guarda la base imponible y el IVA |
 | Zona horaria | Guatemala (UTC-6). Los reportes agrupan por la fecha de pago en hora local |
 | Cuentas de personal | No se crean por la API: se siembran. El registro público solo crea clientes, para que un error no pueda crear un administrador |
-| Sesión | Access token JWT de 15 minutos; refresh token opaco con rotación y detección de reutilización; bloqueo progresivo de la cuenta |
+| Sesión | Access token JWT de 15 minutos; refresh token opaco con rotación y detección de reutilización, entregado en una cookie `HttpOnly; SameSite=Strict` (el cuerpo lo repite para Postman); bloqueo progresivo de la cuenta |
 | Dinero | `DECIMAL(18,2)` en tablas, `BIGINT` en centavos en los cálculos, redondeo half-even una sola vez y cadenas decimales en la API |
 
 **Estándar de nomenclatura.** El enunciado define el formato (`SP_Módulo_Proceso`, `VW_`, `FU_`, llaves `ID<Entidad>`, primera letra de cada palabra en mayúscula) y da ejemplos en español, como `SP_Pedidos_CrearPedido`. Se cumple el formato en todos los objetos, y los nombres están en inglés británico por decisión del equipo ([ADR-0024](docs/adr/0024-language-and-spelling-conventions.md)): `SP_Orders_CreateOrder`, `IDProduct`. El [glosario](docs/glossary.md) da la equivalencia de cada término del enunciado.
@@ -230,7 +230,7 @@ Para empezar de cero, incluida la base de datos, use `docker compose down --volu
 | Unitarias del backend, del runner y de los scripts | `npm test` |
 | 537 pruebas de base de datos (tSQLt) | `npm run sql:test:up` y después `npm run sql:test` |
 | 16 escenarios de concurrencia con conexiones reales | `npm run sql:concurrency` |
-| Flujos HTTP contra SQL Server (17) | `npm run test:integration -w backend`, con el servidor de pruebas migrado ([comandos](docs/quality/sql-testing-tsqlt.md#concurrency-http-and-performance-suites)) |
+| Flujos HTTP contra SQL Server (18) | `npm run test:integration -w backend`, con el servidor de pruebas migrado ([comandos](docs/quality/sql-testing-tsqlt.md#concurrency-http-and-performance-suites)) |
 | Cobertura de procedimientos por pruebas (83 de 83) | `npm run sql:coverage` |
 | Tiempos de listados y reportes con 50 000 pedidos | `npm run sql:bench` |
 
@@ -294,6 +294,6 @@ La regla de cuándo se ofrece el depósito según la fecha de entrega está en [
 
 **Fase 1, base de datos y backend: completa.** 12 migraciones, 83 procedimientos, la API de 73 operaciones, la autenticación con rotación de tokens, el pago simulado, los trabajos de fondo (vencimiento de reservas y pagos, purga de datos, conciliación de importes y existencias) y las pruebas descritas en la sección 8. El historial de cambios y las decisiones están en [STATUS](docs/progress/STATUS.md) y [ROADMAP](docs/progress/ROADMAP.md).
 
-**Datos de demostración.** Las cuatro cuentas de prueba existen al levantar el entorno. El catálogo, los cupones y la cuenta bancaria de demostración todavía no están sembrados: la colección de Postman crea los suyos, y el administrador puede crearlos con la API.
+**Datos de demostración.** Al levantar el entorno existen las cuatro cuentas de prueba y una tienda pequeña: 60 productos en 6 categorías (97 variantes y 2 230 unidades, tres agotadas a propósito), los cupones `WELCOME10`, `CAKES25`, `SOLDOUT` y `EXPIRED`, y dos cuentas bancarias ficticias. Se crean por los procedimientos reales y repetir el paso no duplica nada ([detalle y cómo ver cada mensaje de cupón](docs/operations/demo-data.md)). La colección de Postman sigue creando sus propios datos.
 
 **Fase 2, frontend: pendiente.** Rutas protegidas y menús por rol, formularios con validación, tablas con paginación y filtros del lado del servidor, gráficas del tablero, estados de carga, vacío y error, renovación transparente del token e interfaz responsive, con pruebas de extremo a extremo.

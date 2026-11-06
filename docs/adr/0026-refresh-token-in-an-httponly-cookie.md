@@ -14,7 +14,7 @@ The frontend has to keep the refresh token somewhere. In `localStorage` or `sess
 We will deliver the refresh token in a cookie and keep the body path for clients that are not browsers.
 
 - `login` and `refresh` set the cookie `refreshToken`: `HttpOnly`, `SameSite=Strict`, `Path=/api/v1/auth`, `Max-Age` equal to `REFRESH_TOKEN_DAYS`, and `Secure` when `APP_PUBLIC_URL` is `https`.
-- `refresh` and `logout` read the cookie first and fall back to the `refreshToken` field of the body. Postman, `newman` and any other API client keep working unchanged.
+- `refresh` and `logout` use the `refreshToken` field of the body when it is present and the cookie otherwise. An explicit token wins over the ambient cookie: a client with a cookie jar, like Postman, resends the last cookie by itself, and one that sends a token in the body does it on purpose, for example to prove the reuse detection. A browser never sends a body, so it always uses the cookie. Postman, `newman` and any other API client keep working unchanged.
 - `logout` clears the cookie.
 - The response bodies and the OpenAPI schemas keep the field, so the contract does not break. The frontend never stores it.
 - The frontend keeps the access token in memory, restores the session by calling `refresh` when the page loads, and renews on a `401` with a single-flight interceptor.

@@ -3,7 +3,7 @@
 ## Authentication and sessions
 
 - Passwords are hashed with **argon2id** (`@node-rs/argon2`; fallback `bcryptjs`).
-- The access token is a JWT valid for 15 minutes. The refresh token is opaque, valid for 7 days, stored only as a **SHA-256 hash**, rotated on every use, and reuse detection revokes the whole family (`FamilyId`).
+- The access token is a JWT valid for 15 minutes. The refresh token is opaque, valid for 7 days, stored only as a **SHA-256 hash**, rotated on every use, and reuse detection revokes the whole family (`FamilyId`). It travels in the `refreshToken` cookie, which is `HttpOnly`, `SameSite=Strict`, limited to `Path=/api/v1/auth` and `Secure` when the shop is served over https, so no script of the page can read it ([ADR-0026](../adr/0026-refresh-token-in-an-httponly-cookie.md)). `refresh` and `logout` use the `refreshToken` field of the body when a client sends one (clients that are not a browser) and the cookie otherwise; a rejected renewal clears the cookie.
 - Account lockout: `FailedAttempts` and `LockedUntil` live in the database so it works across replicas.
 - Users are deactivated, never deleted (`IsActive`).
 

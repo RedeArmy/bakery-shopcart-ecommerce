@@ -32,6 +32,17 @@ jobs:
       # Incluye ESLint, Prettier, cspell (en-GB), ortografía británica y sincronía de los README
       - run: npm run lint
 
+  # Las dependencias de producción no pueden tener avisos de gravedad alta: si un aviso nuevo aparece, el pull request falla
+  # en vez de esperar al grupo semanal de Dependabot. Solo lee package-lock.json, así que no instala nada.
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: npm run audit
+
   typecheck:
     runs-on: ubuntu-latest
     steps:
