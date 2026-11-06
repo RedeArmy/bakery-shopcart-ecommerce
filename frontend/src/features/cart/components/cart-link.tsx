@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { BagIcon } from '../../../shared/ui/icons';
+import { CartIcon } from '../../../shared/ui/icons';
 import { useCart } from '../hooks/use-cart';
 
 /** Enlace al carrito del encabezado, con el número de productos que lleva. */
@@ -13,7 +13,7 @@ export function CartLink() {
       aria-label={t('cart.linkLabel', { count })}
       className="relative grid size-11 place-items-center rounded-control text-stone-800 hover:bg-stone-100"
     >
-      <BagIcon />
+      <CartIcon />
       {count > 0 ? (
         <span
           aria-hidden="true"
