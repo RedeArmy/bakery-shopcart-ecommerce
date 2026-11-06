@@ -11,6 +11,7 @@ export default defineConfig({
   },
   test: {
     include: ['tests/unit/**/*.test.{ts,tsx}'],
+    setupFiles: ['tests/unit/support/setup.ts'],
     // jsdom permite montar componentes y el router del navegador en las pruebas unitarias
     environment: 'jsdom',
     coverage: {
