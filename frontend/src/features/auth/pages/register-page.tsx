@@ -80,7 +80,7 @@ export function RegisterPage() {
           {...register('phone')}
         />
         <TextField
-          label={t('auth.password')}
+          label={t('auth.passwordLabel')}
           type="password"
           autoComplete="new-password"
           hint={t('auth.passwordHint')}

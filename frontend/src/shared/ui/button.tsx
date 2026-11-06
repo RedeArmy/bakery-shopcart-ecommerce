@@ -45,7 +45,7 @@ export function Button({
   children,
   type = 'button',
   ...rest
-}: ButtonProps) {
+}: Readonly<ButtonProps>) {
   return (
     <button
       type={type}
@@ -64,6 +64,6 @@ export function ButtonLink({
   variant = 'primary',
   className,
   ...rest
-}: LinkProps & { variant?: Variant }) {
+}: Readonly<LinkProps & { variant?: Variant }>) {
   return <Link className={buttonClasses(variant, className)} {...rest} />;
 }

@@ -6,7 +6,7 @@ import { ForbiddenPage } from './pages/forbidden-page';
 import { routeAccess } from './route-access';
 
 /** Protege un grupo de rutas: espera la sesión, manda a iniciar sesión (recordando adónde iba) o niega por rol. */
-export function ProtectedRoute({ roles }: { roles?: readonly Role[] }) {
+export function ProtectedRoute({ roles }: Readonly<{ roles?: readonly Role[] }>) {
   const session = useSession();
   const location = useLocation();
   const access = routeAccess(session, roles);

@@ -23,7 +23,7 @@ export function CatalogueFilters({
   categoriesLoading = false,
   onChange,
   onClear,
-}: Props) {
+}: Readonly<Props>) {
   const { t } = useTranslation();
   const [showMore, setShowMore] = useState(hasActiveFilters({ ...query, q: '', category: null }));
 

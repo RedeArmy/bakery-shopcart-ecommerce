@@ -9,7 +9,7 @@ interface FieldChrome {
   /** Texto que explica el campo; deja de verse cuando hay un error */
   hint?: string;
   /** Mensaje ya en español para este campo */
-  error?: string | undefined;
+  error?: string;
   /** Etiqueta "opcional" para los campos que no son obligatorios */
   optionalLabel?: string;
 }
@@ -18,11 +18,11 @@ function Chrome({
   id,
   chrome,
   children,
-}: {
+}: Readonly<{
   id: string;
   chrome: FieldChrome;
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <div className="space-y-1.5">
       <label htmlFor={id} className="block text-sm font-medium text-stone-800">

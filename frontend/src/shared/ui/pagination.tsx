@@ -6,11 +6,11 @@ export function Pagination({
   page,
   pages,
   onChange,
-}: {
+}: Readonly<{
   page: number;
   pages: number;
   onChange: (page: number) => void;
-}) {
+}>) {
   const { t } = useTranslation();
   if (pages <= 1) return null;
   return (

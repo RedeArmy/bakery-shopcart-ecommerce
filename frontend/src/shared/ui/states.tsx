@@ -7,10 +7,10 @@ import { Button } from './button';
 export function LoadingSkeleton({
   variant = 'lines',
   count = 3,
-}: {
+}: Readonly<{
   variant?: 'lines' | 'grid';
   count?: number;
-}) {
+}>) {
   const { t } = useTranslation();
   const items = Array.from({ length: count }, (_, index) => index);
   return (
@@ -40,11 +40,11 @@ export function EmptyState({
   title,
   text,
   action,
-}: {
+}: Readonly<{
   title: string;
   text?: string;
   action?: ReactNode;
-}) {
+}>) {
   return (
     <div className="rounded-card border border-dashed border-stone-300 px-6 py-12 text-center">
       <h2 className="text-xl text-stone-900">{title}</h2>
@@ -55,7 +55,7 @@ export function EmptyState({
 }
 
 /** Error de una vista: dice qué pasó en español, sin mostrar jamás el mensaje técnico, y permite reintentar. */
-export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
+export function ErrorState({ error, onRetry }: Readonly<{ error: unknown; onRetry?: () => void }>) {
   const { t } = useTranslation();
   return (
     <div

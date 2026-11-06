@@ -9,7 +9,7 @@ import { stockState } from '../model/catalogue-query';
 
 type ProductSummary = components['schemas']['ProductSummary'];
 
-export function ProductCard({ product }: { product: ProductSummary }) {
+export function ProductCard({ product }: Readonly<{ product: ProductSummary }>) {
   const { t } = useTranslation();
   const state = product.available === undefined ? 'ok' : stockState(product.available);
   const sameBounds = product.minPrice === product.maxPrice;

@@ -27,6 +27,39 @@ function ProductNotFound() {
   );
 }
 
+/** Precio de la variante elegida, con su estado de existencias. */
+function VariantSummary({ variant }: Readonly<{ variant: Variant }>) {
+  const { t } = useTranslation();
+  const available = variant.available;
+  const state = available === undefined ? 'ok' : stockState(available);
+  return (
+    <div className="space-y-2">
+      <p className="text-3xl text-stone-900">
+        <Price amount={variant.price} />
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        {state === 'soldOut' ? <Badge tone="danger">{t('product.soldOut')}</Badge> : null}
+        {state === 'low' ? (
+          <Badge tone="warning">{t('product.available', { count: available ?? 0 })}</Badge>
+        ) : null}
+        <span className="text-xs text-stone-500">{t('product.sku', { sku: variant.sku })}</span>
+      </div>
+    </div>
+  );
+}
+
+/** Cuántos días de anticipación pide el producto. */
+function LeadTimeNote({ days }: Readonly<{ days: number | undefined }>) {
+  const { t } = useTranslation();
+  return (
+    <p className="text-sm text-stone-600">
+      {days === undefined || days === 0
+        ? t('product.sameDayNote')
+        : t('product.leadTimeNote', { count: days })}
+    </p>
+  );
+}
+
 export function ProductPage() {
   const { t } = useTranslation();
   const params = useParams();
@@ -52,8 +85,6 @@ export function ProductPage() {
 
   const item = product.data;
   const variant = item.variants.find((candidate) => candidate.idVariant === selected);
-  const available = variant?.available;
-  const state = available === undefined ? 'ok' : stockState(available);
   const primary = item.images?.find((image) => image.isPrimary) ?? item.images?.[0];
 
   return (
@@ -100,28 +131,9 @@ export function ProductPage() {
           </div>
         </fieldset>
 
-        {variant === undefined ? null : (
-          <div className="space-y-2">
-            <p className="text-3xl text-stone-900">
-              <Price amount={variant.price} />
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              {state === 'soldOut' ? <Badge tone="danger">{t('product.soldOut')}</Badge> : null}
-              {state === 'low' ? (
-                <Badge tone="warning">{t('product.available', { count: available ?? 0 })}</Badge>
-              ) : null}
-              <span className="text-xs text-stone-500">
-                {t('product.sku', { sku: variant.sku })}
-              </span>
-            </div>
-          </div>
-        )}
+        {variant === undefined ? null : <VariantSummary variant={variant} />}
 
-        <p className="text-sm text-stone-600">
-          {item.leadTimeDays === undefined || item.leadTimeDays === 0
-            ? t('product.sameDayNote')
-            : t('product.leadTimeNote', { count: item.leadTimeDays })}
-        </p>
+        <LeadTimeNote days={item.leadTimeDays} />
       </div>
     </article>
   );

@@ -11,7 +11,10 @@ const TONES: Record<Tone, string> = {
   success: 'bg-emerald-100 text-emerald-900',
 };
 
-export function Badge({ tone = 'neutral', children }: { tone?: Tone; children: ReactNode }) {
+export function Badge({
+  tone = 'neutral',
+  children,
+}: Readonly<{ tone?: Tone; children: ReactNode }>) {
   return (
     <span
       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${TONES[tone]}`}

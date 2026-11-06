@@ -72,7 +72,7 @@ export function LoginPage() {
           {...register('email')}
         />
         <TextField
-          label={t('auth.password')}
+          label={t('auth.passwordLabel')}
           type="password"
           autoComplete="current-password"
           error={errors.password?.message === undefined ? undefined : t(errors.password.message)}

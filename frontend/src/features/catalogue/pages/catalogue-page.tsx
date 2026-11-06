@@ -8,6 +8,52 @@ import { useCategories, useProducts } from '../hooks/use-catalogue-queries';
 import { useCatalogueSearch } from '../hooks/use-catalogue-search';
 import { PAGE_SIZE, hasActiveFilters, pageCount } from '../model/catalogue-query';
 
+type ProductsData = NonNullable<ReturnType<typeof useProducts>['data']>;
+
+/** Lista de resultados con su paginación, o el aviso de que no hay coincidencias. */
+function Results({
+  data,
+  placeholder,
+  filtered,
+  page,
+  onClear,
+  onPage,
+}: Readonly<{
+  data: ProductsData;
+  placeholder: boolean;
+  filtered: boolean;
+  page: number;
+  onClear: () => void;
+  onPage: (page: number) => void;
+}>) {
+  const { t } = useTranslation();
+  if (data.items.length === 0) {
+    return (
+      <EmptyState
+        title={t('catalogue.emptyTitle')}
+        text={t('catalogue.emptyText')}
+        action={
+          filtered ? (
+            <Button variant="secondary" onClick={onClear}>
+              {t('catalogue.clearFilters')}
+            </Button>
+          ) : undefined
+        }
+      />
+    );
+  }
+  return (
+    <div
+      aria-busy={placeholder}
+      className={placeholder ? 'opacity-60 transition-opacity' : 'transition-opacity'}
+    >
+      <p className="mb-6 text-sm text-stone-600">{t('catalogue.results', { count: data.total })}</p>
+      <ProductGrid products={data.items} />
+      <Pagination page={page} pages={pageCount(data.total)} onChange={onPage} />
+    </div>
+  );
+}
+
 export function CataloguePage() {
   const { t } = useTranslation();
   const { query, setFilter, setPage, clear } = useCatalogueSearch();
@@ -36,35 +82,15 @@ export function CataloguePage() {
         {products.isError ? (
           <ErrorState error={products.error} onRetry={() => void products.refetch()} />
         ) : null}
-        {products.data === undefined ? null : products.data.items.length === 0 ? (
-          <EmptyState
-            title={t('catalogue.emptyTitle')}
-            text={t('catalogue.emptyText')}
-            action={
-              hasActiveFilters(query) ? (
-                <Button variant="secondary" onClick={clear}>
-                  {t('catalogue.clearFilters')}
-                </Button>
-              ) : undefined
-            }
+        {products.data === undefined ? null : (
+          <Results
+            data={products.data}
+            placeholder={products.isPlaceholderData}
+            filtered={hasActiveFilters(query)}
+            page={query.page}
+            onClear={clear}
+            onPage={setPage}
           />
-        ) : (
-          <div
-            aria-busy={products.isPlaceholderData}
-            className={
-              products.isPlaceholderData ? 'opacity-60 transition-opacity' : 'transition-opacity'
-            }
-          >
-            <p className="mb-6 text-sm text-stone-600">
-              {t('catalogue.results', { count: products.data.total })}
-            </p>
-            <ProductGrid products={products.data.items} />
-            <Pagination
-              page={query.page}
-              pages={pageCount(products.data.total)}
-              onChange={setPage}
-            />
-          </div>
         )}
       </section>
     </div>
