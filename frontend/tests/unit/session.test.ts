@@ -192,12 +192,12 @@ describe('the authenticated client', () => {
     const { auth } = build();
     await auth.login('a@b.test', 'x');
     await auth.api.POST('/api/v1/cart/coupon', {
-      params: { header: { 'Idempotency-Key': 'key-12345678' } },
+      params: { header: { 'Idempotency-Key': 'key-aaaaaaaa' } },
       body: { code: 'WELCOME10' },
     });
     const coupon = calls.filter((call) => call.path === '/api/v1/cart/coupon');
     expect(coupon).toHaveLength(2);
-    expect(coupon[1]?.headers.get('Idempotency-Key')).toBe('key-12345678');
+    expect(coupon[1]?.headers.get('Idempotency-Key')).toBe('key-aaaaaaaa');
     expect(coupon[1]?.body).toEqual({ code: 'WELCOME10' });
   });
 
