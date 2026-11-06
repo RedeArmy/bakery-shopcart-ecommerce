@@ -42,6 +42,9 @@ export const esGT = {
     subtitle:
       'Elija el tamaño y el sabor, indique la fecha de entrega y pague con depósito bancario.',
     cta: 'Ver el catálogo',
+    categories: 'Categorías',
+    newest: 'Lo más nuevo',
+    viewAll: 'Ver todo',
     trust: {
       madeToOrder: {
         title: 'Hecho por encargo',
