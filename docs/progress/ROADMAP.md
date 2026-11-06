@@ -45,7 +45,7 @@ Stages 2 to 6 closed Delivery Phase 1. Stage 8 is dropped; the remaining stages 
 - [x] Add the three `images` contexts to the required checks of the ruleset.
 - [ ] Add `integration` to the required checks when it is enabled (Stage 3 and 4).
 - [x] Write the core schema (`V0001` to `V0009`) and the reference seeds (`S0001` to `S0005`: roles, order and payment states and transitions, payment methods, movement types, configuration) (Stage 2).
-- [ ] Write the demo seeds (postponed to the end of the project at the user's request): catalogue of about 60 products, coupons `WELCOME10`, `CAKES25`, `SOLDOUT` and `EXPIRED`, a bank account, and the performance data (Stage 2).
+- [x] Write the demo seeds: catalogue of 60 products, coupons `WELCOME10`, `CAKES25`, `SOLDOUT` and `EXPIRED`, and two bank accounts, created by the runner through the real procedures ([demo data](../operations/demo-data.md)). The performance data has its own seed (`npm run sql:bench`).
 - [x] Generate the `SEED_*_PASSWORD` variables in `ensure-env` and `.env.example`; an older `.env` is completed without touching its values (Stage 2, see [test accounts](../operations/test-accounts.md)).
 - [x] Create the demo accounts with a Node seed step that hashes the `SEED_*_PASSWORD` values with argon2id and calls `SP_Users_Provision`, and pass the variables to `db-migrate` (Stage 2).
 - [x] tSQLt spike: installs and runs on the SQL Server 2022 Linux image and Docker Desktop; plan B not needed (29 Oct).

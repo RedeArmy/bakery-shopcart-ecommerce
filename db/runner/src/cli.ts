@@ -22,6 +22,7 @@ import { MigrationError } from './errors.js';
 import { describePending, pendingOptions } from './options.js';
 import { findProblems, planRun } from './plan.js';
 import { discoverScripts } from './scripts.js';
+import { createSqlDemoStore, seedDemoCatalogue } from './demo-catalogue.js';
 import { seedDemoAccounts } from './seed-demo.js';
 import { inSequence } from './sequence.js';
 
@@ -87,6 +88,19 @@ async function seedAccounts(pool: sql.ConnectionPool, passwords: SeedConfig): Pr
     created.length === 0
       ? 'Demo accounts are up to date.'
       : `Demo accounts created: ${created.join(', ')}.`,
+  );
+  // El catálogo se firma con la cuenta del administrador, por eso va después de las cuentas
+  const catalogue = await seedDemoCatalogue(createSqlDemoStore(pool), new Date());
+  const added =
+    catalogue.categories +
+    catalogue.products +
+    catalogue.variants +
+    catalogue.coupons +
+    catalogue.bankAccounts;
+  console.log(
+    added === 0
+      ? 'Demo catalogue is up to date.'
+      : `Demo catalogue created: ${catalogue.categories} categories, ${catalogue.products} products, ${catalogue.variants} variants (${catalogue.units} units), ${catalogue.coupons} coupons, ${catalogue.bankAccounts} bank accounts.`,
   );
 }
 

@@ -294,6 +294,6 @@ Full index in [docs/README.md](docs/README.md). API contract in [docs/api/openap
 
 **Phase 1, database and backend: complete.** 12 migrations, 83 procedures, the 73-operation API, authentication with token rotation, the simulated payment, the background jobs (expiry of reservations and payments, data purge, reconciliation of amounts and stock) and the tests described in section 8. The history of changes and the decisions are in [STATUS](docs/progress/STATUS.md) and [ROADMAP](docs/progress/ROADMAP.md).
 
-**Demo data.** The four test accounts exist when the environment starts. The demo catalogue, coupons and bank account are not seeded yet: the Postman collection creates its own, and the administrator can create them with the API.
+**Demo data.** When the environment starts there are the four test accounts and a small shop: 60 products in 6 categories (97 variants and 2,230 units, three out of stock on purpose), the coupons `WELCOME10`, `CAKES25`, `SOLDOUT` and `EXPIRED`, and two fictitious bank accounts. They are created through the real procedures and running the step again duplicates nothing ([details and how to see each coupon message](docs/operations/demo-data.md)). The Postman collection still creates its own data.
 
 **Phase 2, frontend: pending.** Protected routes and menus by role, forms with validation, tables with server-side paging and filters, dashboard charts, loading, empty and error states, transparent token renewal and a responsive interface, with end-to-end tests.
