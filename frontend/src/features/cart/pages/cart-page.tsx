@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next';
 import { errorMessage } from '../../../shared/api';
-import { useSession } from '../../../shared/auth';
 import { Button, ButtonLink } from '../../../shared/ui/button';
 import { EmptyState, ErrorState, LoadingSkeleton } from '../../../shared/ui/states';
 import { CartLineRow } from '../components/cart-line-row';
@@ -10,19 +9,11 @@ import { useCart, useRemoveCartItem, useSetCartItem } from '../hooks/use-cart';
 import { lineBlocked } from '../model/cart-model';
 import type { Cart } from '../model/cart-model';
 
-/** Botón para seguir al pago: los visitantes inician sesión primero y vuelven aquí; una línea agotada lo bloquea. */
+/** Botón para seguir al pago: no pide cuenta (quien no la tiene paga como invitado); una línea agotada lo bloquea. */
 function CheckoutAction({ cart }: Readonly<{ cart: Cart }>) {
   const { t } = useTranslation();
-  const session = useSession();
   const blocked = cart.hasUnavailableLines === true || cart.lines.some(lineBlocked);
 
-  if (session.status !== 'authenticated') {
-    return (
-      <ButtonLink to="/login" state={{ from: '/cart' }} className="w-full">
-        {t('cart.checkout.signIn')}
-      </ButtonLink>
-    );
-  }
   if (blocked) {
     return (
       <div className="space-y-2">

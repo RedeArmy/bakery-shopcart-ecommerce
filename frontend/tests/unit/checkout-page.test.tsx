@@ -1,10 +1,11 @@
 // cspell:disable
-import { cleanup, screen, waitFor } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '../../src/shared/i18n';
 import { apiError, installFakeApi, json } from './support/fake-api';
 import type { Call } from './support/fake-api';
+import { getGuestToken } from '../../src/features/cart/model/guest-token';
 import { renderApp, resetSession, signInAs } from './support/render';
 
 beforeEach(async () => {
@@ -49,12 +50,21 @@ const putsTo = (calls: Call[], path: string) =>
   calls.filter((call) => call.method === 'PUT' && call.path === path);
 
 describe('checkout access', () => {
-  it('sends a visitor to sign in and brings them back to the payment afterwards', async () => {
-    installFakeApi({});
-    const { router } = renderApp('/checkout');
-    expect(await screen.findByRole('heading', { level: 1, name: 'Iniciar sesión' })).toBeDefined();
-    expect(router.state.location.pathname).toBe('/login');
-    expect((router.state.location.state as { from: string }).from).toBe('/checkout');
+  it('lets a visitor with a cart choose between buying as a guest and signing in', async () => {
+    getGuestToken();
+    installFakeApi({ 'GET /api/v1/cart': json(cartOf([line(11, 'Pastel Tres Leches', 1)])) });
+    renderApp('/checkout');
+    expect(await screen.findByRole('heading', { name: '¿Cómo quiere pagar?' })).toBeDefined();
+    const main = within(screen.getByRole('main'));
+    expect(main.getByRole('button', { name: 'Continuar como invitado' })).toBeDefined();
+    // El mismo camino aparece al elegir y en el aviso de que la personalización necesita una cuenta
+    for (const link of main.getAllByRole('link', { name: 'Iniciar sesión' })) {
+      expect(link.getAttribute('href')).toBe('/login');
+    }
+    for (const link of main.getAllByRole('link', { name: 'Crear cuenta' })) {
+      expect(link.getAttribute('href')).toBe('/register');
+    }
+    expect(main.getByText('La personalización necesita una cuenta')).toBeDefined();
   });
 
   it('does not open the payment to staff accounts', async () => {

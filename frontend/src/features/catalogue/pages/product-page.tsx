@@ -8,6 +8,8 @@ import { Price } from '../../../shared/ui/price';
 import { ProductImage } from '../../../shared/ui/product-image';
 import { EmptyState, ErrorState, LoadingSkeleton } from '../../../shared/ui/states';
 import { ButtonLink } from '../../../shared/ui/button';
+import { hasAccount, useSession } from '../../../shared/auth';
+import { AccountRequired } from '../../cart/components/account-required';
 import { AddToCart } from '../../cart/components/add-to-cart';
 import { useProduct } from '../hooks/use-catalogue-queries';
 import { stockState } from '../model/catalogue-query';
@@ -58,6 +60,38 @@ function LeadTimeNote({ days }: Readonly<{ days: number | undefined }>) {
         ? t('product.sameDayNote')
         : t('product.leadTimeNote', { count: days })}
     </p>
+  );
+}
+
+/**
+ * Comprar la variante elegida. Cualquiera puede, salvo los productos por encargo (los que piden días de anticipación):
+ * esos requieren una cuenta. El servidor también lo exige; esto evita ofrecer lo que fallaría.
+ */
+function PurchaseSection({
+  idProduct,
+  leadTimeDays,
+  variant,
+}: Readonly<{ idProduct: number; leadTimeDays: number | undefined; variant: Variant }>) {
+  const { t } = useTranslation();
+  const session = useSession();
+  const madeToOrder = (leadTimeDays ?? 0) > 0;
+
+  if (madeToOrder && session.status === 'unknown') return null;
+  if (madeToOrder && !hasAccount(session)) {
+    return (
+      <AccountRequired
+        title={t('product.madeToOrderLocked.title')}
+        text={t('product.madeToOrderLocked.text')}
+        from={`/catalogue/${idProduct}`}
+      />
+    );
+  }
+  return (
+    <AddToCart
+      key={variant.idVariant}
+      idVariant={variant.idVariant}
+      available={variant.available}
+    />
   );
 }
 
@@ -135,10 +169,10 @@ export function ProductPage() {
         {variant === undefined ? null : (
           <>
             <VariantSummary variant={variant} />
-            <AddToCart
-              key={variant.idVariant}
-              idVariant={variant.idVariant}
-              available={variant.available}
+            <PurchaseSection
+              idProduct={item.idProduct}
+              leadTimeDays={item.leadTimeDays}
+              variant={variant}
             />
           </>
         )}

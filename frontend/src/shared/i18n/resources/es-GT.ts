@@ -21,6 +21,7 @@ export const esGT = {
   nav: {
     catalogue: 'Catálogo',
     cart: 'Carrito',
+    guest: 'Invitado',
     signIn: 'Iniciar sesión',
     register: 'Crear cuenta',
     signOut: 'Cerrar sesión',
@@ -96,8 +97,6 @@ export const esGT = {
       apply: 'Aplicar cupón',
       applied: 'Cupón aplicado:',
       remove: 'Quitar cupón',
-      signIn: 'Inicie sesión',
-      signInHint: 'para usar un cupón de descuento.',
       reasons: {
         Expired: 'Este cupón ya venció y no descuenta.',
         Exhausted: 'Este cupón ya alcanzó su límite de usos y no descuenta.',
@@ -112,7 +111,6 @@ export const esGT = {
     },
     checkout: {
       continue: 'Continuar con el pago',
-      signIn: 'Iniciar sesión para pagar',
       blocked: 'Quite o ajuste los productos que ya no alcanzan para continuar.',
     },
     add: {
@@ -128,7 +126,39 @@ export const esGT = {
   checkout: {
     title: 'Finalizar compra',
     backToCart: 'Volver al carrito',
+    identity: {
+      title: '¿Cómo quiere pagar?',
+      guest: {
+        title: 'Comprar como invitado',
+        text: 'Sin crear una cuenta: solo necesitamos sus datos de contacto. Puede usar cupones y pagar por depósito.',
+        action: 'Continuar como invitado',
+      },
+      account: {
+        title: 'Tengo una cuenta',
+        text: 'Con una cuenta también puede personalizar sus productos, pedir productos por encargo y ver sus pedidos.',
+        signIn: 'Iniciar sesión',
+        register: 'Crear cuenta',
+      },
+    },
+    contact: {
+      title: 'Sus datos de contacto',
+      intro: 'Los usamos para el pedido y para que pueda recuperarlo si cambia de dispositivo.',
+      saved: 'Datos guardados',
+      save: 'Guardar datos',
+      current: 'Contacto: {{name}} ({{email}})',
+    },
+    recovery: {
+      title: 'Recupere su pedido después',
+      text: 'Genere un código y guárdelo: con su correo le permite volver a ver su pedido en otro dispositivo. Solo se muestra una vez y un código nuevo reemplaza al anterior.',
+      generate: 'Generar mi código',
+      regenerate: 'Generar un código nuevo',
+      yourCode: 'Su código de recuperación',
+    },
     personalisation: {
+      locked: {
+        title: 'La personalización necesita una cuenta',
+        text: 'Como invitado no puede escribir mensajes en los productos. Inicie sesión o cree una cuenta para hacerlo; sus productos pasan con usted.',
+      },
       title: 'Personalización',
       intro:
         'Opcional. Escriba el mensaje que quiere en cada producto, por ejemplo una dedicatoria en el pastel; se prepara tal como lo indique.',
@@ -143,6 +173,14 @@ export const esGT = {
     },
   },
   auth: {
+    recover: {
+      link: '¿Compró como invitado? Recupere su pedido',
+      title: 'Recuperar mi pedido',
+      subtitle:
+        'Si compró como invitado, escriba el correo y el código de recuperación que guardó.',
+      code: 'Código de recuperación',
+      submit: 'Recuperar',
+    },
     signInTitle: 'Iniciar sesión',
     signInSubtitle: 'Ingrese para ver sus pedidos y comprar más rápido.',
     registerTitle: 'Crear cuenta',
@@ -168,6 +206,7 @@ export const esGT = {
       nameRequired: 'Escriba su nombre.',
       nameLong: 'El nombre no puede pasar de 120 caracteres.',
       phoneInvalid: 'Use solo números, espacios, guiones o paréntesis (de 6 a 20 caracteres).',
+      codeRequired: 'Escriba el código que guardó.',
     },
   },
   catalogue: {
@@ -209,6 +248,10 @@ export const esGT = {
     available_one: 'Queda {{count}} unidad',
     available_other: 'Quedan {{count}} unidades',
     soldOut: 'Agotado por ahora',
+    madeToOrderLocked: {
+      title: 'Este producto se prepara por encargo',
+      text: 'Los productos por encargo se piden con una cuenta, para coordinar la fecha y la personalización. Inicie sesión o cree una; lo que ya tiene en el carrito pasa con usted.',
+    },
     sku: 'Código {{sku}}',
     notFoundTitle: 'Este producto no existe',
     notFoundText: 'Puede que ya no se venda. Revise el catálogo.',
@@ -235,6 +278,11 @@ export const esGT = {
       TOKEN_INVALID: 'Su sesión venció. Inicie sesión de nuevo.',
       FORBIDDEN: 'Su cuenta no tiene permiso para hacer esto.',
       INVALID_CREDENTIALS: 'El correo o la contraseña no son correctos.',
+      ACCOUNT_REQUIRED:
+        'Los productos por encargo y la personalización se piden con una cuenta. Inicie sesión o cree una.',
+      GUEST_CONTACT_REQUIRED: 'Complete sus datos de contacto para continuar.',
+      EMAIL_BELONGS_TO_ACCOUNT: 'Ese correo ya tiene una cuenta. Inicie sesión para continuar.',
+      RECOVERY_INVALID: 'El correo o el código no son correctos.',
       ACCOUNT_LOCKED: 'La cuenta está bloqueada por demasiados intentos. Intente más tarde.',
       ACCOUNT_DISABLED: 'Esta cuenta fue desactivada.',
       EMAIL_ALREADY_REGISTERED: 'Ya existe una cuenta con ese correo.',

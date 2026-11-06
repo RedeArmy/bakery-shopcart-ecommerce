@@ -34,6 +34,26 @@ export const session = (name = 'Ana', role = 'Customer', token = 'token-1') => (
   },
 });
 
+/** La sesión de un invitado: una cuenta sin contraseña con un correo inventado hasta que dé el suyo. */
+export const guestSession = (
+  idUser = 9,
+  email = `guest-${idUser}@guest.invalid`,
+  token = 'guest-token',
+) => ({
+  accessToken: token,
+  refreshToken: 'g'.repeat(40),
+  expiresIn: 900,
+  user: {
+    idUser,
+    role: 'Customer',
+    email,
+    fullName: 'Guest',
+    phone: null,
+    isActive: true,
+    isGuest: true,
+  },
+});
+
 /**
  * Un servidor falso para las pruebas: se declara qué responde cada "MÉTODO /ruta" y se anotan las llamadas recibidas.
  * Las pruebas de las pantallas lo instalan como `fetch` global y así recorren el mismo cliente tipado que usa la app.

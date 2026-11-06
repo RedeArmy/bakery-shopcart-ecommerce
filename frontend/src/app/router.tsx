@@ -2,7 +2,6 @@ import { createBrowserRouter } from 'react-router-dom';
 import type { RouteObject } from 'react-router-dom';
 import { HomePage } from '../features/catalogue/pages/home-page';
 import { Layout } from './layout';
-import { ProtectedRoute } from './protected-route';
 import { NotFoundPage } from './pages/not-found-page';
 import { Splash } from './pages/splash';
 
@@ -35,16 +34,17 @@ export const routes: RouteObject[] = [
         }),
       },
       {
-        // El pago es de clientes con sesión; quien no la tiene va a iniciar sesión y vuelve aquí
-        element: <ProtectedRoute roles={['Customer']} />,
-        children: [
-          {
-            path: 'checkout',
-            lazy: async () => ({
-              Component: (await import('../features/checkout/pages/checkout-page')).CheckoutPage,
-            }),
-          },
-        ],
+        // El pago no exige cuenta: quien no tiene sesión compra como invitado o entra, y la pantalla lo resuelve (ADR-0027)
+        path: 'checkout',
+        lazy: async () => ({
+          Component: (await import('../features/checkout/pages/checkout-page')).CheckoutPage,
+        }),
+      },
+      {
+        path: 'recover',
+        lazy: async () => ({
+          Component: (await import('../features/auth/pages/recover-page')).RecoverPage,
+        }),
       },
       {
         path: 'login',
