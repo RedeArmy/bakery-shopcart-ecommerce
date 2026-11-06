@@ -47,10 +47,11 @@ export const SearchIcon = (props: Readonly<SVGProps<SVGSVGElement>>) => (
   </Icon>
 );
 
-export const BagIcon = (props: Readonly<SVGProps<SVGSVGElement>>) => (
+export const CartIcon = (props: Readonly<SVGProps<SVGSVGElement>>) => (
   <Icon {...props}>
-    <path d="M5 8h14l-1 12H6z" />
-    <path d="M9 8V6a3 3 0 0 1 6 0v2" />
+    <path d="M3 4h2.2l2.3 10.4a1.5 1.5 0 0 0 1.5 1.2h8.1a1.5 1.5 0 0 0 1.5-1.1L20 8H6.1" />
+    <circle cx="9.5" cy="19.5" r="1.4" />
+    <circle cx="17" cy="19.5" r="1.4" />
   </Icon>
 );
 
