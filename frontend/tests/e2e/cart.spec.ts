@@ -45,7 +45,7 @@ test('a visitor fills a cart, keeps it when registering and applies a coupon', a
 
   // Al iniciar sesión el carrito del visitante pasa a la cuenta
   await expect(page).toHaveURL(/\/cart$/);
-  await expect(page.getByText('Pastel Tres Leches')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Pastel Tres Leches' })).toBeVisible();
   await expect(header.getByRole('link', { name: 'Carrito, 1 producto' })).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem('shopcart.cartToken'))).toBeNull();
 

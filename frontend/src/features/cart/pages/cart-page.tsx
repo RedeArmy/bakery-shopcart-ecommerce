@@ -29,9 +29,7 @@ function CheckoutAction({ cart }: Readonly<{ cart: Cart }>) {
         <Button disabled className="w-full">
           {t('cart.checkout.continue')}
         </Button>
-        <p role="status" className="text-sm text-amber-900">
-          {t('cart.checkout.blocked')}
-        </p>
+        <output className="block text-sm text-amber-900">{t('cart.checkout.blocked')}</output>
       </div>
     );
   }

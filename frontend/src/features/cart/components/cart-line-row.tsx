@@ -24,6 +24,11 @@ export function CartLineRow({
   const limit = lineLimit(line);
   const soldOut = line.isAvailable === false || limit === 0;
 
+  let notice = null;
+  if (soldOut) notice = <Badge tone="danger">{t('cart.line.unavailable')}</Badge>;
+  else if (blocked)
+    notice = <Badge tone="warning">{t('cart.line.onlyAvailable', { count: limit })}</Badge>;
+
   return (
     <li className="grid grid-cols-[6rem_1fr] gap-4 py-5 sm:grid-cols-[7rem_1fr_auto]">
       <div className="w-24 sm:w-28">
@@ -43,11 +48,7 @@ export function CartLineRow({
         <p className="text-sm text-stone-600">
           {t('cart.line.unitPrice')}: <Price amount={line.unitPrice} />
         </p>
-        {soldOut ? (
-          <Badge tone="danger">{t('cart.line.unavailable')}</Badge>
-        ) : blocked ? (
-          <Badge tone="warning">{t('cart.line.onlyAvailable', { count: limit })}</Badge>
-        ) : null}
+        {notice}
       </div>
 
       <div className="col-span-2 flex items-center justify-between gap-4 sm:col-span-1 sm:flex-col sm:items-end sm:justify-start">

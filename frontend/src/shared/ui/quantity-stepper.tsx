@@ -21,11 +21,8 @@ export function QuantityStepper({
 }>) {
   const { t } = useTranslation();
   return (
-    <div
-      role="group"
-      aria-label={label}
-      className="inline-flex items-center rounded-control border border-stone-300 bg-white"
-    >
+    <fieldset className="m-0 inline-flex min-w-0 items-center rounded-control border border-stone-300 bg-white p-0">
+      <legend className="sr-only">{label}</legend>
       <button
         type="button"
         className={BUTTON}
@@ -51,6 +48,6 @@ export function QuantityStepper({
       >
         +
       </button>
-    </div>
+    </fieldset>
   );
 }

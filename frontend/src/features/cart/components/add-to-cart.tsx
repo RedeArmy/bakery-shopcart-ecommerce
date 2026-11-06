@@ -65,12 +65,12 @@ export function AddToCart({
         </p>
       ) : null}
       {setItem.isSuccess ? (
-        <p role="status" className="text-sm text-emerald-800">
+        <output className="block text-sm text-emerald-800">
           {t('cart.add.added')}{' '}
           <Link to="/cart" className="font-medium underline">
             {t('cart.add.viewCart')}
           </Link>
-        </p>
+        </output>
       ) : null}
     </div>
   );
