@@ -6,14 +6,14 @@
 |---|---|---|---|---|---|
 | [x] 0 | Foundations: monorepo, tooling, compilable skeleton, Docker and CI skeleton | Wed 28 Oct | Phase 1 | none | `npm ci`, lint, typecheck, test, arch:check and spell pass; the deliberate violation is detected; `docker compose config` is valid |
 | [x] 1 | Documentation and conventions: ADRs, architecture docs, progress tracking, bilingual README | Wed 28 Oct | Phase 1 | 0 | 24 ADRs, all listed documents, Mermaid valid, READMEs in sync |
-| [ ] 2 | Migration runner (`SchemaVersion`, `ObjectVersions`, checksums, `db:verify`), core tables V0001 to V0009, seeds, tSQLt spike | Thu 29 Oct | Phase 1 | 0, 1 | Database builds from scratch twice with the same checksums on Windows and Linux; tSQLt installs and runs one test, or plan B is chosen |
-| [ ] 3 | Functions, views, triggers (money, state machines, immutability); procedures for auth, catalogue and inventory (atomic reservation) | Thu 29 Oct | Phase 1 | 2 | `Test_Money` and `Test_Inventory` green; 100 parallel reservations of 1 unit give exactly 1 success |
-| [ ] 4 | Cart, coupons, `CreateOrder`, `ConfirmPayment`, deposit flow, idempotency, returns, financial ledger, audit log; tSQLt suites | Fri 30 Oct | Phase 1 | 3 | States, immutability, coupons, payments and permissions suites green; `sp-coverage` passes; reconciliation views return 0 rows |
-| [ ] 5 | Backend slices, JWT with rotating refresh, idempotency and rate-limit middleware, secure proof upload, review queue, OpenAPI | Sat 31 Oct | Phase 1 | 4 | Endpoints match the contract; 401/403/404 behaviour verified; sixth login in a minute answers 429 |
-| [ ] 6 | Dashboard, jobs (expiry, reconciliation), concurrency/idempotency/IDOR/money tests, README final review, freeze | Sun 1 Nov | **Phase 1, Mon 2 Nov 23:59** | 5 | All Phase 1 checklist items in the [definition of done](../quality/definition-of-done.md); tag `release: phase 1` with hours to spare |
-| [ ] 7 | Frontend: auth, catalogue, cart, checkout and deposit, admin and review queue, dashboard, responsive | 3 to 5 Nov | Phase 2 | 6 | Role-based routes, loading/empty/error states, transparent refresh |
-| [ ] 8 | Card payments: Recurrente adapter, webhook, verification, reconciliation job, simulator; validate unverified API points with test keys | 6 to 7 Nov | Phase 2 | 6 | Card purchase works against the simulator; open questions 5 resolved |
-| [ ] 9 | Method switching, refunds, SonarQube, Schemathesis, Playwright, extras, defence rehearsal | Sun 8 Nov | Phase 2 | 7, 8 | End-to-end scenarios green; quality profile runs |
+| [x] 2 | Migration runner (`SchemaVersion`, `ObjectVersions`, checksums, `db:verify`), core tables V0001 to V0009, seeds, tSQLt spike | Thu 29 Oct | Phase 1 | 0, 1 | Database builds from scratch twice with the same checksums on Windows and Linux; tSQLt installs and runs one test, or plan B is chosen |
+| [x] 3 | Functions, views, triggers (money, state machines, immutability); procedures for auth, catalogue and inventory (atomic reservation) | Thu 29 Oct | Phase 1 | 2 | `Test_Money` and `Test_Inventory` green; 100 parallel reservations of 1 unit give exactly 1 success |
+| [x] 4 | Cart, coupons, `CreateOrder`, `ConfirmPayment`, deposit flow, idempotency, returns, financial ledger, audit log; tSQLt suites | Fri 30 Oct | Phase 1 | 3 | States, immutability, coupons, payments and permissions suites green; `sp-coverage` passes; reconciliation views return 0 rows |
+| [x] 5 | Backend slices, JWT with rotating refresh, idempotency and rate-limit middleware, secure proof upload, review queue, OpenAPI | Sat 31 Oct | Phase 1 | 4 | Endpoints match the contract; 401/403/404 behaviour verified; sixth login in a minute answers 429 |
+| [x] 6 | Dashboard, jobs (expiry, reconciliation), concurrency/idempotency/IDOR/money tests, README final review, freeze | Sun 1 Nov | **Phase 1, Mon 2 Nov 23:59** | 5 | All Phase 1 checklist items in the [definition of done](../quality/definition-of-done.md); tag `release: phase 1` with hours to spare |
+| [ ] 7 | Frontend, in the order of the [scope](../architecture/06-frontend-lld.md#phase-2-scope-and-order): foundations (generated client, forms, charts, end-to-end tool: done), authentication, catalogue and cart, checkout and deposit, my orders, deposit review queue, staff orders, dashboard, the rest of the administration, responsive | 5 to 8 Nov | Phase 2 | 6 | Role-based routes, loading/empty/error states, transparent refresh |
+| [-] 8 | Dropped: card payments (Recurrente adapter, webhook, verification, simulator). No payment gateway is required, so the deposit is the only method | none | none | none | none |
+| [ ] 9 | Playwright end-to-end (buy with a deposit, reject, upload again, approve), defence rehearsal. Optional if time remains: SonarQube profile, Schemathesis | Sun 8 Nov | Phase 2 | 7 | End-to-end scenarios green |
 | [ ] 10 | Final polish and push | Mon 9 Nov | **Phase 2, Mon 9 Nov 23:59** | 9 | Clean-machine run from the README only; tag `release: phase 2` |
 
 ## Repository hardening (between Stage 1 and Stage 2, done on 29 Oct)
@@ -25,7 +25,7 @@
 - [x] Controlled dependency upgrades (`vitest` pair, `@eslint/js` kept on 9.x).
 - [x] Branches cleaned up: only `main` remains.
 
-Stages 2 to 6 now have to fit in the four days before Delivery Phase 1; see the calendar risk in [STATUS](STATUS.md).
+Stages 2 to 6 closed Delivery Phase 1. Stage 8 is dropped; the remaining stages have to fit in the days before Delivery Phase 2, see the calendar risk in [STATUS](STATUS.md).
 
 ## Tracked follow-ups
 
