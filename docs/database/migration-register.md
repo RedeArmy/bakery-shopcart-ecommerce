@@ -57,6 +57,7 @@ Environment states used in the register: **Verified** (run and checked), **Pendi
 | V0011 | `V0011__add_one_active_reservation_per_cart.sql` | One active reservation per cart | Schema, additive | Low | Applied |
 | V0012 | `V0012__add_retention_indexes_and_category_foreign_key.sql` | Operation and retention indexes, category foreign key | Schema, additive | Low | Draft |
 | V0013 | `V0013__add_guest_accounts.sql` | Guest accounts | Schema, additive | Medium | Draft |
+| V0014 | `V0014__add_normalised_email_key.sql` | Normalised email key for the coupon limit | Schema, additive | Low | Draft |
 
 Risk is the impact of a defect in the migration, not of running it: all nine run on an empty database, take no meaningful locks and move no data. **High** marks the migrations that protect money (V0007) or that can block legitimate writes if wrong (V0009).
 
@@ -290,6 +291,26 @@ Each entry uses the template in section 7. Common fields for V0001 to V0009 (V00
 | Reviewer | Repository owner |
 | Environments | Local Pending; CI Pending; Production Not deployed |
 
+### V0014: Normalised email key
+
+| Field | Value |
+|---|---|
+| File | `db/migrations/V0014__add_normalised_email_key.sql` |
+| SHA-256 | `0dcfbf699c5addc7830b771a6cfd2e4ab95d8da9d0caf47ec88396f392cfa943` |
+| Description | A persisted computed column `Users.EmailKey` that gives the same value to the emails of one person: lower case, without the `+tag` of the local part and, for gmail.com and googlemail.com, without the dots and with the domain gmail.com. The coupon limit per customer counts the usages of every account with the same key, so opening another account with `ana+2@...` or `a.na@gmail.com` does not restart a limit of one use per customer. |
+| Objects created | Computed persisted column `Users.EmailKey` (deterministic functions only); index `IX_Users_EmailKey (EmailKey)` |
+| Key rules | The email stays unique among real accounts: a person may register their aliases, but a coupon counts them as one. Dots count in every other domain (`a.b@x.com` and `ab@x.com` can be different people). A leading `+` is not a tag. Guest placeholder emails are unique, so they never share a key |
+| Depends on | V0001, V0013 |
+| Data migration | None: the column is computed from the existing emails |
+| Online impact | A persisted computed column on `Users` is materialised once and the index is built on a small table |
+| Compatibility | Existing calls keep working. `FU_Coupons_Status` and `SP_Orders_CreateOrder` use the key |
+| Rollback | Compensating migration: drop the index and the column; the coupon limit would return to counting by account |
+| Tests | `Test_EmailKey` (new: the normalisation rules and the coupon limit across aliases, also through the order flow) and the concurrency scenario "10 accounts of the same person compete for a coupon of one use per customer" |
+| Author, date | Eder Yafeth Garcia Quiroa, 6 November 2026 |
+| Pull request | Pending |
+| Reviewer | Repository owner |
+| Environments | Local Verified (applied, 577 tSQLt tests and the concurrency checks passed); CI Pending; Production Not deployed |
+
 ### Reference seeds
 
 Seeds are idempotent `MERGE` scripts applied after the migrations. They are registered because the code, the API and the tests assume exactly these values. The common fields are the same as above, except the pull request, which is the one that adds them (see the revision history), and the rollback, which is to correct the seed and let the runner apply the new version.
@@ -367,3 +388,4 @@ Programmable objects and seeds: a change to an `R####` object needs only the ver
 | 30 October 2026 | V0011 added with the stock reservation; V0010 and V0011 set to Applied after pull requests #20 and #28 | Eder Yafeth Garcia Quiroa |
 | 30 October 2026 | V0012 and S0006 added with the database review: operation and retention indexes, the category foreign key and the retention settings | Eder Yafeth Garcia Quiroa |
 | 6 November 2026 | V0013 added: guest accounts | Eder Yafeth Garcia Quiroa |
+| 6 November 2026 | V0014 added: normalised email key for the coupon limit | Eder Yafeth Garcia Quiroa |
