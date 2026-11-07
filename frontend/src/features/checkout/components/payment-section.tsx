@@ -73,7 +73,16 @@ export function PaymentSection({
                   onBank(account.idBankAccount);
                 }}
               />
-              <span className="text-sm text-stone-800">
+              {/* El nombre accesible es una sola frase; la tarjeta de abajo es solo para la vista */}
+              <span className="sr-only">
+                {t('checkout.payment.accountOption', {
+                  bank: account.bankName,
+                  type: t(`checkout.payment.accountType.${account.accountType}`),
+                  number: account.accountNumber,
+                  holder: account.holderName,
+                })}
+              </span>
+              <span aria-hidden="true" className="text-sm text-stone-800">
                 <span className="block font-medium text-stone-900">{account.bankName}</span>
                 <span className="block">
                   {t(`checkout.payment.accountType.${account.accountType}`)} ·{' '}

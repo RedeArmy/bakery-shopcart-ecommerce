@@ -192,6 +192,7 @@ export const esGT = {
         'Pague por depósito o transferencia bancaria. Al confirmar le damos el monto exacto y la referencia que debe usar, y usted sube su comprobante para que una persona lo revise.',
       deadline: 'Tiene hasta el {{date}} para depositar.',
       account: 'Cuenta donde depositar',
+      accountOption: '{{bank}}, {{type}} {{number}}, a nombre de {{holder}}',
       accountType: { Checking: 'Cuenta monetaria', Savings: 'Cuenta de ahorro' },
       unavailable: 'El depósito no está disponible para esa fecha.',
     },
