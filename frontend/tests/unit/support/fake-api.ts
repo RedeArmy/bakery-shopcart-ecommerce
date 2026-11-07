@@ -64,13 +64,20 @@ export function installFakeApi(routes: Record<string, Reply>) {
     async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
       const request = input instanceof Request ? input : new Request(input, init);
       const url = new URL(request.url);
-      const raw = request.method === 'GET' || request.method === 'HEAD' ? '' : await request.text();
+      let body: unknown;
+      if (request.method !== 'GET' && request.method !== 'HEAD') {
+        const raw = await request.text();
+        const isJson = (request.headers.get('content-type') ?? '').includes('json');
+        // Un cuerpo que no es JSON (el comprobante va como formulario) se anota como texto: en jsdom `FormData` no es el de
+        // `fetch`, así que sus campos se comprueban espiando `append`
+        body = raw === '' || !isJson ? raw || undefined : (JSON.parse(raw) as unknown);
+      }
       const call: Call = {
         method: request.method,
         path: url.pathname,
         search: url.search,
         headers: request.headers,
-        body: raw === '' ? undefined : (JSON.parse(raw) as unknown),
+        body,
       };
       calls.push(call);
       const reply = routes[`${call.method} ${call.path}`];

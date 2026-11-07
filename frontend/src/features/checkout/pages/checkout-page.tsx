@@ -10,6 +10,7 @@ import type { Cart } from '../../cart/model/cart-model';
 import { GuestContactForm } from '../components/guest-contact-form';
 import { IdentityStep } from '../components/identity-step';
 import { LinePersonalisation } from '../components/line-personalisation';
+import { PurchaseSteps } from '../components/purchase-steps';
 import { RecoveryCodePanel } from '../components/recovery-code-panel';
 
 /** Personalización de cada producto: solo con cuenta. Un invitado o un visitante ve por qué y cómo desbloquearla. */
@@ -66,6 +67,9 @@ export function CheckoutPage() {
                 <RecoveryCodePanel />
               ) : null}
               <PersonalisationSection cart={data} allowed={hasAccount(session)} />
+              {user !== null && (!isGuestSession(session) || hasContact(user)) ? (
+                <PurchaseSteps cart={data} />
+              ) : null}
             </div>
           }
           summary={
