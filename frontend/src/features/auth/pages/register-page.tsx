@@ -6,6 +6,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError, errorMessage } from '../../../shared/api';
 import { auth, hasAccount, useSession } from '../../../shared/auth';
 import { AuthLayout, FormAlert, SubmitButton, fieldError } from '../components/auth-layout';
+import { ContactFields } from '../components/contact-fields';
 import { TextField } from '../../../shared/ui/fields';
 import { registerSchema } from '../model/schemas';
 import type { RegisterValues } from '../model/schemas';
@@ -62,27 +63,7 @@ export function RegisterPage() {
       switchState={arrival}
     >
       <form onSubmit={(event) => void onSubmit(event)} noValidate className="space-y-5">
-        <TextField
-          label={t('auth.fullName')}
-          autoComplete="name"
-          error={fieldError(t, errors.fullName?.message)}
-          {...register('fullName')}
-        />
-        <TextField
-          label={t('auth.email')}
-          type="email"
-          autoComplete="email"
-          error={fieldError(t, errors.email?.message)}
-          {...register('email')}
-        />
-        <TextField
-          label={t('auth.phone')}
-          optionalLabel={t('common.optional')}
-          type="tel"
-          autoComplete="tel"
-          error={fieldError(t, errors.phone?.message)}
-          {...register('phone')}
-        />
+        <ContactFields register={register} errors={errors} />
         <TextField
           label={t('auth.credentialLabel')}
           type="password"

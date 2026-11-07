@@ -5,8 +5,7 @@ import { errorMessage } from '../../../shared/api';
 import { hasContact } from '../../../shared/auth';
 import type { SessionUser } from '../../../shared/auth';
 import { Button } from '../../../shared/ui/button';
-import { TextField } from '../../../shared/ui/fields';
-import { fieldError } from '../../auth/components/auth-layout';
+import { ContactFields } from '../../auth/components/contact-fields';
 import { guestContactSchema } from '../../auth/model/schemas';
 import type { GuestContactValues } from '../../auth/model/schemas';
 import { useSaveGuestContact } from '../hooks/use-guest-checkout';
@@ -46,27 +45,7 @@ export function GuestContactForm({ user }: Readonly<{ user: SessionUser }>) {
         noValidate
         className="space-y-4"
       >
-        <TextField
-          label={t('auth.fullName')}
-          autoComplete="name"
-          error={fieldError(t, errors.fullName?.message)}
-          {...register('fullName')}
-        />
-        <TextField
-          label={t('auth.email')}
-          type="email"
-          autoComplete="email"
-          error={fieldError(t, errors.email?.message)}
-          {...register('email')}
-        />
-        <TextField
-          label={t('auth.phone')}
-          optionalLabel={t('common.optional')}
-          type="tel"
-          autoComplete="tel"
-          error={fieldError(t, errors.phone?.message)}
-          {...register('phone')}
-        />
+        <ContactFields register={register} errors={errors} />
         {save.isError ? (
           <p role="alert" className="rounded-control bg-red-50 px-4 py-3 text-sm text-red-900">
             {errorMessage(save.error)}

@@ -2,9 +2,8 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { hasAccount, hasContact, isGuestSession, useSession } from '../../../shared/auth';
 import { ForbiddenPage } from '../../../app/pages/forbidden-page';
-import { ButtonLink } from '../../../shared/ui/button';
-import { EmptyState, ErrorState, LoadingSkeleton } from '../../../shared/ui/states';
 import { AccountRequired } from '../../cart/components/account-required';
+import { CartColumns, CartGate } from '../../cart/components/cart-layout';
 import { CartSummary } from '../../cart/components/cart-summary';
 import { useCart } from '../../cart/hooks/use-cart';
 import type { Cart } from '../../cart/model/cart-model';
@@ -53,48 +52,34 @@ export function CheckoutPage() {
   // El personal no compra: sus cuentas no son de clientes
   if (session.user !== null && session.user.role !== 'Customer') return <ForbiddenPage />;
 
-  let body;
-  if (session.status === 'unknown' || cart.isPending) {
-    body = <LoadingSkeleton count={4} />;
-  } else if (cart.isError) {
-    body = <ErrorState error={cart.error} onRetry={() => void cart.refetch()} />;
-  } else if (cart.data.lines.length === 0) {
-    body = (
-      <EmptyState
-        title={t('cart.emptyTitle')}
-        text={t('cart.emptyText')}
-        action={<ButtonLink to="/catalogue">{t('cart.emptyCta')}</ButtonLink>}
-      />
-    );
-  } else {
-    const data = cart.data;
-    const user = session.user;
-    body = (
-      <div className="grid gap-8 lg:grid-cols-[1fr_22rem] lg:items-start">
-        <div className="space-y-10">
-          {user === null ? <IdentityStep /> : null}
-          {user !== null && isGuestSession(session) ? <GuestContactForm user={user} /> : null}
-          {user !== null && isGuestSession(session) && hasContact(user) ? (
-            <RecoveryCodePanel />
-          ) : null}
-          <PersonalisationSection cart={data} allowed={hasAccount(session)} />
-        </div>
-
-        <aside
-          aria-labelledby="checkout-summary"
-          className="space-y-5 rounded-card border border-stone-200 bg-white p-5 lg:sticky lg:top-24"
-        >
-          <h2 id="checkout-summary" className="text-xl text-stone-900">
-            {t('cart.summary.title')}
-          </h2>
-          <CartSummary cart={data} />
-          <Link to="/cart" className="block text-sm text-accent hover:underline">
-            {t('checkout.backToCart')}
-          </Link>
-        </aside>
-      </div>
-    );
-  }
+  const user = session.user;
+  const body = (
+    <CartGate query={cart} waiting={session.status === 'unknown'}>
+      {(data) => (
+        <CartColumns
+          summaryId="checkout-summary"
+          main={
+            <div className="space-y-10">
+              {user === null ? <IdentityStep /> : null}
+              {user !== null && isGuestSession(session) ? <GuestContactForm user={user} /> : null}
+              {user !== null && isGuestSession(session) && hasContact(user) ? (
+                <RecoveryCodePanel />
+              ) : null}
+              <PersonalisationSection cart={data} allowed={hasAccount(session)} />
+            </div>
+          }
+          summary={
+            <>
+              <CartSummary cart={data} />
+              <Link to="/cart" className="block text-sm text-accent hover:underline">
+                {t('checkout.backToCart')}
+              </Link>
+            </>
+          }
+        />
+      )}
+    </CartGate>
+  );
 
   return (
     <div className="space-y-8">
