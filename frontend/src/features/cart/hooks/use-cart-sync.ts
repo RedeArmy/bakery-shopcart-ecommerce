@@ -58,18 +58,17 @@ export function useCartSync(): void {
       carrying.current = true;
       void (async () => {
         try {
-          for (const line of previous.lines) {
-            try {
+          // Lo que ya no alcanza o se agotó se omite: pasar el carrito no debe impedir iniciar sesión
+          await Promise.allSettled(
+            previous.lines.map(async (line) =>
               unwrap(
                 await api.PUT('/api/v1/cart/items/{variantId}', {
                   params: { path: { variantId: line.idVariant }, header: {} },
                   body: { quantity: line.quantity, inscription: null },
                 }),
-              );
-            } catch {
-              // Lo que ya no alcanza o se agotó se omite: pasar el carrito no debe impedir iniciar sesión
-            }
-          }
+              ),
+            ),
+          );
           await queryClient.invalidateQueries({ queryKey: ['cart'] });
         } finally {
           carrying.current = false;

@@ -241,12 +241,11 @@ export class AuthService {
   async recoverGuest(email: string, code: string): Promise<Result<Session, AppError>> {
     const presented = Buffer.from(hashCode(code), 'hex');
     const candidates = await this.repository.findGuestsByEmail(email);
-    // Se compara con todos los candidatos aunque uno ya coincida: el tiempo no dice cuál era
-    const matches = candidates.filter((candidate) => {
+    // Cada comparación es de tiempo constante; los candidatos son las cuentas del mismo correo, no un dato secreto
+    const match = candidates.find((candidate) => {
       const stored = Buffer.from(candidate.recoveryHash, 'hex');
       return stored.length === presented.length && timingSafeEqual(stored, presented);
     });
-    const match = matches[0];
     if (match === undefined) return err(RECOVERY_INVALID());
 
     const user = await this.repository.findById(match.idUser);
