@@ -102,6 +102,12 @@ export function PurchaseSteps({ cart }: Readonly<{ cart: Cart }>) {
               onSuccess: (order) => {
                 void navigate(`/orders/${String(order.idOrder)}/payment`, { replace: true });
               },
+              // Si el servidor dice que la reserva venció, ya no hay nada que confirmar: se vuelve a reservar
+              onError: (failure) => {
+                if (failure instanceof ApiError && failure.code === 'RESERVATION_EXPIRED') {
+                  setReservation(null);
+                }
+              },
             },
           );
         }}

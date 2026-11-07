@@ -46,9 +46,8 @@ function AddressForm({
   return (
     <form
       onSubmit={(event) =>
-        void handleSubmit(async (values) => {
-          const idAddress = await create.mutateAsync(values);
-          onSaved(idAddress);
+        void handleSubmit((values) => {
+          create.mutate(values, { onSuccess: onSaved });
         })(event)
       }
       noValidate
