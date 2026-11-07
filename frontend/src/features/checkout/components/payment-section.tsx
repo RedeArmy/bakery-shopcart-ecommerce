@@ -40,9 +40,9 @@ export function PaymentSection({
     body = null;
   } else if (deposit?.available !== true) {
     body = (
-      <p role="status" className="rounded-control bg-amber-50 px-4 py-3 text-sm text-amber-900">
+      <output className="block rounded-control bg-amber-50 px-4 py-3 text-sm text-amber-900">
         {reasonText(deposit?.reason)}
-      </p>
+      </output>
     );
   } else {
     body = (
@@ -60,9 +60,11 @@ export function PaymentSection({
           {accounts.map((account) => (
             <label
               key={account.idBankAccount}
+              htmlFor={`bank-account-${String(account.idBankAccount)}`}
               className="flex cursor-pointer gap-3 rounded-card border border-stone-200 bg-white p-4 has-[:checked]:border-accent has-[:checked]:bg-accent-soft"
             >
               <input
+                id={`bank-account-${String(account.idBankAccount)}`}
                 type="radio"
                 name="bank-account"
                 className="mt-1 accent-accent"

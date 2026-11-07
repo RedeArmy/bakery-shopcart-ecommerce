@@ -34,7 +34,7 @@ export function ProofForm({ idOrder, amount }: Readonly<{ idOrder: number; amoun
 
   // La vista previa solo existe para imágenes y se libera al cambiar de archivo o salir
   useEffect(() => {
-    if (file === null || !file.type.startsWith('image/')) {
+    if (!file?.type.startsWith('image/')) {
       setPreview(null);
       return;
     }

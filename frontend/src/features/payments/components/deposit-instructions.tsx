@@ -14,9 +14,11 @@ export function DepositInstructions({
   running,
 }: Readonly<{ payment: Payment; orderNumber: string; running: boolean }>) {
   const { t } = useTranslation();
-  const accountType = payment.accountType
-    ? `${t(`checkout.payment.accountType.${payment.accountType}`)} · `
-    : '';
+  // El tipo de cuenta se traduce aparte para no anidar plantillas
+  const typeLabel = payment.accountType
+    ? t(`checkout.payment.accountType.${payment.accountType}`)
+    : null;
+  const accountType = typeLabel === null ? '' : `${typeLabel} · `;
   return (
     <section
       aria-labelledby="deposit-instructions"
