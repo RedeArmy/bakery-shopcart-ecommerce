@@ -17,7 +17,7 @@ export function Disclosure({
   id: string;
   title: string;
   /** Lo que ya se eligió o una pista; se ve con la sección cerrada */
-  summary?: string | undefined;
+  summary?: string;
   defaultOpen?: boolean;
   children: ReactNode;
 }>) {

@@ -14,6 +14,12 @@ const fields = (input: BranchInput) => [
   { name: 'OpeningHours', type: sql.NVarChar(200), value: input.openingHours },
 ];
 
+// El actor y la sucursal acompañan a toda operación sobre una sucursal existente
+const target = (actor: number, id: number) => [
+  { name: 'IDActor', type: sql.Int, value: actor },
+  { name: 'IDBranch', type: sql.Int, value: id },
+];
+
 export function createSqlBranchesRepository(execute: ProcedureExecutor): BranchesRepository {
   return {
     async list(includeInactive: boolean): Promise<Row[]> {
@@ -33,18 +39,11 @@ export function createSqlBranchesRepository(execute: ProcedureExecutor): Branche
     },
 
     async update(actor: number, id: number, input: BranchInput): Promise<void> {
-      await execute('dbo.SP_Branches_Update', [
-        { name: 'IDActor', type: sql.Int, value: actor },
-        { name: 'IDBranch', type: sql.Int, value: id },
-        ...fields(input),
-      ]);
+      await execute('dbo.SP_Branches_Update', [...target(actor, id), ...fields(input)]);
     },
 
     async deactivate(actor: number, id: number): Promise<void> {
-      await execute('dbo.SP_Branches_Deactivate', [
-        { name: 'IDActor', type: sql.Int, value: actor },
-        { name: 'IDBranch', type: sql.Int, value: id },
-      ]);
+      await execute('dbo.SP_Branches_Deactivate', target(actor, id));
     },
   };
 }
