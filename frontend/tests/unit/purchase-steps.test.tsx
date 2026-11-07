@@ -37,6 +37,7 @@ const bank = {
 
 const methods = (extra = {}) => ({
   deliveryDate: '2030-06-10',
+  estimatedDeliveryDate: '2030-06-10',
   earliestDeliveryDate: '2030-06-10',
   deliveryDateAllowed: true,
   methods: [{ method: 'BANK_DEPOSIT', available: true, reason: null, deadlineAt: null }],
@@ -77,7 +78,7 @@ describe('the purchase steps of the checkout', () => {
     const reserve = await screen.findByRole<HTMLButtonElement>('button', {
       name: 'Reservar mis productos',
     });
-    // Se habilita cuando la dirección, la fecha y la cuenta ya están elegidas
+    // Se habilita cuando la dirección y la cuenta ya están elegidas
     await waitFor(() => {
       expect(reserve.disabled).toBe(false);
     });
@@ -86,12 +87,14 @@ describe('the purchase steps of the checkout', () => {
 
     expect(await screen.findByRole('heading', { name: 'Pedido PED-2026-000007' })).toBeDefined();
     const confirm = calls.find((call) => call.path === '/api/v1/checkout/confirm');
+    // No viaja ninguna fecha: la define el sistema
     expect(confirm?.body).toEqual({
       idReservation: 41,
-      idAddress: 3,
-      deliveryDate: '2030-06-10',
-      method: 'BANK_DEPOSIT',
       idBankAccount: 2,
+      method: 'BANK_DEPOSIT',
+      fulfilmentType: 'Delivery',
+      idAddress: 3,
+      idBranch: null,
     });
     // La confirmación lleva su llave de idempotencia, para que repetirla no cree dos pedidos
     expect(confirm?.headers.get('Idempotency-Key')).toBeTruthy();
@@ -143,5 +146,94 @@ describe('the purchase steps of the checkout', () => {
     await user.click(reserve);
     expect(await screen.findByRole('alert')).toBeDefined();
     expect(screen.queryByRole('button', { name: 'Confirmar pedido' })).toBeNull();
+  });
+});
+
+describe('pickup at a branch', () => {
+  const branch = {
+    idBranch: 5,
+    name: 'Centro',
+    line1: '6a avenida 10-20',
+    municipality: 'Guatemala',
+    department: 'Guatemala',
+    phone: '22221111',
+    openingHours: 'Lunes a sábado de 8:00 a 18:00',
+    isActive: true,
+  };
+
+  it('tells the customer the date is only an estimate and gives no calendar to pick one', async () => {
+    await signInAs('Customer');
+    installFakeApi({
+      'GET /api/v1/cart': json(cart),
+      'GET /api/v1/addresses': json([address]),
+      'GET /api/v1/checkout/payment-methods': json(methods()),
+    });
+    renderApp('/checkout');
+
+    expect(await screen.findByText(/La fecha estimada de entrega es el/)).toBeDefined();
+    expect(screen.getByText(/Es un estimado: puede ser unos días antes o después/)).toBeDefined();
+    expect(screen.queryByLabelText('Día de entrega')).toBeNull();
+  });
+
+  it('offers the branches in the dropdown and asks for no address when one is chosen', async () => {
+    await signInAs('Customer');
+    const user = userEvent.setup();
+    const { calls } = installFakeApi({
+      'GET /api/v1/cart': json(cart),
+      'GET /api/v1/addresses': json([address]),
+      'GET /api/v1/branches': json([branch]),
+      'GET /api/v1/checkout/payment-methods': json(methods()),
+      'POST /api/v1/checkout/start': json({
+        idReservation: 41,
+        expiresAt: '2099-01-01T00:15:00Z',
+      }),
+      'POST /api/v1/checkout/confirm': json({
+        idOrder: 8,
+        idPayment: 2,
+        orderNumber: 'PED-2026-000008',
+        paymentExpiresAt: '2099-01-02T00:00:00Z',
+      }),
+      'GET /api/v1/orders/8': json({
+        idOrder: 8,
+        orderNumber: 'PED-2026-000008',
+        total: '145.00',
+        fulfilmentType: 'Pickup',
+        pickupBranchName: 'Centro',
+      }),
+      'GET /api/v1/orders/8/payment': json([]),
+    });
+    renderApp('/checkout');
+
+    const select = await screen.findByLabelText('Forma de recibirlo');
+    await screen.findByRole('option', { name: 'Recoger en Centro' });
+    expect(screen.getByRole('radio', { name: /Casa · Ana Pérez/ })).toBeDefined();
+
+    await user.selectOptions(select, 'Recoger en Centro');
+
+    // La sucursal se muestra con sus datos y la dirección de entrega desaparece
+    expect(await screen.findByText(/6a avenida 10-20/)).toBeDefined();
+    expect(screen.getByText('Teléfono: 22221111')).toBeDefined();
+    expect(screen.getByText(/La fecha estimada para recogerlo es el/)).toBeDefined();
+    expect(screen.queryByRole('radio', { name: /Casa · Ana Pérez/ })).toBeNull();
+
+    const reserve = await screen.findByRole<HTMLButtonElement>('button', {
+      name: 'Reservar mis productos',
+    });
+    await waitFor(() => {
+      expect(reserve.disabled).toBe(false);
+    });
+    await user.click(reserve);
+    await user.click(await screen.findByRole('button', { name: 'Confirmar pedido' }));
+
+    await screen.findByRole('heading', { name: 'Pedido PED-2026-000008' });
+    const confirm = calls.find((call) => call.path === '/api/v1/checkout/confirm');
+    expect(confirm?.body).toEqual({
+      idReservation: 41,
+      idBankAccount: 2,
+      method: 'BANK_DEPOSIT',
+      fulfilmentType: 'Pickup',
+      idAddress: null,
+      idBranch: 5,
+    });
   });
 });

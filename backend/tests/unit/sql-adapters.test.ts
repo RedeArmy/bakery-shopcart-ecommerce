@@ -3,6 +3,7 @@ import { createSqlAuthRepository } from '../../src/modules/auth/infrastructure/s
 import { createSqlAuditRepository } from '../../src/modules/audit/infrastructure/sql-audit-repository.js';
 import { createSqlCartRepository } from '../../src/modules/cart/infrastructure/sql-cart-repository.js';
 import { createSqlCatalogueRepository } from '../../src/modules/catalogue/infrastructure/sql-catalogue-repository.js';
+import { createSqlBranchesRepository } from '../../src/modules/branches/infrastructure/sql-branches-repository.js';
 import { createSqlCheckoutRepository } from '../../src/modules/checkout/infrastructure/sql-checkout-repository.js';
 import { createSqlDashboardRepository } from '../../src/modules/dashboard/infrastructure/sql-dashboard-repository.js';
 import { createSqlCouponsRepository } from '../../src/modules/coupons/infrastructure/sql-coupons-repository.js';
@@ -617,6 +618,53 @@ const cases: Case[] = [
     ['IDUser', 'DeliveryDate'],
   ],
   [
+    'depositWindow without a date',
+    (e) => createSqlCheckoutRepository(e).depositWindow(1, null),
+    'dbo.SP_Payments_GetMethodsAndWindow',
+    ['IDUser', 'DeliveryDate'],
+  ],
+  [
+    'branches list',
+    (e) => createSqlBranchesRepository(e).list(true),
+    'dbo.SP_Branches_List',
+    ['IncludeInactive'],
+  ],
+  [
+    'branches create',
+    (e) =>
+      createSqlBranchesRepository(e).create(1, {
+        name: 'Centro',
+        line1: 'Street 1',
+        municipality: 'Guatemala',
+        department: 'Guatemala',
+        phone: null,
+        openingHours: null,
+      }),
+    'dbo.SP_Branches_Create',
+    ['IDActor', 'Name', 'Line1', 'Municipality', 'Department', 'Phone', 'OpeningHours'],
+    ['IDBranch'],
+  ],
+  [
+    'branches update',
+    (e) =>
+      createSqlBranchesRepository(e).update(1, 2, {
+        name: 'Centro',
+        line1: 'Street 1',
+        municipality: 'Guatemala',
+        department: 'Guatemala',
+        phone: '2222',
+        openingHours: 'L-V',
+      }),
+    'dbo.SP_Branches_Update',
+    ['IDActor', 'IDBranch', 'Name', 'Line1', 'Municipality', 'Department', 'Phone', 'OpeningHours'],
+  ],
+  [
+    'branches deactivate',
+    (e) => createSqlBranchesRepository(e).deactivate(1, 2),
+    'dbo.SP_Branches_Deactivate',
+    ['IDActor', 'IDBranch'],
+  ],
+  [
     'bankAccounts',
     (e) => createSqlCheckoutRepository(e).bankAccounts(),
     'dbo.SP_BankAccounts_List',
@@ -628,7 +676,9 @@ const cases: Case[] = [
       createSqlCheckoutRepository(e).createOrder({
         userId: 1,
         idReservation: 2,
+        fulfilmentType: 'Delivery',
         idAddress: 3,
+        idBranch: null,
         deliveryDate: '2030-06-20',
         idPaymentMethod: 2,
         storedKey: 'k',
@@ -640,6 +690,8 @@ const cases: Case[] = [
       'IDReservation',
       'IDAddress',
       'RequestedDeliveryDate',
+      'FulfilmentType',
+      'IDBranch',
       'IDPaymentMethod',
       'IdempotencyKey',
       'IDBankAccount',

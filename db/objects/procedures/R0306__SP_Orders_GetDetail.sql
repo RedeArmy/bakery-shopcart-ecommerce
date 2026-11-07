@@ -1,9 +1,10 @@
 /* =====================================================================
    Objeto   : dbo.SP_Orders_GetDetail
-   Version  : 1.0.0
+   Version  : 1.1.0
    Cambio   : Primera versión: detalle de un pedido con sus líneas y su historial de estados
+   Cambio 1.1.0: agrega FulfilmentType (Delivery o Pickup) y la sucursal de recogida; la dirección de entrega es NULL en una recogida.
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
-   Compat   : Nueva. Una sola fila; Lines e History son arreglos JSON. El pedido de otra persona responde igual que uno
+   Compat   : Solo agrega columnas a 1.0.0. Una sola fila; Lines e History son arreglos JSON. El pedido de otra persona responde igual que uno
               inexistente. Errores: 50400, 50404.
    ===================================================================== */
 CREATE OR ALTER PROCEDURE dbo.SP_Orders_GetDetail
@@ -23,7 +24,7 @@ BEGIN
   SELECT o.IDOrder, o.OrderNumber, o.IDUser, CustomerName = u.FullName, CustomerEmail = u.Email,
          o.IDOrderStatus, StatusName = s.Name, o.CouponCode,
          o.DeliveryRecipient, o.DeliveryPhone, o.DeliveryLine1, o.DeliveryMunicipality, o.DeliveryDepartment,
-         o.RequestedDeliveryDate,
+         o.RequestedDeliveryDate, o.FulfilmentType, o.IDBranch, o.PickupBranchName, o.PickupBranchAddress,
          Subtotal = CAST(o.Subtotal AS VARCHAR(25)), Discount = CAST(o.Discount AS VARCHAR(25)),
          Shipping = CAST(o.Shipping AS VARCHAR(25)), Total = CAST(o.Total AS VARCHAR(25)),
          TaxableBase = CAST(o.TaxableBase AS VARCHAR(25)), Vat = CAST(o.Vat AS VARCHAR(25)),

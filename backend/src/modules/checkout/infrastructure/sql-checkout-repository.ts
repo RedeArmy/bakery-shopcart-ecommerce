@@ -11,7 +11,8 @@ import type {
 } from '../application/checkout-service.js';
 
 /** La fecha llega como yyyy-mm-dd; a medianoche UTC para que el controlador de SQL Server no la desplace de día. */
-const asDate = (value: string): Date => new Date(`${value}T00:00:00.000Z`);
+const asDate = (value: string | null): Date | null =>
+  value === null ? null : new Date(`${value}T00:00:00.000Z`);
 
 /** Adaptador SQL del checkout: reserva, ventana de depósito y creación del pedido, todo por procedimientos. */
 export function createSqlCheckoutRepository(execute: ProcedureExecutor): CheckoutRepositoryPort {
@@ -70,6 +71,8 @@ export function createSqlCheckoutRepository(execute: ProcedureExecutor): Checkou
           { name: 'IDReservation', type: sql.Int, value: input.idReservation },
           { name: 'IDAddress', type: sql.Int, value: input.idAddress },
           { name: 'RequestedDeliveryDate', type: sql.Date, value: asDate(input.deliveryDate) },
+          { name: 'FulfilmentType', type: sql.NVarChar(10), value: input.fulfilmentType },
+          { name: 'IDBranch', type: sql.Int, value: input.idBranch },
           { name: 'IDPaymentMethod', type: sql.TinyInt, value: input.idPaymentMethod },
           { name: 'IdempotencyKey', type: sql.NVarChar(64), value: input.storedKey },
           { name: 'IDBankAccount', type: sql.Int, value: input.idBankAccount },

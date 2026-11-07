@@ -83,6 +83,18 @@ export const routes: RouteObject[] = [
           },
         ],
       },
+      {
+        // Las sucursales las mantiene un administrador
+        element: <ProtectedRoute roles={['Administrator']} />,
+        children: [
+          {
+            path: 'admin/branches',
+            lazy: async () => ({
+              Component: (await import('../features/branches/pages/branches-page')).BranchesPage,
+            }),
+          },
+        ],
+      },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

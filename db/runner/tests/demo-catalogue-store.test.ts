@@ -106,6 +106,11 @@ describe('createSqlDemoStore: lookups', () => {
       (s: ReturnType<typeof createSqlDemoStore>) => s.findBankAccount('Banco', '1'),
       'dbo.BankAccounts',
     ],
+    [
+      'branch',
+      (s: ReturnType<typeof createSqlDemoStore>) => s.findBranch('Central Branch'),
+      'dbo.Branches',
+    ],
   ])(
     'looks a %s up in its table with parameters and answers null when it is not there',
     async (_name, lookup, table) => {
@@ -189,6 +194,25 @@ describe('createSqlDemoStore: creation through the real procedures', () => {
       StartsAt: window.startsAt,
       EndsAt: window.endsAt,
     });
+  });
+
+  it('creates a branch with SP_Branches_Create and returns its output identifier', async () => {
+    const { pool, calls } = fakePool(() => ({ output: { IDBranch: 4 } }));
+    const id = await createSqlDemoStore(pool).createBranch(1, {
+      name: 'Central Branch',
+      line1: '6th Avenue',
+      municipality: 'Guatemala',
+      department: 'Guatemala',
+      phone: '2222-1111',
+      openingHours: 'Monday to Saturday',
+    });
+    expect(id).toBe(4);
+    expect(calls[0]).toMatchObject({
+      kind: 'execute',
+      text: 'dbo.SP_Branches_Create',
+      outputs: ['IDBranch'],
+    });
+    expect(calls[0]?.inputs).toMatchObject({ Name: 'Central Branch', Phone: '2222-1111' });
   });
 
   it('saves a bank account with SP_BankAccounts_Save and returns the saved identifier', async () => {

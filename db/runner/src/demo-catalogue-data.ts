@@ -374,6 +374,15 @@ export const ATTRIBUTE_FLAVOUR = 'Sabor';
 /** Motivo del asiento del libro de inventario con el que entra cada existencia inicial */
 export const DEMO_STOCK_REASON = 'Existencias iniciales de demostración';
 
+export interface DemoBranch {
+  name: string;
+  line1: string;
+  municipality: string;
+  department: string;
+  phone: string;
+  openingHours: string;
+}
+
 export interface DemoBankAccount {
   bankName: string;
   accountType: 'Checking' | 'Savings';
@@ -381,6 +390,26 @@ export interface DemoBankAccount {
   holderName: string;
   instructions: string;
 }
+
+// Dos sucursales de ejemplo para que el cliente pueda elegir recoger su pedido desde el primer arranque
+export const DEMO_BRANCHES: readonly DemoBranch[] = [
+  {
+    name: 'Sucursal Centro',
+    line1: '6a avenida 10-20, zona 1',
+    municipality: 'Guatemala',
+    department: 'Guatemala',
+    phone: '2222-1111',
+    openingHours: 'Lunes a sábado de 8:00 a 18:00',
+  },
+  {
+    name: 'Sucursal Zona 10',
+    line1: '12 calle 3-40, zona 10',
+    municipality: 'Guatemala',
+    department: 'Guatemala',
+    phone: '2333-2222',
+    openingHours: 'Lunes a domingo de 9:00 a 19:00',
+  },
+];
 
 // Dos cuentas ficticias, una monetaria y una de ahorro, marcadas como de ejemplo para que nadie deposite de verdad
 export const DEMO_BANK_ACCOUNTS: readonly DemoBankAccount[] = [

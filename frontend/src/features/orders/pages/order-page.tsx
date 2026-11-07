@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { ApiError } from '../../../shared/api';
+import type { components } from '../../../shared/api/generated/schema';
 import { formatDateOnly, formatDateTime } from '../../../shared/lib/date';
 import { ButtonLink } from '../../../shared/ui/button';
 import { Price } from '../../../shared/ui/price';
@@ -26,6 +27,43 @@ function Row({ label, amount }: Readonly<{ label: string; amount: string | undef
 // Solo se mira si el texto del descuento es cero para no ocupar una línea vacía
 const isZero = (amount: string | undefined): boolean =>
   amount === undefined || /^0+\.00$/.test(amount);
+
+type OrderDetail = components['schemas']['OrderDetail'];
+
+/** Cómo se recibe el pedido: la sucursal donde se recoge o la dirección de entrega. */
+function Fulfilment({ order }: Readonly<{ order: OrderDetail }>) {
+  const { t } = useTranslation();
+  if (order.fulfilmentType === 'Pickup') {
+    return (
+      <section aria-labelledby="order-delivery" className="space-y-2">
+        <h2 id="order-delivery" className="text-2xl text-stone-900">
+          {t('orders.pickup')}
+        </h2>
+        <p className="text-stone-700">
+          {order.pickupBranchName}
+          <br />
+          {order.pickupBranchAddress}
+        </p>
+      </section>
+    );
+  }
+  if (!order.deliveryLine1) return null;
+  return (
+    <section aria-labelledby="order-delivery" className="space-y-2">
+      <h2 id="order-delivery" className="text-2xl text-stone-900">
+        {t('orders.delivery')}
+      </h2>
+      <p className="text-stone-700">
+        {order.deliveryRecipient}
+        {order.deliveryPhone ? ` · ${order.deliveryPhone}` : ''}
+        <br />
+        {order.deliveryLine1}
+        <br />
+        {order.deliveryMunicipality}, {order.deliveryDepartment}
+      </p>
+    </section>
+  );
+}
 
 /** El pedido con sus productos, su entrega, el historial y, mientras se puede, la cancelación. Uno ajeno responde 404. */
 export function OrderPage() {
@@ -104,21 +142,7 @@ export function OrderPage() {
             </ul>
           </section>
 
-          {data.deliveryLine1 ? (
-            <section aria-labelledby="order-delivery" className="space-y-2">
-              <h2 id="order-delivery" className="text-2xl text-stone-900">
-                {t('orders.delivery')}
-              </h2>
-              <p className="text-stone-700">
-                {data.deliveryRecipient}
-                {data.deliveryPhone ? ` · ${data.deliveryPhone}` : ''}
-                <br />
-                {data.deliveryLine1}
-                <br />
-                {data.deliveryMunicipality}, {data.deliveryDepartment}
-              </p>
-            </section>
-          ) : null}
+          <Fulfilment order={data} />
 
           <section aria-labelledby="order-history" className="space-y-3">
             <h2 id="order-history" className="text-2xl text-stone-900">
