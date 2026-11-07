@@ -4,4389 +4,4385 @@
  */
 
 export interface paths {
-  '/health/live': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Liveness probe
-     * @description The process is running. It does not touch dependencies.
-     */
-    get: operations['getLiveness'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/health/ready': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Readiness probe
-     * @description The database is reachable and the schema version is current.
-     */
-    get: operations['getReadiness'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/register': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Create a customer account */
-    post: operations['register'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/login': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Sign in
-     * @description The same 401 answers a wrong password and an unknown email. A locked account answers 423 without checking the password. The refresh token is also set in the `refreshToken` cookie (ADR-0026).
-     */
-    post: operations['login'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/guest': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Start a guest session
-     * @description Creates a guest account (no password, no email yet) and signs it in, so a shopper can check out without registering. The refresh token is also set in the `refreshToken` cookie (ADR-0026 and ADR-0027). A guest cannot use a coupon, order made-to-order products or add a personalisation (`ACCOUNT_REQUIRED`).
-     */
-    post: operations['startGuestSession'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/guest/contact': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    /**
-     * Save the contact data of the guest
-     * @description The name, email and phone of the guest. The checkout asks for them before the order is created (`GUEST_CONTACT_REQUIRED`). An email that belongs to a registered account answers 409 `EMAIL_BELONGS_TO_ACCOUNT`; that shopper must sign in.
-     */
-    put: operations['setGuestContact'];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/guest/recovery-code': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Issue the code that recovers the orders of the guest
-     * @description Returns a new code once; only its hash is stored and each new code replaces the old one. The guest keeps it with the email to recover the orders on another browser. Needs a contact email (422 otherwise) and a guest account.
-     */
-    post: operations['issueGuestRecoveryCode'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/guest/recover': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Recover the session of a guest with the email and the recovery code
-     * @description The same 401 `RECOVERY_INVALID` answers an unknown email and a wrong code. The refresh token is also set in the `refreshToken` cookie.
-     */
-    post: operations['recoverGuestSession'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/refresh': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Rotate the refresh token
-     * @description Uses the token of the body when there is one and the `refreshToken` cookie otherwise (an explicit token wins over the ambient cookie). Reusing a rotated token revokes its whole family (REFRESH_TOKEN_REUSED). Every 401 also clears the cookie.
-     */
-    post: operations['refreshSession'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/logout': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Revoke the refresh token family
-     * @description Uses the token of the body when there is one and the `refreshToken` cookie otherwise (an explicit token wins over the ambient cookie). Without a token there is nothing to revoke and the answer is still 204. It always clears the cookie.
-     */
-    post: operations['logout'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/me': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Own profile */
-    get: operations['getProfile'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/categories': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Category tree */
-    get: operations['listCategories'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/products': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Search products */
-    get: operations['searchProducts'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/products/{id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Product with its variants and images */
-    get: operations['getProduct'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/categories': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** All categories, including inactive ones */
-    get: operations['adminListCategories'];
-    put?: never;
-    /** Create a category */
-    post: operations['adminCreateCategory'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/categories/{id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    /** Edit a category */
-    put: operations['adminUpdateCategory'];
-    post?: never;
-    /** Deactivate a category */
-    delete: operations['adminDeactivateCategory'];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/products': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Search products, including inactive ones */
-    get: operations['adminSearchProducts'];
-    put?: never;
-    /** Create a product */
-    post: operations['adminCreateProduct'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/products/{id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Product, including inactive variants */
-    get: operations['adminGetProduct'];
-    /** Edit a product */
-    put: operations['adminUpdateProduct'];
-    post?: never;
-    /** Deactivate a product */
-    delete: operations['adminDeactivateProduct'];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/variants': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Create a variant */
-    post: operations['adminCreateVariant'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/variants/{id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    /** Edit a variant */
-    put: operations['adminUpdateVariant'];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/variants/{id}/price': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /** Change the price; the previous value stays in the audit log */
-    patch: operations['adminChangePrice'];
-    trace?: never;
-  };
-  '/api/v1/cart': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Current cart with totals computed by the database */
-    get: operations['getCart'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/cart/items/{variantId}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    /**
-     * Set the quantity of a variant
-     * @description The quantity cannot exceed the stock available (not reserved by other customers): above it the answer is 409 INSUFFICIENT_STOCK and the cart keeps the previous quantity. The checkout checks the stock again when it reserves it.
-     */
-    put: operations['setCartItem'];
-    post?: never;
-    /** Remove a variant from the cart */
-    delete: operations['removeCartItem'];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/cart/coupon': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Apply a coupon
-     * @description An expired, exhausted or already used coupon answers with its own code (COUPON_EXPIRED, COUPON_EXHAUSTED, COUPON_ALREADY_USED). A guest account answers 422 `ACCOUNT_REQUIRED`: coupons are for registered accounts.
-     */
-    post: operations['applyCoupon'];
-    /** Remove the coupon */
-    delete: operations['removeCoupon'];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/cart/merge': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Give the visitor cart to the signed-in customer
-     * @description Never fails for lack of stock, because it runs at sign-in: quantities are added up to 99 and up to the stock available, a quantity the customer already had is never lowered, and a line that is sold out is left out.
-     */
-    post: operations['mergeGuestCart'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/addresses': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Own addresses */
-    get: operations['listAddresses'];
-    put?: never;
-    /** Add an address */
-    post: operations['createAddress'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/addresses/{id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    /**
-     * Edit an own address
-     * @description Another customer's address answers 404.
-     */
-    put: operations['updateAddress'];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/checkout/payment-methods': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Payment methods offered for a delivery date */
-    get: operations['getPaymentMethods'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/checkout/start': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Reserve the stock of the cart */
-    post: operations['startCheckout'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/checkout/confirm': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Create the order waiting for payment
-     * @description Repeating the same Idempotency-Key and body replays the stored response.
-     */
-    post: operations['confirmCheckout'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/orders': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Own orders */
-    get: operations['listOrders'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/orders/{id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Own order with lines and history */
-    get: operations['getOrder'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/orders/{id}/cancel': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Cancel an order before it is dispatched
-     * @description The customer cancels their own order; staff may cancel any. A paid order restores the stock and opens a pending refund.
-     */
-    post: operations['cancelOrder'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/orders/{id}/payment': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Payment attempts of an own order */
-    get: operations['getOrderPayments'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/orders/{id}/payment/attempts': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Open another deposit attempt after a rejection */
-    post: operations['createDepositAttempt'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/orders/{id}/payment/proofs': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Upload the deposit proof
-     * @description multipart/form-data. The type is checked by the first bytes of the file. The idempotency fingerprint covers the text fields and the SHA-256 of the file.
-     */
-    post: operations['uploadProof'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/orders/{id}/payment/proofs/{proofId}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Download an own proof */
-    get: operations['downloadOwnProof'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/orders': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** All orders */
-    get: operations['adminListOrders'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/orders/{id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Any order with lines and history */
-    get: operations['adminGetOrder'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/orders/{id}/status': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /** Move the order to preparation, dispatch or delivery */
-    patch: operations['adminChangeOrderStatus'];
-    trace?: never;
-  };
-  '/api/v1/admin/orders/{id}/returns': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Register a full or partial return of a delivered order
-     * @description The last unit of a line refunds what is missing from the line total, so the refunds add up to the exact line total.
-     */
-    post: operations['adminRegisterReturn'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/orders/{id}/payment': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Payment attempts of any order */
-    get: operations['adminGetOrderPayments'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/payments/deposits': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Deposit review queue */
-    get: operations['adminListDeposits'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/payments/{id}/proofs/{proofId}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Download any proof */
-    get: operations['adminDownloadProof'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/payments/{id}/approve': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Approve a deposit under review
-     * @description A deposited amount different from the order total rejects the deposit instead (RejectedAmountMismatch).
-     */
-    post: operations['adminApproveDeposit'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/payments/{id}/reject': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Reject a deposit with a reason
-     * @description After the maximum number of attempts the order is cancelled (RejectedOrderCancelled).
-     */
-    post: operations['adminRejectDeposit'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/bank-accounts': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Bank accounts, including inactive ones */
-    get: operations['adminListBankAccounts'];
-    put?: never;
-    /** Add a bank account */
-    post: operations['adminCreateBankAccount'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/bank-accounts/{id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    /** Edit a bank account */
-    put: operations['adminUpdateBankAccount'];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/refunds': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Refunds */
-    get: operations['adminListRefunds'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/refunds/{id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /**
-     * Mark a refund as processed or failed
-     * @description Processing writes the money ledger and needs the transfer reference.
-     */
-    patch: operations['adminMarkRefund'];
-    trace?: never;
-  };
-  '/api/v1/admin/inventory/ledger': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Ledger of a variant, newest first */
-    get: operations['adminGetLedger'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/inventory/entries': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Register units that arrived */
-    post: operations['adminRegisterEntry'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/inventory/adjustments': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Set the physical stock to a counted value */
-    post: operations['adminAdjustStock'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/coupons': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Coupons with their status */
-    get: operations['adminListCoupons'];
-    put?: never;
-    /** Create a coupon */
-    post: operations['adminCreateCoupon'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/coupons/{id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    /** Edit a coupon */
-    put: operations['adminUpdateCoupon'];
-    post?: never;
-    /** Deactivate a coupon */
-    delete: operations['adminDeactivateCoupon'];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/users': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Accounts */
-    get: operations['adminListUsers'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/users/{id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /** Activate or deactivate an account */
-    patch: operations['adminSetUserStatus'];
-    trace?: never;
-  };
-  '/api/v1/admin/audit-log': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Audit log, newest first */
-    get: operations['adminQueryAudit'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/system/version': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Application, schema and procedure versions */
-    get: operations['adminGetSystemVersion'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/system/jobs': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * State of the background jobs in the instance that answers
-     * @description Each job takes a database lock, so only one replica runs it at a time; this reports what THIS instance did (runs, skipped turns, failures, last counts).
-     */
-    get: operations['adminGetJobs'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/system/reconciliation': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Current money and inventory discrepancies
-     * @description Empty when everything adds up. The daily reconciliation job writes an audit entry when it is not.
-     */
-    get: operations['adminGetReconciliation'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/dashboard/summary': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Headline figures for a range
-     * @description The three counters at the end describe the present moment and do not depend on the range.
-     */
-    get: operations['adminDashboardSummary'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/dashboard/sales': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Sales per day, week or month
-     * @description One point per period, oldest first, with the periods without sales as zeros. At most 400 periods.
-     */
-    get: operations['adminDashboardSales'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/dashboard/sales-by-category': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Sales per category, net of returns, biggest first
-     * @description The nets of all the categories add up to the net sale of the range.
-     */
-    get: operations['adminDashboardSalesByCategory'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/dashboard/top-products': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Best sellers
-     * @description Grouped by product, ordered by units sold minus returned, then net amount. A product with every unit returned does not appear.
-     */
-    get: operations['adminDashboardTopProducts'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/dashboard/abandoned-carts': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Abandoned carts, most valuable first
-     * @description Active carts with items and no activity for AbandonedCartHours. A visitor appears without name or email.
-     */
-    get: operations['adminDashboardAbandonedCarts'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
+    "/health/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liveness probe
+         * @description The process is running. It does not touch dependencies.
+         */
+        get: operations["getLiveness"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/health/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Readiness probe
+         * @description The database is reachable and the schema version is current.
+         */
+        get: operations["getReadiness"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a customer account */
+        post: operations["register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in
+         * @description The same 401 answers a wrong password and an unknown email. A locked account answers 423 without checking the password. The refresh token is also set in the `refreshToken` cookie (ADR-0026).
+         */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/guest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a guest session
+         * @description Creates a guest account (no password, no email yet) and signs it in, so a shopper can check out without registering. The refresh token is also set in the `refreshToken` cookie (ADR-0026 and ADR-0027). A guest cannot use a coupon, order made-to-order products or add a personalisation (`ACCOUNT_REQUIRED`).
+         */
+        post: operations["startGuestSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/guest/contact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save the contact data of the guest
+         * @description The name, email and phone of the guest. The checkout asks for them before the order is created (`GUEST_CONTACT_REQUIRED`). An email that belongs to a registered account answers 409 `EMAIL_BELONGS_TO_ACCOUNT`; that shopper must sign in.
+         */
+        put: operations["setGuestContact"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/guest/recovery-code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Issue the code that recovers the orders of the guest
+         * @description Returns a new code once; only its hash is stored and each new code replaces the old one. The guest keeps it with the email to recover the orders on another browser. Needs a contact email (422 otherwise) and a guest account.
+         */
+        post: operations["issueGuestRecoveryCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/guest/recover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recover the session of a guest with the email and the recovery code
+         * @description The same 401 `RECOVERY_INVALID` answers an unknown email and a wrong code. The refresh token is also set in the `refreshToken` cookie.
+         */
+        post: operations["recoverGuestSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate the refresh token
+         * @description Uses the token of the body when there is one and the `refreshToken` cookie otherwise (an explicit token wins over the ambient cookie). Reusing a rotated token revokes its whole family (REFRESH_TOKEN_REUSED). Every 401 also clears the cookie.
+         */
+        post: operations["refreshSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke the refresh token family
+         * @description Uses the token of the body when there is one and the `refreshToken` cookie otherwise (an explicit token wins over the ambient cookie). Without a token there is nothing to revoke and the answer is still 204. It always clears the cookie.
+         */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Own profile */
+        get: operations["getProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Category tree */
+        get: operations["listCategories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search products */
+        get: operations["searchProducts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/products/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Product with its variants and images */
+        get: operations["getProduct"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** All categories, including inactive ones */
+        get: operations["adminListCategories"];
+        put?: never;
+        /** Create a category */
+        post: operations["adminCreateCategory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/categories/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Edit a category */
+        put: operations["adminUpdateCategory"];
+        post?: never;
+        /** Deactivate a category */
+        delete: operations["adminDeactivateCategory"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search products, including inactive ones */
+        get: operations["adminSearchProducts"];
+        put?: never;
+        /** Create a product */
+        post: operations["adminCreateProduct"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/products/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Product, including inactive variants */
+        get: operations["adminGetProduct"];
+        /** Edit a product */
+        put: operations["adminUpdateProduct"];
+        post?: never;
+        /** Deactivate a product */
+        delete: operations["adminDeactivateProduct"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/variants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a variant */
+        post: operations["adminCreateVariant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/variants/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Edit a variant */
+        put: operations["adminUpdateVariant"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/variants/{id}/price": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change the price; the previous value stays in the audit log */
+        patch: operations["adminChangePrice"];
+        trace?: never;
+    };
+    "/api/v1/cart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Current cart with totals computed by the database */
+        get: operations["getCart"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cart/items/{variantId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the quantity of a variant
+         * @description The quantity cannot exceed the stock available (not reserved by other customers): above it the answer is 409 INSUFFICIENT_STOCK and the cart keeps the previous quantity. The checkout checks the stock again when it reserves it.
+         */
+        put: operations["setCartItem"];
+        post?: never;
+        /** Remove a variant from the cart */
+        delete: operations["removeCartItem"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cart/coupon": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply a coupon
+         * @description An expired, exhausted or already used coupon answers with its own code (COUPON_EXPIRED, COUPON_EXHAUSTED, COUPON_ALREADY_USED). A guest account answers 422 `ACCOUNT_REQUIRED`: coupons are for registered accounts.
+         */
+        post: operations["applyCoupon"];
+        /** Remove the coupon */
+        delete: operations["removeCoupon"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cart/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give the visitor cart to the signed-in customer
+         * @description Never fails for lack of stock, because it runs at sign-in: quantities are added up to 99 and up to the stock available, a quantity the customer already had is never lowered, and a line that is sold out is left out.
+         */
+        post: operations["mergeGuestCart"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/addresses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Own addresses */
+        get: operations["listAddresses"];
+        put?: never;
+        /** Add an address */
+        post: operations["createAddress"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/addresses/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit an own address
+         * @description Another customer's address answers 404.
+         */
+        put: operations["updateAddress"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/checkout/payment-methods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Payment methods offered for a delivery date */
+        get: operations["getPaymentMethods"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/checkout/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reserve the stock of the cart */
+        post: operations["startCheckout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/checkout/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create the order waiting for payment
+         * @description Repeating the same Idempotency-Key and body replays the stored response.
+         */
+        post: operations["confirmCheckout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Own orders */
+        get: operations["listOrders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Own order with lines and history */
+        get: operations["getOrder"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel an order before it is dispatched
+         * @description The customer cancels their own order; staff may cancel any. A paid order restores the stock and opens a pending refund.
+         */
+        post: operations["cancelOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/{id}/payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Payment attempts of an own order */
+        get: operations["getOrderPayments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/{id}/payment/attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Open another deposit attempt after a rejection */
+        post: operations["createDepositAttempt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/{id}/payment/proofs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload the deposit proof
+         * @description multipart/form-data. The type is checked by the first bytes of the file. The idempotency fingerprint covers the text fields and the SHA-256 of the file.
+         */
+        post: operations["uploadProof"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/{id}/payment/proofs/{proofId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download an own proof */
+        get: operations["downloadOwnProof"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** All orders */
+        get: operations["adminListOrders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/orders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Any order with lines and history */
+        get: operations["adminGetOrder"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/orders/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Move the order to preparation, dispatch or delivery */
+        patch: operations["adminChangeOrderStatus"];
+        trace?: never;
+    };
+    "/api/v1/admin/orders/{id}/returns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register a full or partial return of a delivered order
+         * @description The last unit of a line refunds what is missing from the line total, so the refunds add up to the exact line total.
+         */
+        post: operations["adminRegisterReturn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/orders/{id}/payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Payment attempts of any order */
+        get: operations["adminGetOrderPayments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/payments/deposits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Deposit review queue */
+        get: operations["adminListDeposits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/payments/{id}/proofs/{proofId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download any proof */
+        get: operations["adminDownloadProof"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/payments/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a deposit under review
+         * @description A deposited amount different from the order total rejects the deposit instead (RejectedAmountMismatch).
+         */
+        post: operations["adminApproveDeposit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/payments/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject a deposit with a reason
+         * @description After the maximum number of attempts the order is cancelled (RejectedOrderCancelled).
+         */
+        post: operations["adminRejectDeposit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/bank-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bank accounts, including inactive ones */
+        get: operations["adminListBankAccounts"];
+        put?: never;
+        /** Add a bank account */
+        post: operations["adminCreateBankAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/bank-accounts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Edit a bank account */
+        put: operations["adminUpdateBankAccount"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/refunds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Refunds */
+        get: operations["adminListRefunds"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/refunds/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Mark a refund as processed or failed
+         * @description Processing writes the money ledger and needs the transfer reference.
+         */
+        patch: operations["adminMarkRefund"];
+        trace?: never;
+    };
+    "/api/v1/admin/inventory/ledger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ledger of a variant, newest first */
+        get: operations["adminGetLedger"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/inventory/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Register units that arrived */
+        post: operations["adminRegisterEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/inventory/adjustments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set the physical stock to a counted value */
+        post: operations["adminAdjustStock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/coupons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Coupons with their status */
+        get: operations["adminListCoupons"];
+        put?: never;
+        /** Create a coupon */
+        post: operations["adminCreateCoupon"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/coupons/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Edit a coupon */
+        put: operations["adminUpdateCoupon"];
+        post?: never;
+        /** Deactivate a coupon */
+        delete: operations["adminDeactivateCoupon"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Accounts */
+        get: operations["adminListUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Activate or deactivate an account */
+        patch: operations["adminSetUserStatus"];
+        trace?: never;
+    };
+    "/api/v1/admin/audit-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Audit log, newest first */
+        get: operations["adminQueryAudit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/system/version": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Application, schema and procedure versions */
+        get: operations["adminGetSystemVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/system/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * State of the background jobs in the instance that answers
+         * @description Each job takes a database lock, so only one replica runs it at a time; this reports what THIS instance did (runs, skipped turns, failures, last counts).
+         */
+        get: operations["adminGetJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/system/reconciliation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Current money and inventory discrepancies
+         * @description Empty when everything adds up. The daily reconciliation job writes an audit entry when it is not.
+         */
+        get: operations["adminGetReconciliation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/dashboard/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Headline figures for a range
+         * @description The three counters at the end describe the present moment and do not depend on the range.
+         */
+        get: operations["adminDashboardSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/dashboard/sales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sales per day, week or month
+         * @description One point per period, oldest first, with the periods without sales as zeros. At most 400 periods.
+         */
+        get: operations["adminDashboardSales"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/dashboard/sales-by-category": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sales per category, net of returns, biggest first
+         * @description The nets of all the categories add up to the net sale of the range.
+         */
+        get: operations["adminDashboardSalesByCategory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/dashboard/top-products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Best sellers
+         * @description Grouped by product, ordered by units sold minus returned, then net amount. A product with every unit returned does not appear.
+         */
+        get: operations["adminDashboardTopProducts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/dashboard/abandoned-carts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Abandoned carts, most valuable first
+         * @description Active carts with items and no activity for AbandonedCartHours. A visitor appears without name or email.
+         */
+        get: operations["adminDashboardAbandonedCarts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-  schemas: {
-    Readiness: {
-      /** @enum {string} */
-      status: 'ok' | 'unavailable';
-      checks: {
-        /** @enum {string} */
-        database: 'up' | 'down';
-        /** @enum {string} */
-        schema?: 'ok' | 'outdated' | 'unknown';
-      };
-    };
-    ErrorResponse: {
-      error: {
-        /**
-         * @description Stable SCREAMING_SNAKE_CASE code in British English
-         * @example PAYMENT_METHOD_UNAVAILABLE
-         */
-        code: string;
-        /** @description Short English message for developers */
-        message: string;
-        /** @description Optional structured details such as validation issues */
-        details?: unknown;
-        requestId: string;
-      };
-    };
-    /** @example 145.00 */
-    MoneyText: string;
-    Id: number;
-    RegisterRequest: {
-      /** Format: email */
-      email: string;
-      password: string;
-      fullName: string;
-      phone?: string | null;
-    };
-    GuestContactRequest: {
-      /** Format: email */
-      email: string;
-      fullName: string;
-      /** @description Digits, spaces and + ( ) -, between 6 and 20 characters */
-      phone?: string | null;
-    };
-    RecoveryCode: {
-      /** @description Ten characters (digits and letters without I, L, O and U); it is accepted with or without hyphens and in lower case */
-      code: string;
-    };
-    RecoverGuestRequest: {
-      /** Format: email */
-      email: string;
-      code: string;
-    };
-    LoginRequest: {
-      /** Format: email */
-      email: string;
-      password: string;
-    };
-    RefreshRequest: {
-      refreshToken: string;
-    };
-    UserProfile: {
-      idUser: components['schemas']['Id'];
-      /** @enum {string} */
-      role: 'Customer' | 'Operator' | 'Administrator';
-      email: string;
-      fullName: string;
-      phone?: string | null;
-      isActive: boolean;
-      /** @description A guest account (no password, created to buy without registering) */
-      isGuest: boolean;
-    };
-    Session: {
-      accessToken: string;
-      refreshToken: string;
-      /** @description Seconds of life of the access token */
-      expiresIn: number;
-      user: components['schemas']['UserProfile'];
-    };
-    CategoryNode: {
-      idCategory: components['schemas']['Id'];
-      idParentCategory?: number | null;
-      name: string;
-      description?: string | null;
-      isActive?: boolean;
-      activeProducts?: number;
-      children: components['schemas']['CategoryNode'][];
-    };
-    Category: {
-      idCategory?: components['schemas']['Id'];
-      idParentCategory?: number | null;
-      name?: string;
-      description?: string | null;
-      isActive?: boolean;
-      activeProducts?: number;
-    };
-    CategoryRequest: {
-      name: string;
-      description?: string | null;
-      parentId?: number | null;
-    };
-    ProductSummary: {
-      idProduct: components['schemas']['Id'];
-      idCategory?: components['schemas']['Id'];
-      categoryName?: string;
-      name: string;
-      description?: string | null;
-      leadTimeDays?: number;
-      isActive?: boolean;
-      primaryImageUrl?: string | null;
-      minPrice: components['schemas']['MoneyText'];
-      maxPrice: components['schemas']['MoneyText'];
-      available?: number;
-    };
-    Variant: {
-      idVariant: components['schemas']['Id'];
-      sku: string;
-      price: components['schemas']['MoneyText'];
-      onHandStock?: number;
-      /** @description Units that can be bought now, the physical stock minus the units reserved by other carts */
-      available?: number;
-      isActive?: boolean;
-      attributes?: {
-        name?: string;
-        value?: string;
-      }[];
-    };
-    ProductDetail: {
-      idProduct: components['schemas']['Id'];
-      idCategory?: components['schemas']['Id'];
-      categoryName?: string;
-      name: string;
-      description?: string | null;
-      leadTimeDays?: number;
-      isActive?: boolean;
-      images?: {
-        idProductImage?: number;
-        url?: string;
-        sortOrder?: number;
-        isPrimary?: boolean;
-      }[];
-      variants: components['schemas']['Variant'][];
-    };
-    ProductRequest: {
-      categoryId: components['schemas']['Id'];
-      name: string;
-      description?: string | null;
-      /** @default 0 */
-      leadTimeDays: number;
-      /** @description Base64 version read earlier; a stale edit is rejected */
-      rowVersion?: string | null;
-    };
-    VariantCreateRequest: {
-      productId: components['schemas']['Id'];
-      sku: string;
-      price: components['schemas']['MoneyText'];
-      attributes?:
-        | {
+    schemas: {
+        Readiness: {
+            /** @enum {string} */
+            status: "ok" | "unavailable";
+            checks: {
+                /** @enum {string} */
+                database: "up" | "down";
+                /** @enum {string} */
+                schema?: "ok" | "outdated" | "unknown";
+            };
+        };
+        ErrorResponse: {
+            error: {
+                /**
+                 * @description Stable SCREAMING_SNAKE_CASE code in British English
+                 * @example PAYMENT_METHOD_UNAVAILABLE
+                 */
+                code: string;
+                /** @description Short English message for developers */
+                message: string;
+                /** @description Optional structured details such as validation issues */
+                details?: unknown;
+                requestId: string;
+            };
+        };
+        /** @example 145.00 */
+        MoneyText: string;
+        Id: number;
+        RegisterRequest: {
+            /** Format: email */
+            email: string;
+            password: string;
+            fullName: string;
+            phone?: string | null;
+        };
+        GuestContactRequest: {
+            /** Format: email */
+            email: string;
+            fullName: string;
+            /** @description Digits, spaces and + ( ) -, between 6 and 20 characters */
+            phone?: string | null;
+        };
+        RecoveryCode: {
+            /** @description Ten characters (digits and letters without I, L, O and U); it is accepted with or without hyphens and in lower case */
+            code: string;
+        };
+        RecoverGuestRequest: {
+            /** Format: email */
+            email: string;
+            code: string;
+        };
+        LoginRequest: {
+            /** Format: email */
+            email: string;
+            password: string;
+        };
+        RefreshRequest: {
+            refreshToken: string;
+        };
+        UserProfile: {
+            idUser: components["schemas"]["Id"];
+            /** @enum {string} */
+            role: "Customer" | "Operator" | "Administrator";
+            email: string;
+            fullName: string;
+            phone?: string | null;
+            isActive: boolean;
+            /** @description A guest account (no password, created to buy without registering) */
+            isGuest: boolean;
+        };
+        Session: {
+            accessToken: string;
+            refreshToken: string;
+            /** @description Seconds of life of the access token */
+            expiresIn: number;
+            user: components["schemas"]["UserProfile"];
+        };
+        CategoryNode: {
+            idCategory: components["schemas"]["Id"];
+            idParentCategory?: number | null;
             name: string;
-            value: string;
-          }[]
-        | null;
-    };
-    VariantUpdateRequest: {
-      sku: string;
-      isActive: boolean;
-      attributes?:
-        | {
+            description?: string | null;
+            isActive?: boolean;
+            activeProducts?: number;
+            children: components["schemas"]["CategoryNode"][];
+        };
+        Category: {
+            idCategory?: components["schemas"]["Id"];
+            idParentCategory?: number | null;
+            name?: string;
+            description?: string | null;
+            isActive?: boolean;
+            activeProducts?: number;
+        };
+        CategoryRequest: {
             name: string;
-            value: string;
-          }[]
-        | null;
+            description?: string | null;
+            parentId?: number | null;
+        };
+        ProductSummary: {
+            idProduct: components["schemas"]["Id"];
+            idCategory?: components["schemas"]["Id"];
+            categoryName?: string;
+            name: string;
+            description?: string | null;
+            leadTimeDays?: number;
+            isActive?: boolean;
+            primaryImageUrl?: string | null;
+            minPrice: components["schemas"]["MoneyText"];
+            maxPrice: components["schemas"]["MoneyText"];
+            available?: number;
+        };
+        Variant: {
+            idVariant: components["schemas"]["Id"];
+            sku: string;
+            price: components["schemas"]["MoneyText"];
+            onHandStock?: number;
+            /** @description Units that can be bought now, the physical stock minus the units reserved by other carts */
+            available?: number;
+            isActive?: boolean;
+            attributes?: {
+                name?: string;
+                value?: string;
+            }[];
+        };
+        ProductDetail: {
+            idProduct: components["schemas"]["Id"];
+            idCategory?: components["schemas"]["Id"];
+            categoryName?: string;
+            name: string;
+            description?: string | null;
+            leadTimeDays?: number;
+            isActive?: boolean;
+            images?: {
+                idProductImage?: number;
+                url?: string;
+                sortOrder?: number;
+                isPrimary?: boolean;
+            }[];
+            variants: components["schemas"]["Variant"][];
+        };
+        ProductRequest: {
+            categoryId: components["schemas"]["Id"];
+            name: string;
+            description?: string | null;
+            /** @default 0 */
+            leadTimeDays: number;
+            /** @description Base64 version read earlier; a stale edit is rejected */
+            rowVersion?: string | null;
+        };
+        VariantCreateRequest: {
+            productId: components["schemas"]["Id"];
+            sku: string;
+            price: components["schemas"]["MoneyText"];
+            attributes?: {
+                name: string;
+                value: string;
+            }[] | null;
+        };
+        VariantUpdateRequest: {
+            sku: string;
+            isActive: boolean;
+            attributes?: {
+                name: string;
+                value: string;
+            }[] | null;
+        };
+        PriceRequest: {
+            price: components["schemas"]["MoneyText"];
+        };
+        CartLine: {
+            idCartItem?: number;
+            idVariant: components["schemas"]["Id"];
+            sku?: string;
+            productName?: string;
+            quantity: number;
+            inscription?: string | null;
+            unitPrice: components["schemas"]["MoneyText"];
+            lineTotal: components["schemas"]["MoneyText"];
+            available?: number;
+            isAvailable?: boolean;
+        };
+        Cart: {
+            idCart: number | null;
+            couponCode?: string | null;
+            /** @description Why the coupon stopped discounting: Expired, Exhausted, AlreadyUsed, ... */
+            couponReason?: string | null;
+            subtotal: components["schemas"]["MoneyText"];
+            discount: components["schemas"]["MoneyText"];
+            total: components["schemas"]["MoneyText"];
+            vat: components["schemas"]["MoneyText"];
+            taxableBase: components["schemas"]["MoneyText"];
+            itemCount: number;
+            hasUnavailableLines?: boolean;
+            lines: components["schemas"]["CartLine"][];
+        };
+        CartItemRequest: {
+            quantity: number;
+            inscription?: string | null;
+        };
+        CouponCodeRequest: {
+            code: string;
+        };
+        MergeCartRequest: {
+            /** Format: uuid */
+            guestToken: string;
+        };
+        Address: {
+            idAddress: components["schemas"]["Id"];
+            label: string;
+            recipient: string;
+            phone: string;
+            line1: string;
+            line2?: string | null;
+            municipality: string;
+            department: string;
+            reference?: string | null;
+            isActive?: boolean;
+        };
+        AddressRequest: {
+            label: string;
+            recipient: string;
+            phone: string;
+            line1: string;
+            line2?: string | null;
+            municipality: string;
+            department: string;
+            reference?: string | null;
+            isActive?: boolean;
+        };
+        BankAccount: {
+            idBankAccount: components["schemas"]["Id"];
+            bankName: string;
+            /** @enum {string} */
+            accountType: "Checking" | "Savings";
+            accountNumber: string;
+            holderName: string;
+            /** @enum {string} */
+            currency?: "GTQ";
+            instructions?: string | null;
+            isActive?: boolean;
+        };
+        BankAccountRequest: {
+            bankName: string;
+            /** @enum {string} */
+            accountType: "Checking" | "Savings";
+            accountNumber: string;
+            holderName: string;
+            instructions?: string | null;
+            isActive?: boolean;
+        };
+        MethodOffer: {
+            /** @enum {string} */
+            method: "CARD" | "BANK_DEPOSIT";
+            available: boolean;
+            /** @description Stable code the panel translates */
+            reason?: string | null;
+            /** Format: date-time */
+            deadlineAt?: string | null;
+        };
+        PaymentMethodsView: {
+            /** Format: date */
+            deliveryDate: string;
+            /** Format: date */
+            earliestDeliveryDate?: string;
+            deliveryDateAllowed?: boolean;
+            methods: components["schemas"]["MethodOffer"][];
+            bankAccounts: components["schemas"]["BankAccount"][];
+        };
+        Reservation: {
+            idReservation: components["schemas"]["Id"];
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        ConfirmRequest: {
+            idReservation: components["schemas"]["Id"];
+            idAddress: components["schemas"]["Id"];
+            /** Format: date */
+            deliveryDate: string;
+            /** @enum {string} */
+            method: "CARD" | "BANK_DEPOSIT";
+            idBankAccount?: number | null;
+        };
+        CreatedOrder: {
+            idOrder: components["schemas"]["Id"];
+            idPayment: components["schemas"]["Id"];
+            /** @example PED-2026-000123 */
+            orderNumber: string;
+            /** Format: date-time */
+            paymentExpiresAt: string;
+        };
+        OrderSummary: {
+            idOrder: components["schemas"]["Id"];
+            orderNumber: string;
+            idUser?: number;
+            customerName?: string;
+            customerEmail?: string;
+            idOrderStatus?: number;
+            statusName: string;
+            total: components["schemas"]["MoneyText"];
+            itemCount?: number;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            paidAt?: string | null;
+            /** Format: date */
+            requestedDeliveryDate?: string;
+        };
+        OrderLine: {
+            idOrderLine: components["schemas"]["Id"];
+            idVariant?: number;
+            sku?: string;
+            productName?: string;
+            attributes?: string;
+            quantity: number;
+            unitPrice: components["schemas"]["MoneyText"];
+            lineDiscount?: components["schemas"]["MoneyText"];
+            lineTotal: components["schemas"]["MoneyText"];
+            returnedQuantity?: number;
+            inscription?: string | null;
+        };
+        OrderHistoryEntry: {
+            idPreviousStatus?: number | null;
+            idNewStatus?: number;
+            newStatusName?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            comment?: string | null;
+        };
+        OrderDetail: {
+            idOrder: components["schemas"]["Id"];
+            orderNumber: string;
+            idUser?: number;
+            customerName?: string;
+            customerEmail?: string;
+            idOrderStatus?: number;
+            statusName: string;
+            couponCode?: string | null;
+            deliveryRecipient?: string;
+            deliveryPhone?: string;
+            deliveryLine1?: string;
+            deliveryMunicipality?: string;
+            deliveryDepartment?: string;
+            /** Format: date */
+            requestedDeliveryDate?: string;
+            subtotal?: components["schemas"]["MoneyText"];
+            discount?: components["schemas"]["MoneyText"];
+            shipping?: components["schemas"]["MoneyText"];
+            total: components["schemas"]["MoneyText"];
+            taxableBase?: components["schemas"]["MoneyText"];
+            vat?: components["schemas"]["MoneyText"];
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            paidAt?: string | null;
+            lines: components["schemas"]["OrderLine"][];
+            history: components["schemas"]["OrderHistoryEntry"][];
+        };
+        CancelRequest: {
+            reason?: string | null;
+        };
+        StatusRequest: {
+            /** @enum {string} */
+            status: "InPreparation" | "Dispatched" | "Delivered";
+            comment?: string | null;
+        };
+        ReturnRequest: {
+            reason: string;
+            lines: {
+                idOrderLine: components["schemas"]["Id"];
+                quantity: number;
+            }[];
+        };
+        ReturnRegistered: {
+            idReturn: components["schemas"]["Id"];
+            idRefund: components["schemas"]["Id"];
+            refundAmount: components["schemas"]["MoneyText"];
+        };
+        Proof: {
+            idPaymentProof?: components["schemas"]["Id"];
+            originalFileName?: string;
+            mimeType?: string;
+            sizeBytes?: number;
+            /** Format: date-time */
+            uploadedAt?: string;
+        };
+        Payment: {
+            idPayment: components["schemas"]["Id"];
+            idPaymentMethod?: number;
+            methodCode?: string;
+            idPaymentStatus: number;
+            statusName: string;
+            amount: components["schemas"]["MoneyText"];
+            /** Format: date-time */
+            expiresAt?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            resolvedAt?: string | null;
+            idBankAccount?: number | null;
+            bankName?: string | null;
+            accountType?: string | null;
+            accountNumber?: string | null;
+            holderName?: string | null;
+            instructions?: string | null;
+            referenceNumber?: string | null;
+            /** Format: date */
+            depositDate?: string | null;
+            depositedAmount?: components["schemas"]["MoneyText"];
+            isCurrent?: boolean | null;
+            rejectionReason?: string | null;
+            /** Format: date-time */
+            reviewedAt?: string | null;
+            attemptsRejected: number;
+            maxAttempts: number;
+            proofs: components["schemas"]["Proof"][];
+        };
+        AttemptRequest: {
+            idBankAccount?: number | null;
+        };
+        Attempt: {
+            idPayment: components["schemas"]["Id"];
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        ProofUpload: {
+            /**
+             * Format: binary
+             * @description JPEG, PNG or PDF up to 5 MB, checked by its first bytes
+             */
+            file: string;
+            referenceNumber: string;
+            /** Format: date */
+            depositDate: string;
+            depositedAmount: components["schemas"]["MoneyText"];
+        };
+        ProofStored: {
+            idPaymentProof: components["schemas"]["Id"];
+            idPayment: components["schemas"]["Id"];
+        };
+        DepositQueueItem: {
+            idPayment: components["schemas"]["Id"];
+            idOrder: components["schemas"]["Id"];
+            orderNumber: string;
+            customerName?: string;
+            customerEmail?: string;
+            amount: components["schemas"]["MoneyText"];
+            idPaymentStatus?: number;
+            statusName: string;
+            bankName?: string;
+            referenceNumber?: string | null;
+            /** Format: date */
+            depositDate?: string | null;
+            depositedAmount?: components["schemas"]["MoneyText"];
+            rejectionReason?: string | null;
+            idPaymentProof?: number | null;
+            /** Format: date-time */
+            submittedAt?: string | null;
+            ageHours?: number | null;
+        };
+        ReviewOutcome: {
+            /** @description Approved, AlreadyApproved, Orphan, RejectedAmountMismatch, Rejected, RejectedOrderCancelled or AlreadyRejected */
+            outcome: string;
+        };
+        RejectRequest: {
+            reason: string;
+        };
+        Refund: {
+            idRefund: components["schemas"]["Id"];
+            idPayment: components["schemas"]["Id"];
+            idOrder?: components["schemas"]["Id"];
+            orderNumber?: string;
+            idReturn?: number | null;
+            amount?: unknown;
+            amountText: components["schemas"]["MoneyText"];
+            reason?: string;
+            /** @enum {string} */
+            status: "Pending" | "Processed" | "Failed";
+            externalReference?: string | null;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            processedAt?: string | null;
+        };
+        RefundRequest: {
+            /** @enum {string} */
+            status: "Processed" | "Failed";
+            externalReference?: string | null;
+        };
+        LedgerEntry: {
+            idInventoryMovement?: string;
+            /** @enum {string} */
+            movementType: "Entry" | "Exit" | "Adjustment" | "Return";
+            quantity: number;
+            resultingBalance: number;
+            reason?: string;
+            idUser?: number;
+            userName?: string;
+            idOrder?: number | null;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        EntryRequest: {
+            idVariant: components["schemas"]["Id"];
+            quantity: number;
+            reason: string;
+        };
+        AdjustmentRequest: {
+            idVariant: components["schemas"]["Id"];
+            newOnHand: number;
+            reason: string;
+        };
+        Movement: {
+            /** @description Null when the stock already had the requested value */
+            idMovement: string | null;
+        };
+        Coupon: {
+            idCoupon: components["schemas"]["Id"];
+            code: string;
+            /** @enum {string} */
+            type: "Percentage" | "FixedAmount";
+            value: components["schemas"]["MoneyText"];
+            minimumAmount?: components["schemas"]["MoneyText"];
+            /** Format: date-time */
+            startsAt?: string;
+            /** Format: date-time */
+            endsAt?: string;
+            totalUsageLimit?: number | null;
+            perCustomerUsageLimit?: number | null;
+            usageCount?: number;
+            idCategory?: number | null;
+            isActive?: boolean;
+            /** @enum {string} */
+            status: "Inactive" | "NotStarted" | "Expired" | "Exhausted" | "Active";
+        };
+        CouponRequest: {
+            /** @description Required on creation, ignored on update */
+            code?: string;
+            /** @enum {string} */
+            type: "Percentage" | "FixedAmount";
+            value: components["schemas"]["MoneyText"];
+            minimumAmount?: components["schemas"]["MoneyText"];
+            /** Format: date-time */
+            startsAt: string;
+            /** Format: date-time */
+            endsAt: string;
+            totalUsageLimit?: number | null;
+            perCustomerUsageLimit?: number | null;
+            categoryId?: number | null;
+        };
+        UserAccount: {
+            idUser: components["schemas"]["Id"];
+            email: string;
+            fullName?: string;
+            phone?: string | null;
+            idRole?: number;
+            roleName: string;
+            isActive: boolean;
+            /** Format: date-time */
+            lockedUntil?: string | null;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        UserStatusRequest: {
+            isActive: boolean;
+        };
+        AuditEntry: {
+            idAuditLog?: string;
+            module: string;
+            entityName: string;
+            entityKey: string;
+            /** @enum {string} */
+            action: "Create" | "Update" | "Deactivate" | "StatusChange";
+            previousValue?: string | null;
+            newValue?: string | null;
+            idUser?: number | null;
+            userName?: string | null;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        JobStatus: {
+            /** @example expirePayments */
+            name: string;
+            intervalMs: number;
+            running: boolean;
+            runs: number;
+            skipped: number;
+            failures: number;
+            consecutiveFailures: number;
+            /** Format: date-time */
+            lastStartedAt?: string | null;
+            /** Format: date-time */
+            lastFinishedAt?: string | null;
+            lastDurationMs?: number | null;
+            /** @enum {string|null} */
+            lastOutcome?: "Ran" | "Skipped" | "Failed" | null;
+            lastCounts?: Record<string, never> | null;
+            lastError?: string | null;
+        };
+        ReconciliationRow: {
+            /** @enum {string} */
+            source: "Amounts" | "Inventory";
+            /** @example RefundsExceedPayment */
+            check: string;
+            entityKey: string;
+            expected: string;
+            actual: string;
+        };
+        DashboardSummary: {
+            /** Format: date */
+            fromDate: string;
+            /** Format: date */
+            toDate: string;
+            orders: number;
+            gross: components["schemas"]["MoneyText"];
+            returned: components["schemas"]["MoneyText"];
+            net: components["schemas"]["MoneyText"];
+            averageTicket: components["schemas"]["MoneyText"];
+            /** @description Orders waiting for payment right now (includes those with a proof under review) */
+            pendingPaymentOrders: number;
+            depositsUnderReview: number;
+            abandonedCarts: number;
+        };
+        SalesPoint: {
+            /**
+             * Format: date
+             * @description First day of the day, the week (Monday) or the month
+             */
+            periodStart: string;
+            orders: number;
+            gross: components["schemas"]["MoneyText"];
+            returned: components["schemas"]["MoneyText"];
+            net: components["schemas"]["MoneyText"];
+            averageTicket: components["schemas"]["MoneyText"];
+        };
+        CategorySales: {
+            idCategory: components["schemas"]["Id"];
+            categoryName: string;
+            orders: number;
+            /** @description Units sold minus returned */
+            units: number;
+            net: components["schemas"]["MoneyText"];
+        };
+        TopProduct: {
+            position: number;
+            idProduct: components["schemas"]["Id"];
+            productName: string;
+            units: number;
+            net: components["schemas"]["MoneyText"];
+        };
+        AbandonedCart: {
+            idCart: components["schemas"]["Id"];
+            idUser?: number | null;
+            customerName?: string | null;
+            customerEmail?: string | null;
+            itemCount: number;
+            estimated: components["schemas"]["MoneyText"];
+            /** Format: date-time */
+            lastActivityAt: string;
+            idleHours: number;
+        };
+        SystemVersion: {
+            app: string;
+            schemaVersion: number;
+            objects: {
+                objectName?: string;
+                objectType?: string;
+                version?: string;
+                change?: string;
+            }[];
+        };
     };
-    PriceRequest: {
-      price: components['schemas']['MoneyText'];
+    responses: {
+        /** @description Validation failed, or a mandatory header is missing */
+        BadRequest: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description Missing or expired access token */
+        Unauthorised: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description The role is not allowed to perform this action */
+        Forbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description The resource does not exist or does not belong to the caller */
+        NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description Conflict with the current state (out of stock, request in progress, duplicate) */
+        Conflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description A business rule refused the request, or the idempotency key was reused with another body */
+        Unprocessable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description The file is above 5 MB */
+        PayloadTooLarge: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description The file is not a JPEG, a PNG or a PDF */
+        UnsupportedMedia: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description The account is temporarily locked after repeated failed sign-ins; details.lockedUntil says until when */
+        Locked: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description A dependency is unavailable or the schema is outdated */
+        Unavailable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Readiness"];
+            };
+        };
+        /** @description Rate limit exceeded; see the Retry-After header */
+        TooManyRequests: {
+            headers: {
+                "Retry-After"?: number;
+                "RateLimit-Limit"?: number;
+                "RateLimit-Remaining"?: number;
+                "RateLimit-Reset"?: number;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
     };
-    CartLine: {
-      idCartItem?: number;
-      idVariant: components['schemas']['Id'];
-      sku?: string;
-      productName?: string;
-      quantity: number;
-      inscription?: string | null;
-      unitPrice: components['schemas']['MoneyText'];
-      lineTotal: components['schemas']['MoneyText'];
-      available?: number;
-      isAvailable?: boolean;
+    parameters: {
+        /** @description The refresh token that the browser sends by itself. The `refreshToken` field of the body, when sent, takes precedence; clients that are not a browser use it. */
+        RefreshTokenCookie: string;
+        /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
+        IdempotencyKey: string;
+        /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
+        IdempotencyKeyOptional: string;
+        /** @description UUID chosen by the browser for a visitor cart */
+        CartToken: string;
+        Page: number;
+        Size: number;
     };
-    Cart: {
-      idCart: number | null;
-      couponCode?: string | null;
-      /** @description Why the coupon stopped discounting: Expired, Exhausted, AlreadyUsed, ... */
-      couponReason?: string | null;
-      subtotal: components['schemas']['MoneyText'];
-      discount: components['schemas']['MoneyText'];
-      total: components['schemas']['MoneyText'];
-      vat: components['schemas']['MoneyText'];
-      taxableBase: components['schemas']['MoneyText'];
-      itemCount: number;
-      hasUnavailableLines?: boolean;
-      lines: components['schemas']['CartLine'][];
+    requestBodies: never;
+    headers: {
+        /** @description The refresh token as a cookie: `HttpOnly`, `SameSite=Strict`, `Path=/api/v1/auth`, `Max-Age` of the token life, and `Secure` when the application is served over https. On logout and on a rejected renewal it is sent expired to clear it. */
+        RefreshTokenCookie: string;
     };
-    CartItemRequest: {
-      quantity: number;
-      inscription?: string | null;
-    };
-    CouponCodeRequest: {
-      code: string;
-    };
-    MergeCartRequest: {
-      /** Format: uuid */
-      guestToken: string;
-    };
-    Address: {
-      idAddress: components['schemas']['Id'];
-      label: string;
-      recipient: string;
-      phone: string;
-      line1: string;
-      line2?: string | null;
-      municipality: string;
-      department: string;
-      reference?: string | null;
-      isActive?: boolean;
-    };
-    AddressRequest: {
-      label: string;
-      recipient: string;
-      phone: string;
-      line1: string;
-      line2?: string | null;
-      municipality: string;
-      department: string;
-      reference?: string | null;
-      isActive?: boolean;
-    };
-    BankAccount: {
-      idBankAccount: components['schemas']['Id'];
-      bankName: string;
-      /** @enum {string} */
-      accountType: 'Checking' | 'Savings';
-      accountNumber: string;
-      holderName: string;
-      /** @enum {string} */
-      currency?: 'GTQ';
-      instructions?: string | null;
-      isActive?: boolean;
-    };
-    BankAccountRequest: {
-      bankName: string;
-      /** @enum {string} */
-      accountType: 'Checking' | 'Savings';
-      accountNumber: string;
-      holderName: string;
-      instructions?: string | null;
-      isActive?: boolean;
-    };
-    MethodOffer: {
-      /** @enum {string} */
-      method: 'CARD' | 'BANK_DEPOSIT';
-      available: boolean;
-      /** @description Stable code the panel translates */
-      reason?: string | null;
-      /** Format: date-time */
-      deadlineAt?: string | null;
-    };
-    PaymentMethodsView: {
-      /** Format: date */
-      deliveryDate: string;
-      /** Format: date */
-      earliestDeliveryDate?: string;
-      deliveryDateAllowed?: boolean;
-      methods: components['schemas']['MethodOffer'][];
-      bankAccounts: components['schemas']['BankAccount'][];
-    };
-    Reservation: {
-      idReservation: components['schemas']['Id'];
-      /** Format: date-time */
-      expiresAt: string;
-    };
-    ConfirmRequest: {
-      idReservation: components['schemas']['Id'];
-      idAddress: components['schemas']['Id'];
-      /** Format: date */
-      deliveryDate: string;
-      /** @enum {string} */
-      method: 'CARD' | 'BANK_DEPOSIT';
-      idBankAccount?: number | null;
-    };
-    CreatedOrder: {
-      idOrder: components['schemas']['Id'];
-      idPayment: components['schemas']['Id'];
-      /** @example PED-2026-000123 */
-      orderNumber: string;
-      /** Format: date-time */
-      paymentExpiresAt: string;
-    };
-    OrderSummary: {
-      idOrder: components['schemas']['Id'];
-      orderNumber: string;
-      idUser?: number;
-      customerName?: string;
-      customerEmail?: string;
-      idOrderStatus?: number;
-      statusName: string;
-      total: components['schemas']['MoneyText'];
-      itemCount?: number;
-      /** Format: date-time */
-      createdAt?: string;
-      /** Format: date-time */
-      paidAt?: string | null;
-      /** Format: date */
-      requestedDeliveryDate?: string;
-    };
-    OrderLine: {
-      idOrderLine: components['schemas']['Id'];
-      idVariant?: number;
-      sku?: string;
-      productName?: string;
-      attributes?: string;
-      quantity: number;
-      unitPrice: components['schemas']['MoneyText'];
-      lineDiscount?: components['schemas']['MoneyText'];
-      lineTotal: components['schemas']['MoneyText'];
-      returnedQuantity?: number;
-      inscription?: string | null;
-    };
-    OrderHistoryEntry: {
-      idPreviousStatus?: number | null;
-      idNewStatus?: number;
-      newStatusName?: string;
-      /** Format: date-time */
-      createdAt?: string;
-      comment?: string | null;
-    };
-    OrderDetail: {
-      idOrder: components['schemas']['Id'];
-      orderNumber: string;
-      idUser?: number;
-      customerName?: string;
-      customerEmail?: string;
-      idOrderStatus?: number;
-      statusName: string;
-      couponCode?: string | null;
-      deliveryRecipient?: string;
-      deliveryPhone?: string;
-      deliveryLine1?: string;
-      deliveryMunicipality?: string;
-      deliveryDepartment?: string;
-      /** Format: date */
-      requestedDeliveryDate?: string;
-      subtotal?: components['schemas']['MoneyText'];
-      discount?: components['schemas']['MoneyText'];
-      shipping?: components['schemas']['MoneyText'];
-      total: components['schemas']['MoneyText'];
-      taxableBase?: components['schemas']['MoneyText'];
-      vat?: components['schemas']['MoneyText'];
-      /** Format: date-time */
-      createdAt?: string;
-      /** Format: date-time */
-      paidAt?: string | null;
-      lines: components['schemas']['OrderLine'][];
-      history: components['schemas']['OrderHistoryEntry'][];
-    };
-    CancelRequest: {
-      reason?: string | null;
-    };
-    StatusRequest: {
-      /** @enum {string} */
-      status: 'InPreparation' | 'Dispatched' | 'Delivered';
-      comment?: string | null;
-    };
-    ReturnRequest: {
-      reason: string;
-      lines: {
-        idOrderLine: components['schemas']['Id'];
-        quantity: number;
-      }[];
-    };
-    ReturnRegistered: {
-      idReturn: components['schemas']['Id'];
-      idRefund: components['schemas']['Id'];
-      refundAmount: components['schemas']['MoneyText'];
-    };
-    Proof: {
-      idPaymentProof?: components['schemas']['Id'];
-      originalFileName?: string;
-      mimeType?: string;
-      sizeBytes?: number;
-      /** Format: date-time */
-      uploadedAt?: string;
-    };
-    Payment: {
-      idPayment: components['schemas']['Id'];
-      idPaymentMethod?: number;
-      methodCode?: string;
-      idPaymentStatus: number;
-      statusName: string;
-      amount: components['schemas']['MoneyText'];
-      /** Format: date-time */
-      expiresAt?: string;
-      /** Format: date-time */
-      createdAt?: string;
-      /** Format: date-time */
-      resolvedAt?: string | null;
-      idBankAccount?: number | null;
-      bankName?: string | null;
-      accountType?: string | null;
-      accountNumber?: string | null;
-      holderName?: string | null;
-      instructions?: string | null;
-      referenceNumber?: string | null;
-      /** Format: date */
-      depositDate?: string | null;
-      depositedAmount?: components['schemas']['MoneyText'];
-      isCurrent?: boolean | null;
-      rejectionReason?: string | null;
-      /** Format: date-time */
-      reviewedAt?: string | null;
-      attemptsRejected: number;
-      maxAttempts: number;
-      proofs: components['schemas']['Proof'][];
-    };
-    AttemptRequest: {
-      idBankAccount?: number | null;
-    };
-    Attempt: {
-      idPayment: components['schemas']['Id'];
-      /** Format: date-time */
-      expiresAt: string;
-    };
-    ProofUpload: {
-      /**
-       * Format: binary
-       * @description JPEG, PNG or PDF up to 5 MB, checked by its first bytes
-       */
-      file: string;
-      referenceNumber: string;
-      /** Format: date */
-      depositDate: string;
-      depositedAmount: components['schemas']['MoneyText'];
-    };
-    ProofStored: {
-      idPaymentProof: components['schemas']['Id'];
-      idPayment: components['schemas']['Id'];
-    };
-    DepositQueueItem: {
-      idPayment: components['schemas']['Id'];
-      idOrder: components['schemas']['Id'];
-      orderNumber: string;
-      customerName?: string;
-      customerEmail?: string;
-      amount: components['schemas']['MoneyText'];
-      idPaymentStatus?: number;
-      statusName: string;
-      bankName?: string;
-      referenceNumber?: string | null;
-      /** Format: date */
-      depositDate?: string | null;
-      depositedAmount?: components['schemas']['MoneyText'];
-      rejectionReason?: string | null;
-      idPaymentProof?: number | null;
-      /** Format: date-time */
-      submittedAt?: string | null;
-      ageHours?: number | null;
-    };
-    ReviewOutcome: {
-      /** @description Approved, AlreadyApproved, Orphan, RejectedAmountMismatch, Rejected, RejectedOrderCancelled or AlreadyRejected */
-      outcome: string;
-    };
-    RejectRequest: {
-      reason: string;
-    };
-    Refund: {
-      idRefund: components['schemas']['Id'];
-      idPayment: components['schemas']['Id'];
-      idOrder?: components['schemas']['Id'];
-      orderNumber?: string;
-      idReturn?: number | null;
-      amount?: unknown;
-      amountText: components['schemas']['MoneyText'];
-      reason?: string;
-      /** @enum {string} */
-      status: 'Pending' | 'Processed' | 'Failed';
-      externalReference?: string | null;
-      /** Format: date-time */
-      createdAt?: string;
-      /** Format: date-time */
-      processedAt?: string | null;
-    };
-    RefundRequest: {
-      /** @enum {string} */
-      status: 'Processed' | 'Failed';
-      externalReference?: string | null;
-    };
-    LedgerEntry: {
-      idInventoryMovement?: string;
-      /** @enum {string} */
-      movementType: 'Entry' | 'Exit' | 'Adjustment' | 'Return';
-      quantity: number;
-      resultingBalance: number;
-      reason?: string;
-      idUser?: number;
-      userName?: string;
-      idOrder?: number | null;
-      /** Format: date-time */
-      createdAt?: string;
-    };
-    EntryRequest: {
-      idVariant: components['schemas']['Id'];
-      quantity: number;
-      reason: string;
-    };
-    AdjustmentRequest: {
-      idVariant: components['schemas']['Id'];
-      newOnHand: number;
-      reason: string;
-    };
-    Movement: {
-      /** @description Null when the stock already had the requested value */
-      idMovement: string | null;
-    };
-    Coupon: {
-      idCoupon: components['schemas']['Id'];
-      code: string;
-      /** @enum {string} */
-      type: 'Percentage' | 'FixedAmount';
-      value: components['schemas']['MoneyText'];
-      minimumAmount?: components['schemas']['MoneyText'];
-      /** Format: date-time */
-      startsAt?: string;
-      /** Format: date-time */
-      endsAt?: string;
-      totalUsageLimit?: number | null;
-      perCustomerUsageLimit?: number | null;
-      usageCount?: number;
-      idCategory?: number | null;
-      isActive?: boolean;
-      /** @enum {string} */
-      status: 'Inactive' | 'NotStarted' | 'Expired' | 'Exhausted' | 'Active';
-    };
-    CouponRequest: {
-      /** @description Required on creation, ignored on update */
-      code?: string;
-      /** @enum {string} */
-      type: 'Percentage' | 'FixedAmount';
-      value: components['schemas']['MoneyText'];
-      minimumAmount?: components['schemas']['MoneyText'];
-      /** Format: date-time */
-      startsAt: string;
-      /** Format: date-time */
-      endsAt: string;
-      totalUsageLimit?: number | null;
-      perCustomerUsageLimit?: number | null;
-      categoryId?: number | null;
-    };
-    UserAccount: {
-      idUser: components['schemas']['Id'];
-      email: string;
-      fullName?: string;
-      phone?: string | null;
-      idRole?: number;
-      roleName: string;
-      isActive: boolean;
-      /** Format: date-time */
-      lockedUntil?: string | null;
-      /** Format: date-time */
-      createdAt?: string;
-    };
-    UserStatusRequest: {
-      isActive: boolean;
-    };
-    AuditEntry: {
-      idAuditLog?: string;
-      module: string;
-      entityName: string;
-      entityKey: string;
-      /** @enum {string} */
-      action: 'Create' | 'Update' | 'Deactivate' | 'StatusChange';
-      previousValue?: string | null;
-      newValue?: string | null;
-      idUser?: number | null;
-      userName?: string | null;
-      /** Format: date-time */
-      createdAt?: string;
-    };
-    JobStatus: {
-      /** @example expirePayments */
-      name: string;
-      intervalMs: number;
-      running: boolean;
-      runs: number;
-      skipped: number;
-      failures: number;
-      consecutiveFailures: number;
-      /** Format: date-time */
-      lastStartedAt?: string | null;
-      /** Format: date-time */
-      lastFinishedAt?: string | null;
-      lastDurationMs?: number | null;
-      /** @enum {string|null} */
-      lastOutcome?: 'Ran' | 'Skipped' | 'Failed' | null;
-      lastCounts?: Record<string, never> | null;
-      lastError?: string | null;
-    };
-    ReconciliationRow: {
-      /** @enum {string} */
-      source: 'Amounts' | 'Inventory';
-      /** @example RefundsExceedPayment */
-      check: string;
-      entityKey: string;
-      expected: string;
-      actual: string;
-    };
-    DashboardSummary: {
-      /** Format: date */
-      fromDate: string;
-      /** Format: date */
-      toDate: string;
-      orders: number;
-      gross: components['schemas']['MoneyText'];
-      returned: components['schemas']['MoneyText'];
-      net: components['schemas']['MoneyText'];
-      averageTicket: components['schemas']['MoneyText'];
-      /** @description Orders waiting for payment right now (includes those with a proof under review) */
-      pendingPaymentOrders: number;
-      depositsUnderReview: number;
-      abandonedCarts: number;
-    };
-    SalesPoint: {
-      /**
-       * Format: date
-       * @description First day of the day, the week (Monday) or the month
-       */
-      periodStart: string;
-      orders: number;
-      gross: components['schemas']['MoneyText'];
-      returned: components['schemas']['MoneyText'];
-      net: components['schemas']['MoneyText'];
-      averageTicket: components['schemas']['MoneyText'];
-    };
-    CategorySales: {
-      idCategory: components['schemas']['Id'];
-      categoryName: string;
-      orders: number;
-      /** @description Units sold minus returned */
-      units: number;
-      net: components['schemas']['MoneyText'];
-    };
-    TopProduct: {
-      position: number;
-      idProduct: components['schemas']['Id'];
-      productName: string;
-      units: number;
-      net: components['schemas']['MoneyText'];
-    };
-    AbandonedCart: {
-      idCart: components['schemas']['Id'];
-      idUser?: number | null;
-      customerName?: string | null;
-      customerEmail?: string | null;
-      itemCount: number;
-      estimated: components['schemas']['MoneyText'];
-      /** Format: date-time */
-      lastActivityAt: string;
-      idleHours: number;
-    };
-    SystemVersion: {
-      app: string;
-      schemaVersion: number;
-      objects: {
-        objectName?: string;
-        objectType?: string;
-        version?: string;
-        change?: string;
-      }[];
-    };
-  };
-  responses: {
-    /** @description Validation failed, or a mandatory header is missing */
-    BadRequest: {
-      headers: {
-        [name: string]: unknown;
-      };
-      content: {
-        'application/json': components['schemas']['ErrorResponse'];
-      };
-    };
-    /** @description Missing or expired access token */
-    Unauthorised: {
-      headers: {
-        [name: string]: unknown;
-      };
-      content: {
-        'application/json': components['schemas']['ErrorResponse'];
-      };
-    };
-    /** @description The role is not allowed to perform this action */
-    Forbidden: {
-      headers: {
-        [name: string]: unknown;
-      };
-      content: {
-        'application/json': components['schemas']['ErrorResponse'];
-      };
-    };
-    /** @description The resource does not exist or does not belong to the caller */
-    NotFound: {
-      headers: {
-        [name: string]: unknown;
-      };
-      content: {
-        'application/json': components['schemas']['ErrorResponse'];
-      };
-    };
-    /** @description Conflict with the current state (out of stock, request in progress, duplicate) */
-    Conflict: {
-      headers: {
-        [name: string]: unknown;
-      };
-      content: {
-        'application/json': components['schemas']['ErrorResponse'];
-      };
-    };
-    /** @description A business rule refused the request, or the idempotency key was reused with another body */
-    Unprocessable: {
-      headers: {
-        [name: string]: unknown;
-      };
-      content: {
-        'application/json': components['schemas']['ErrorResponse'];
-      };
-    };
-    /** @description The file is above 5 MB */
-    PayloadTooLarge: {
-      headers: {
-        [name: string]: unknown;
-      };
-      content: {
-        'application/json': components['schemas']['ErrorResponse'];
-      };
-    };
-    /** @description The file is not a JPEG, a PNG or a PDF */
-    UnsupportedMedia: {
-      headers: {
-        [name: string]: unknown;
-      };
-      content: {
-        'application/json': components['schemas']['ErrorResponse'];
-      };
-    };
-    /** @description The account is temporarily locked after repeated failed sign-ins; details.lockedUntil says until when */
-    Locked: {
-      headers: {
-        [name: string]: unknown;
-      };
-      content: {
-        'application/json': components['schemas']['ErrorResponse'];
-      };
-    };
-    /** @description A dependency is unavailable or the schema is outdated */
-    Unavailable: {
-      headers: {
-        [name: string]: unknown;
-      };
-      content: {
-        'application/json': components['schemas']['Readiness'];
-      };
-    };
-    /** @description Rate limit exceeded; see the Retry-After header */
-    TooManyRequests: {
-      headers: {
-        'Retry-After'?: number;
-        'RateLimit-Limit'?: number;
-        'RateLimit-Remaining'?: number;
-        'RateLimit-Reset'?: number;
-        [name: string]: unknown;
-      };
-      content: {
-        'application/json': components['schemas']['ErrorResponse'];
-      };
-    };
-  };
-  parameters: {
-    /** @description The refresh token that the browser sends by itself. The `refreshToken` field of the body, when sent, takes precedence; clients that are not a browser use it. */
-    RefreshTokenCookie: string;
-    /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
-    IdempotencyKey: string;
-    /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
-    IdempotencyKeyOptional: string;
-    /** @description UUID chosen by the browser for a visitor cart */
-    CartToken: string;
-    Page: number;
-    Size: number;
-  };
-  requestBodies: never;
-  headers: {
-    /** @description The refresh token as a cookie: `HttpOnly`, `SameSite=Strict`, `Path=/api/v1/auth`, `Max-Age` of the token life, and `Secure` when the application is served over https. On logout and on a rejected renewal it is sent expired to clear it. */
-    RefreshTokenCookie: string;
-  };
-  pathItems: never;
+    pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-  getLiveness: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            /** @enum {string} */
-            status: 'ok';
-          };
-        };
-      };
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  getReadiness: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['Readiness'];
-        };
-      };
-      429: components['responses']['TooManyRequests'];
-      503: components['responses']['Unavailable'];
-    };
-  };
-  register: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['RegisterRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            idUser: components['schemas']['Id'];
-          };
-        };
-      };
-      400: components['responses']['BadRequest'];
-      409: components['responses']['Conflict'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  login: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['LoginRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          'Set-Cookie': components['headers']['RefreshTokenCookie'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['Session'];
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      423: components['responses']['Locked'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  startGuestSession: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Created */
-      201: {
-        headers: {
-          'Set-Cookie': components['headers']['RefreshTokenCookie'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['Session'];
-        };
-      };
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  setGuestContact: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['GuestContactRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['UserProfile'];
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      409: components['responses']['Conflict'];
-      422: components['responses']['Unprocessable'];
-    };
-  };
-  issueGuestRecoveryCode: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Created */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['RecoveryCode'];
-        };
-      };
-      401: components['responses']['Unauthorised'];
-      422: components['responses']['Unprocessable'];
-    };
-  };
-  recoverGuestSession: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['RecoverGuestRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          'Set-Cookie': components['headers']['RefreshTokenCookie'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['Session'];
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  refreshSession: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: {
-        /** @description The refresh token that the browser sends by itself. The `refreshToken` field of the body, when sent, takes precedence; clients that are not a browser use it. */
-        refreshToken?: components['parameters']['RefreshTokenCookie'];
-      };
-    };
-    requestBody?: {
-      content: {
-        'application/json': components['schemas']['RefreshRequest'];
-      };
-    };
-    responses: {
-      /** @description Success. The rotated token replaces the cookie. */
-      200: {
-        headers: {
-          'Set-Cookie': components['headers']['RefreshTokenCookie'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['Session'];
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  logout: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: {
-        /** @description The refresh token that the browser sends by itself. The `refreshToken` field of the body, when sent, takes precedence; clients that are not a browser use it. */
-        refreshToken?: components['parameters']['RefreshTokenCookie'];
-      };
-    };
-    requestBody?: {
-      content: {
-        'application/json': components['schemas']['RefreshRequest'];
-      };
-    };
-    responses: {
-      /** @description Signed out */
-      204: {
-        headers: {
-          'Set-Cookie': components['headers']['RefreshTokenCookie'];
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      400: components['responses']['BadRequest'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  getProfile: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['UserProfile'];
-        };
-      };
-      401: components['responses']['Unauthorised'];
-      404: components['responses']['NotFound'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  listCategories: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['CategoryNode'][];
-        };
-      };
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  searchProducts: {
-    parameters: {
-      query?: {
-        /** @description Text in the name or description */
-        q?: string;
-        /** @description Includes the subcategories */
-        category?: components['schemas']['Id'];
-        min?: components['schemas']['MoneyText'];
-        max?: components['schemas']['MoneyText'];
-        available?: boolean;
-        sort?: 'name' | 'price_asc' | 'price_desc' | 'newest';
-        page?: components['parameters']['Page'];
-        size?: components['parameters']['Size'];
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            items: components['schemas']['ProductSummary'][];
-            page: number;
-            size: number;
-            total: number;
-          };
-        };
-      };
-      400: components['responses']['BadRequest'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  getProduct: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ProductDetail'];
-        };
-      };
-      404: components['responses']['NotFound'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminListCategories: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['Category'][];
-        };
-      };
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminCreateCategory: {
-    parameters: {
-      query?: never;
-      header: {
-        /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
-        'Idempotency-Key': components['parameters']['IdempotencyKey'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['CategoryRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            idCategory: components['schemas']['Id'];
-          };
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      409: components['responses']['Conflict'];
-      422: components['responses']['Unprocessable'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminUpdateCategory: {
-    parameters: {
-      query?: never;
-      header?: {
-        /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
-        'Idempotency-Key'?: components['parameters']['IdempotencyKeyOptional'];
-      };
-      path: {
-        id: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['CategoryRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            idCategory?: components['schemas']['Id'];
-          };
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      404: components['responses']['NotFound'];
-      409: components['responses']['Conflict'];
-      422: components['responses']['Unprocessable'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminDeactivateCategory: {
-    parameters: {
-      query?: never;
-      header?: {
-        /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
-        'Idempotency-Key'?: components['parameters']['IdempotencyKeyOptional'];
-      };
-      path: {
-        id: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            idCategory?: components['schemas']['Id'];
-            isActive?: boolean;
-          };
-        };
-      };
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      404: components['responses']['NotFound'];
-      422: components['responses']['Unprocessable'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminSearchProducts: {
-    parameters: {
-      query?: {
-        q?: string;
-        category?: components['schemas']['Id'];
-        sort?: 'name' | 'price_asc' | 'price_desc' | 'newest';
-        page?: components['parameters']['Page'];
-        size?: components['parameters']['Size'];
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            items: components['schemas']['ProductSummary'][];
-            page: number;
-            size: number;
-            total: number;
-          };
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminCreateProduct: {
-    parameters: {
-      query?: never;
-      header: {
-        /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
-        'Idempotency-Key': components['parameters']['IdempotencyKey'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ProductRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            idProduct: components['schemas']['Id'];
-          };
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      422: components['responses']['Unprocessable'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminGetProduct: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ProductDetail'];
-        };
-      };
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      404: components['responses']['NotFound'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminUpdateProduct: {
-    parameters: {
-      query?: never;
-      header?: {
-        /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
-        'Idempotency-Key'?: components['parameters']['IdempotencyKeyOptional'];
-      };
-      path: {
-        id: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ProductRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            idProduct?: components['schemas']['Id'];
-          };
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      404: components['responses']['NotFound'];
-      409: components['responses']['Conflict'];
-      422: components['responses']['Unprocessable'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminDeactivateProduct: {
-    parameters: {
-      query?: never;
-      header?: {
-        /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
-        'Idempotency-Key'?: components['parameters']['IdempotencyKeyOptional'];
-      };
-      path: {
-        id: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            idProduct?: components['schemas']['Id'];
-            isActive?: boolean;
-          };
-        };
-      };
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      404: components['responses']['NotFound'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminCreateVariant: {
-    parameters: {
-      query?: never;
-      header: {
-        /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
-        'Idempotency-Key': components['parameters']['IdempotencyKey'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['VariantCreateRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            idVariant: components['schemas']['Id'];
-          };
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      409: components['responses']['Conflict'];
-      422: components['responses']['Unprocessable'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminUpdateVariant: {
-    parameters: {
-      query?: never;
-      header?: {
-        /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
-        'Idempotency-Key'?: components['parameters']['IdempotencyKeyOptional'];
-      };
-      path: {
-        id: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['VariantUpdateRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            idVariant?: components['schemas']['Id'];
-          };
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      404: components['responses']['NotFound'];
-      409: components['responses']['Conflict'];
-      422: components['responses']['Unprocessable'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminChangePrice: {
-    parameters: {
-      query?: never;
-      header: {
-        /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
-        'Idempotency-Key': components['parameters']['IdempotencyKey'];
-      };
-      path: {
-        id: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['PriceRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            idVariant?: components['schemas']['Id'];
-            price?: components['schemas']['MoneyText'];
-          };
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      404: components['responses']['NotFound'];
-      422: components['responses']['Unprocessable'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  getCart: {
-    parameters: {
-      query?: never;
-      header?: {
-        /** @description UUID chosen by the browser for a visitor cart */
-        'X-Cart-Token'?: components['parameters']['CartToken'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['Cart'];
-        };
-      };
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  setCartItem: {
-    parameters: {
-      query?: never;
-      header?: {
-        /** @description UUID chosen by the browser for a visitor cart */
-        'X-Cart-Token'?: components['parameters']['CartToken'];
-        /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
-        'Idempotency-Key'?: components['parameters']['IdempotencyKeyOptional'];
-      };
-      path: {
-        variantId: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['CartItemRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['Cart'];
-        };
-      };
-      400: components['responses']['BadRequest'];
-      404: components['responses']['NotFound'];
-      409: components['responses']['Conflict'];
-      422: components['responses']['Unprocessable'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  removeCartItem: {
-    parameters: {
-      query?: never;
-      header?: {
-        /** @description UUID chosen by the browser for a visitor cart */
-        'X-Cart-Token'?: components['parameters']['CartToken'];
-        /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
-        'Idempotency-Key'?: components['parameters']['IdempotencyKeyOptional'];
-      };
-      path: {
-        variantId: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['Cart'];
-        };
-      };
-      404: components['responses']['NotFound'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  applyCoupon: {
-    parameters: {
-      query?: never;
-      header: {
-        /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
-        'Idempotency-Key': components['parameters']['IdempotencyKey'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['CouponCodeRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['Cart'];
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      409: components['responses']['Conflict'];
-      422: components['responses']['Unprocessable'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  removeCoupon: {
-    parameters: {
-      query?: never;
-      header?: {
-        /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
-        'Idempotency-Key'?: components['parameters']['IdempotencyKeyOptional'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['Cart'];
-        };
-      };
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  mergeGuestCart: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['MergeCartRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['Cart'];
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  listAddresses: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['Address'][];
-        };
-      };
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  createAddress: {
-    parameters: {
-      query?: never;
-      header: {
-        /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
-        'Idempotency-Key': components['parameters']['IdempotencyKey'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['AddressRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            idAddress: components['schemas']['Id'];
-          };
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  updateAddress: {
-    parameters: {
-      query?: never;
-      header?: {
-        /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
-        'Idempotency-Key'?: components['parameters']['IdempotencyKeyOptional'];
-      };
-      path: {
-        id: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['AddressRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            idAddress?: components['schemas']['Id'];
-          };
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      404: components['responses']['NotFound'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  getPaymentMethods: {
-    parameters: {
-      query?: {
-        /** @description Required */
-        deliveryDate?: string;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['PaymentMethodsView'];
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  startCheckout: {
-    parameters: {
-      query?: never;
-      header: {
-        /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
-        'Idempotency-Key': components['parameters']['IdempotencyKey'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['Reservation'];
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      409: components['responses']['Conflict'];
-      422: components['responses']['Unprocessable'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  confirmCheckout: {
-    parameters: {
-      query?: never;
-      header: {
-        /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
-        'Idempotency-Key': components['parameters']['IdempotencyKey'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ConfirmRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['CreatedOrder'];
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      409: components['responses']['Conflict'];
-      422: components['responses']['Unprocessable'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  listOrders: {
-    parameters: {
-      query?: {
-        status?: number;
-        page?: components['parameters']['Page'];
-        size?: components['parameters']['Size'];
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            items: components['schemas']['OrderSummary'][];
-            page: number;
-            size: number;
-            total: number;
-          };
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  getOrder: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['OrderDetail'];
-        };
-      };
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      404: components['responses']['NotFound'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  cancelOrder: {
-    parameters: {
-      query?: never;
-      header: {
-        /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
-        'Idempotency-Key': components['parameters']['IdempotencyKey'];
-      };
-      path: {
-        id: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['CancelRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['OrderDetail'];
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      404: components['responses']['NotFound'];
-      422: components['responses']['Unprocessable'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  getOrderPayments: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['Payment'][];
-        };
-      };
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      404: components['responses']['NotFound'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  createDepositAttempt: {
-    parameters: {
-      query?: never;
-      header: {
-        /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
-        'Idempotency-Key': components['parameters']['IdempotencyKey'];
-      };
-      path: {
-        id: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['AttemptRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['Attempt'];
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      404: components['responses']['NotFound'];
-      409: components['responses']['Conflict'];
-      422: components['responses']['Unprocessable'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  uploadProof: {
-    parameters: {
-      query?: never;
-      header: {
-        /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
-        'Idempotency-Key': components['parameters']['IdempotencyKey'];
-      };
-      path: {
-        id: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'multipart/form-data': components['schemas']['ProofUpload'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ProofStored'];
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      404: components['responses']['NotFound'];
-      409: components['responses']['Conflict'];
-      413: components['responses']['PayloadTooLarge'];
-      415: components['responses']['UnsupportedMedia'];
-      422: components['responses']['Unprocessable'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  downloadOwnProof: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: components['schemas']['Id'];
-        proofId: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The file */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          '*/*': string;
-        };
-      };
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      404: components['responses']['NotFound'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminListOrders: {
-    parameters: {
-      query?: {
-        status?: number;
-        /** @description Order number or customer email */
-        search?: string;
-        from?: string;
-        to?: string;
-        page?: components['parameters']['Page'];
-        size?: components['parameters']['Size'];
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            items: components['schemas']['OrderSummary'][];
-            page: number;
-            size: number;
-            total: number;
-          };
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminGetOrder: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['OrderDetail'];
-        };
-      };
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      404: components['responses']['NotFound'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminChangeOrderStatus: {
-    parameters: {
-      query?: never;
-      header: {
-        /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
-        'Idempotency-Key': components['parameters']['IdempotencyKey'];
-      };
-      path: {
-        id: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['StatusRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['OrderDetail'];
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      404: components['responses']['NotFound'];
-      422: components['responses']['Unprocessable'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminRegisterReturn: {
-    parameters: {
-      query?: never;
-      header: {
-        /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
-        'Idempotency-Key': components['parameters']['IdempotencyKey'];
-      };
-      path: {
-        id: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ReturnRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ReturnRegistered'];
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      404: components['responses']['NotFound'];
-      422: components['responses']['Unprocessable'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminGetOrderPayments: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['Payment'][];
-        };
-      };
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      404: components['responses']['NotFound'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminListDeposits: {
-    parameters: {
-      query?: {
-        status?: 'Pending' | 'UnderReview' | 'Approved' | 'Rejected';
-        from?: string;
-        to?: string;
-        page?: components['parameters']['Page'];
-        size?: components['parameters']['Size'];
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            items: components['schemas']['DepositQueueItem'][];
-            page: number;
-            size: number;
-            total: number;
-          };
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminDownloadProof: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: components['schemas']['Id'];
-        proofId: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The file */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          '*/*': string;
-        };
-      };
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      404: components['responses']['NotFound'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminApproveDeposit: {
-    parameters: {
-      query?: never;
-      header: {
-        /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
-        'Idempotency-Key': components['parameters']['IdempotencyKey'];
-      };
-      path: {
-        id: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ReviewOutcome'];
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      404: components['responses']['NotFound'];
-      422: components['responses']['Unprocessable'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminRejectDeposit: {
-    parameters: {
-      query?: never;
-      header: {
-        /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
-        'Idempotency-Key': components['parameters']['IdempotencyKey'];
-      };
-      path: {
-        id: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['RejectRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ReviewOutcome'];
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      404: components['responses']['NotFound'];
-      422: components['responses']['Unprocessable'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminListBankAccounts: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['BankAccount'][];
-        };
-      };
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminCreateBankAccount: {
-    parameters: {
-      query?: never;
-      header: {
-        /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
-        'Idempotency-Key': components['parameters']['IdempotencyKey'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['BankAccountRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            idBankAccount: components['schemas']['Id'];
-          };
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      409: components['responses']['Conflict'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminUpdateBankAccount: {
-    parameters: {
-      query?: never;
-      header?: {
-        /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
-        'Idempotency-Key'?: components['parameters']['IdempotencyKeyOptional'];
-      };
-      path: {
-        id: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['BankAccountRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            idBankAccount?: components['schemas']['Id'];
-          };
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      404: components['responses']['NotFound'];
-      409: components['responses']['Conflict'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminListRefunds: {
-    parameters: {
-      query?: {
-        status?: 'Pending' | 'Processed' | 'Failed';
-        limit?: number;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['Refund'][];
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminMarkRefund: {
-    parameters: {
-      query?: never;
-      header: {
-        /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
-        'Idempotency-Key': components['parameters']['IdempotencyKey'];
-      };
-      path: {
-        id: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['RefundRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            idRefund?: components['schemas']['Id'];
-            status?: string;
-          };
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      404: components['responses']['NotFound'];
-      422: components['responses']['Unprocessable'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminGetLedger: {
-    parameters: {
-      query?: {
-        /** @description Required */
-        variant?: components['schemas']['Id'];
-        from?: string;
-        to?: string;
-        page?: components['parameters']['Page'];
-        size?: components['parameters']['Size'];
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            items: components['schemas']['LedgerEntry'][];
-            page: number;
-            size: number;
-            total: number;
-          };
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminRegisterEntry: {
-    parameters: {
-      query?: never;
-      header: {
-        /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
-        'Idempotency-Key': components['parameters']['IdempotencyKey'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['EntryRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['Movement'];
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      422: components['responses']['Unprocessable'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminAdjustStock: {
-    parameters: {
-      query?: never;
-      header: {
-        /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
-        'Idempotency-Key': components['parameters']['IdempotencyKey'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['AdjustmentRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['Movement'];
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      422: components['responses']['Unprocessable'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminListCoupons: {
-    parameters: {
-      query?: {
-        includeInactive?: boolean;
-        page?: components['parameters']['Page'];
-        size?: components['parameters']['Size'];
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            items: components['schemas']['Coupon'][];
-            page: number;
-            size: number;
-            total: number;
-          };
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminCreateCoupon: {
-    parameters: {
-      query?: never;
-      header: {
-        /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
-        'Idempotency-Key': components['parameters']['IdempotencyKey'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['CouponRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            idCoupon: components['schemas']['Id'];
-          };
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      409: components['responses']['Conflict'];
-      422: components['responses']['Unprocessable'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminUpdateCoupon: {
-    parameters: {
-      query?: never;
-      header?: {
-        /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
-        'Idempotency-Key'?: components['parameters']['IdempotencyKeyOptional'];
-      };
-      path: {
-        id: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['CouponRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            idCoupon?: components['schemas']['Id'];
-          };
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      404: components['responses']['NotFound'];
-      422: components['responses']['Unprocessable'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminDeactivateCoupon: {
-    parameters: {
-      query?: never;
-      header?: {
-        /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
-        'Idempotency-Key'?: components['parameters']['IdempotencyKeyOptional'];
-      };
-      path: {
-        id: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            idCoupon?: components['schemas']['Id'];
-            isActive?: boolean;
-          };
-        };
-      };
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      404: components['responses']['NotFound'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminListUsers: {
-    parameters: {
-      query?: {
-        search?: string;
-        role?: number;
-        active?: boolean;
-        page?: components['parameters']['Page'];
-        size?: components['parameters']['Size'];
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            items: components['schemas']['UserAccount'][];
-            page: number;
-            size: number;
-            total: number;
-          };
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminSetUserStatus: {
-    parameters: {
-      query?: never;
-      header: {
-        /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
-        'Idempotency-Key': components['parameters']['IdempotencyKey'];
-      };
-      path: {
-        id: components['schemas']['Id'];
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['UserStatusRequest'];
-      };
-    };
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            idUser?: components['schemas']['Id'];
-            isActive?: boolean;
-          };
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      404: components['responses']['NotFound'];
-      422: components['responses']['Unprocessable'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminQueryAudit: {
-    parameters: {
-      query?: {
-        module?: string;
-        entityKey?: string;
-        from?: string;
-        to?: string;
-        page?: components['parameters']['Page'];
-        size?: components['parameters']['Size'];
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            items: components['schemas']['AuditEntry'][];
-            page: number;
-            size: number;
-            total: number;
-          };
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminGetSystemVersion: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['SystemVersion'];
-        };
-      };
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminGetJobs: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['JobStatus'][];
-        };
-      };
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminGetReconciliation: {
-    parameters: {
-      query?: {
-        limit?: number;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ReconciliationRow'][];
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminDashboardSummary: {
-    parameters: {
-      query?: {
-        /** @description Guatemala day, inclusive. Default: 29 days before "to" */
-        from?: string;
-        /** @description Guatemala day, inclusive. Default: today in Guatemala */
-        to?: string;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['DashboardSummary'];
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminDashboardSales: {
-    parameters: {
-      query?: {
-        /** @description Guatemala day, inclusive. Default: 29 days before "to" */
-        from?: string;
-        /** @description Guatemala day, inclusive. Default: today in Guatemala */
-        to?: string;
-        granularity?: 'day' | 'week' | 'month';
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['SalesPoint'][];
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminDashboardSalesByCategory: {
-    parameters: {
-      query?: {
-        /** @description Guatemala day, inclusive. Default: 29 days before "to" */
-        from?: string;
-        /** @description Guatemala day, inclusive. Default: today in Guatemala */
-        to?: string;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['CategorySales'][];
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminDashboardTopProducts: {
-    parameters: {
-      query?: {
-        /** @description Guatemala day, inclusive. Default: 29 days before "to" */
-        from?: string;
-        /** @description Guatemala day, inclusive. Default: today in Guatemala */
-        to?: string;
-        limit?: number;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['TopProduct'][];
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
-  adminDashboardAbandonedCarts: {
-    parameters: {
-      query?: {
-        page?: components['parameters']['Page'];
-        size?: components['parameters']['Size'];
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Success */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            items: components['schemas']['AbandonedCart'][];
-            page: number;
-            size: number;
-            total: number;
-          };
-        };
-      };
-      400: components['responses']['BadRequest'];
-      401: components['responses']['Unauthorised'];
-      403: components['responses']['Forbidden'];
-      429: components['responses']['TooManyRequests'];
-    };
-  };
+    getLiveness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        status: "ok";
+                    };
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getReadiness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Readiness"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    register: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idUser: components["schemas"]["Id"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "Set-Cookie": components["headers"]["RefreshTokenCookie"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            423: components["responses"]["Locked"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    startGuestSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    "Set-Cookie": components["headers"]["RefreshTokenCookie"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    setGuestContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GuestContactRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserProfile"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    issueGuestRecoveryCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryCode"];
+                };
+            };
+            401: components["responses"]["Unauthorised"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    recoverGuestSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecoverGuestRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "Set-Cookie": components["headers"]["RefreshTokenCookie"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    refreshSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                /** @description The refresh token that the browser sends by itself. The `refreshToken` field of the body, when sent, takes precedence; clients that are not a browser use it. */
+                refreshToken?: components["parameters"]["RefreshTokenCookie"];
+            };
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RefreshRequest"];
+            };
+        };
+        responses: {
+            /** @description Success. The rotated token replaces the cookie. */
+            200: {
+                headers: {
+                    "Set-Cookie": components["headers"]["RefreshTokenCookie"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                /** @description The refresh token that the browser sends by itself. The `refreshToken` field of the body, when sent, takes precedence; clients that are not a browser use it. */
+                refreshToken?: components["parameters"]["RefreshTokenCookie"];
+            };
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RefreshRequest"];
+            };
+        };
+        responses: {
+            /** @description Signed out */
+            204: {
+                headers: {
+                    "Set-Cookie": components["headers"]["RefreshTokenCookie"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserProfile"];
+                };
+            };
+            401: components["responses"]["Unauthorised"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    listCategories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryNode"][];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    searchProducts: {
+        parameters: {
+            query?: {
+                /** @description Text in the name or description */
+                q?: string;
+                /** @description Includes the subcategories */
+                category?: components["schemas"]["Id"];
+                min?: components["schemas"]["MoneyText"];
+                max?: components["schemas"]["MoneyText"];
+                available?: boolean;
+                sort?: "name" | "price_asc" | "price_desc" | "newest";
+                page?: components["parameters"]["Page"];
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["ProductSummary"][];
+                        page: number;
+                        size: number;
+                        total: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getProduct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminListCategories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Category"][];
+                };
+            };
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminCreateCategory: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CategoryRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idCategory: components["schemas"]["Id"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminUpdateCategory: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKeyOptional"];
+            };
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CategoryRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idCategory?: components["schemas"]["Id"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminDeactivateCategory: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKeyOptional"];
+            };
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idCategory?: components["schemas"]["Id"];
+                        isActive?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminSearchProducts: {
+        parameters: {
+            query?: {
+                q?: string;
+                category?: components["schemas"]["Id"];
+                sort?: "name" | "price_asc" | "price_desc" | "newest";
+                page?: components["parameters"]["Page"];
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["ProductSummary"][];
+                        page: number;
+                        size: number;
+                        total: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminCreateProduct: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idProduct: components["schemas"]["Id"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminGetProduct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminUpdateProduct: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKeyOptional"];
+            };
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idProduct?: components["schemas"]["Id"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminDeactivateProduct: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKeyOptional"];
+            };
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idProduct?: components["schemas"]["Id"];
+                        isActive?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminCreateVariant: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VariantCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idVariant: components["schemas"]["Id"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminUpdateVariant: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKeyOptional"];
+            };
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VariantUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idVariant?: components["schemas"]["Id"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminChangePrice: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idVariant?: components["schemas"]["Id"];
+                        price?: components["schemas"]["MoneyText"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getCart: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description UUID chosen by the browser for a visitor cart */
+                "X-Cart-Token"?: components["parameters"]["CartToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cart"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    setCartItem: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description UUID chosen by the browser for a visitor cart */
+                "X-Cart-Token"?: components["parameters"]["CartToken"];
+                /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKeyOptional"];
+            };
+            path: {
+                variantId: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CartItemRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cart"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    removeCartItem: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description UUID chosen by the browser for a visitor cart */
+                "X-Cart-Token"?: components["parameters"]["CartToken"];
+                /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKeyOptional"];
+            };
+            path: {
+                variantId: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cart"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    applyCoupon: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CouponCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cart"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    removeCoupon: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKeyOptional"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cart"];
+                };
+            };
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    mergeGuestCart: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergeCartRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cart"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    listAddresses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Address"][];
+                };
+            };
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    createAddress: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddressRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idAddress: components["schemas"]["Id"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    updateAddress: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKeyOptional"];
+            };
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddressRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idAddress?: components["schemas"]["Id"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getPaymentMethods: {
+        parameters: {
+            query?: {
+                /** @description Required */
+                deliveryDate?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentMethodsView"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    startCheckout: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reservation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    confirmCheckout: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedOrder"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    listOrders: {
+        parameters: {
+            query?: {
+                status?: number;
+                page?: components["parameters"]["Page"];
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["OrderSummary"][];
+                        page: number;
+                        size: number;
+                        total: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    cancelOrder: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getOrderPayments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payment"][];
+                };
+            };
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    createDepositAttempt: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttemptRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attempt"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    uploadProof: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ProofUpload"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProofStored"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            415: components["responses"]["UnsupportedMedia"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    downloadOwnProof: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Id"];
+                proofId: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminListOrders: {
+        parameters: {
+            query?: {
+                status?: number;
+                /** @description Order number or customer email */
+                search?: string;
+                from?: string;
+                to?: string;
+                page?: components["parameters"]["Page"];
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["OrderSummary"][];
+                        page: number;
+                        size: number;
+                        total: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminGetOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminChangeOrderStatus: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatusRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminRegisterReturn: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReturnRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnRegistered"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminGetOrderPayments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payment"][];
+                };
+            };
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminListDeposits: {
+        parameters: {
+            query?: {
+                status?: "Pending" | "UnderReview" | "Approved" | "Rejected";
+                from?: string;
+                to?: string;
+                page?: components["parameters"]["Page"];
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["DepositQueueItem"][];
+                        page: number;
+                        size: number;
+                        total: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminDownloadProof: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Id"];
+                proofId: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminApproveDeposit: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewOutcome"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminRejectDeposit: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewOutcome"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminListBankAccounts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankAccount"][];
+                };
+            };
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminCreateBankAccount: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BankAccountRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idBankAccount: components["schemas"]["Id"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminUpdateBankAccount: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKeyOptional"];
+            };
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BankAccountRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idBankAccount?: components["schemas"]["Id"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminListRefunds: {
+        parameters: {
+            query?: {
+                status?: "Pending" | "Processed" | "Failed";
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refund"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminMarkRefund: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefundRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idRefund?: components["schemas"]["Id"];
+                        status?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminGetLedger: {
+        parameters: {
+            query?: {
+                /** @description Required */
+                variant?: components["schemas"]["Id"];
+                from?: string;
+                to?: string;
+                page?: components["parameters"]["Page"];
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["LedgerEntry"][];
+                        page: number;
+                        size: number;
+                        total: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminRegisterEntry: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntryRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Movement"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminAdjustStock: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdjustmentRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Movement"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminListCoupons: {
+        parameters: {
+            query?: {
+                includeInactive?: boolean;
+                page?: components["parameters"]["Page"];
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Coupon"][];
+                        page: number;
+                        size: number;
+                        total: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminCreateCoupon: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CouponRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idCoupon: components["schemas"]["Id"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminUpdateCoupon: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKeyOptional"];
+            };
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CouponRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idCoupon?: components["schemas"]["Id"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminDeactivateCoupon: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKeyOptional"];
+            };
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idCoupon?: components["schemas"]["Id"];
+                        isActive?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminListUsers: {
+        parameters: {
+            query?: {
+                search?: string;
+                role?: number;
+                active?: boolean;
+                page?: components["parameters"]["Page"];
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["UserAccount"][];
+                        page: number;
+                        size: number;
+                        total: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminSetUserStatus: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idUser?: components["schemas"]["Id"];
+                        isActive?: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminQueryAudit: {
+        parameters: {
+            query?: {
+                module?: string;
+                entityKey?: string;
+                from?: string;
+                to?: string;
+                page?: components["parameters"]["Page"];
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["AuditEntry"][];
+                        page: number;
+                        size: number;
+                        total: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminGetSystemVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemVersion"];
+                };
+            };
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminGetJobs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobStatus"][];
+                };
+            };
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminGetReconciliation: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReconciliationRow"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminDashboardSummary: {
+        parameters: {
+            query?: {
+                /** @description Guatemala day, inclusive. Default: 29 days before "to" */
+                from?: string;
+                /** @description Guatemala day, inclusive. Default: today in Guatemala */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardSummary"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminDashboardSales: {
+        parameters: {
+            query?: {
+                /** @description Guatemala day, inclusive. Default: 29 days before "to" */
+                from?: string;
+                /** @description Guatemala day, inclusive. Default: today in Guatemala */
+                to?: string;
+                granularity?: "day" | "week" | "month";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SalesPoint"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminDashboardSalesByCategory: {
+        parameters: {
+            query?: {
+                /** @description Guatemala day, inclusive. Default: 29 days before "to" */
+                from?: string;
+                /** @description Guatemala day, inclusive. Default: today in Guatemala */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategorySales"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminDashboardTopProducts: {
+        parameters: {
+            query?: {
+                /** @description Guatemala day, inclusive. Default: 29 days before "to" */
+                from?: string;
+                /** @description Guatemala day, inclusive. Default: today in Guatemala */
+                to?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopProduct"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminDashboardAbandonedCarts: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["AbandonedCart"][];
+                        page: number;
+                        size: number;
+                        total: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
 }
