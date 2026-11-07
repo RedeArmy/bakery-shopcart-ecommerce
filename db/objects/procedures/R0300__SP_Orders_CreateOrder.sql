@@ -1,6 +1,6 @@
 /* =====================================================================
    Objeto   : dbo.SP_Orders_CreateOrder
-   Version  : 1.1.0
+   Version  : 1.2.0
    Cambio   : Un invitado necesita un correo de contacto real y no lleva cupón; el cupón se bloquea por persona (correo normalizado)
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Nueva. El backend NO envía importes: todo se recalcula aquí en centavos enteros. Es idempotente por llave: repetir
@@ -10,17 +10,23 @@
    Cambio 1.1.0: sin cambios para una cuenta real; 50422 GUEST_CONTACT_REQUIRED para un invitado sin contacto y 50422
               ACCOUNT_REQUIRED para un invitado con un cupón en el carrito. El bloqueo del cupón es por la clave
               del correo, no por cuenta.
+   Cambio 1.2.0: recogida en sucursal (@FulfilmentType = 'Pickup' con @IDBranch, sin dirección) además de la entrega a domicilio,
+              y la fecha ya no la elige el cliente: sin @RequestedDeliveryDate el sistema usa la estimada. Las llamadas anteriores
+              (con dirección y fecha) siguen siendo válidas.
    ===================================================================== */
 CREATE OR ALTER PROCEDURE dbo.SP_Orders_CreateOrder
   @IDUser                INT,
   @IDReservation         INT,
-  @IDAddress             INT,
-  @RequestedDeliveryDate DATE,
+  -- Entrega a domicilio: la dirección del cliente. Recogida: ninguna (se envía la sucursal)
+  @IDAddress             INT           = NULL,
+  @RequestedDeliveryDate DATE          = NULL,
   -- 1 tarjeta, 2 depósito bancario
   @IDPaymentMethod       TINYINT,
   -- La llave de la solicitud (Idempotency-Key): queda en Payments, donde un índice único es la segunda línea de defensa
   @IdempotencyKey        NVARCHAR(64),
   @IDBankAccount         INT           = NULL,
+  @FulfilmentType        NVARCHAR(10)  = N'Delivery',
+  @IDBranch              INT           = NULL,
   @Now                   DATETIME2(3)  = NULL,
   @IDOrder               INT           = NULL OUTPUT,
   @IDPayment             INT           = NULL OUTPUT,
@@ -31,9 +37,14 @@ BEGIN
   SET NOCOUNT ON;
   SET XACT_ABORT ON;
 
-  IF @IDUser IS NULL OR @IDReservation IS NULL OR @IDAddress IS NULL OR @RequestedDeliveryDate IS NULL OR @IDPaymentMethod IS NULL
-     OR ISNULL(@IdempotencyKey, N'') = N''
-    THROW 50400, 'IDUser, IDReservation, IDAddress, RequestedDeliveryDate, IDPaymentMethod and IdempotencyKey are required.', 1;
+  IF @IDUser IS NULL OR @IDReservation IS NULL OR @IDPaymentMethod IS NULL OR ISNULL(@IdempotencyKey, N'') = N''
+    THROW 50400, 'IDUser, IDReservation, IDPaymentMethod and IdempotencyKey are required.', 1;
+  IF @FulfilmentType IS NULL OR @FulfilmentType NOT IN (N'Delivery', N'Pickup')
+    THROW 50400, 'FulfilmentType must be Delivery or Pickup.', 1;
+  IF @FulfilmentType = N'Delivery' AND (@IDAddress IS NULL OR @IDBranch IS NOT NULL)
+    THROW 50400, 'A delivery needs an address and no branch.', 1;
+  IF @FulfilmentType = N'Pickup' AND (@IDBranch IS NULL OR @IDAddress IS NOT NULL)
+    THROW 50400, 'A pickup needs a branch and no address.', 1;
   IF @IDPaymentMethod NOT IN (1, 2)
     THROW 50400, 'IDPaymentMethod must be 1 (card) or 2 (bank deposit).', 1;
   IF @IDPaymentMethod = 2 AND @IDBankAccount IS NULL
@@ -99,19 +110,35 @@ BEGIN
              WHERE ci.IDCart = @IDCart AND cp.IsAvailable = 0)
     THROW 50409, 'INSUFFICIENT_STOCK: One or more units are no longer available.', 1;
 
-  -- 2. La dirección propia y la fecha de entrega, que no puede ser anterior a la anticipación del producto más exigente
+  -- 2. A dónde va: la dirección propia (entrega) o una sucursal activa (recogida), y la fecha, que define el sistema
   DECLARE @Recipient NVARCHAR(120), @Phone NVARCHAR(20), @Line1 NVARCHAR(200), @Municipality NVARCHAR(80), @Department NVARCHAR(80);
-  SELECT @Recipient = Recipient, @Phone = Phone, @Line1 = Line1, @Municipality = Municipality, @Department = Department
-  FROM dbo.Addresses WHERE IDAddress = @IDAddress AND IDUser = @IDUser AND IsActive = 1;
-  IF @Recipient IS NULL
-    THROW 50404, 'Address not found.', 1;
+  DECLARE @BranchName NVARCHAR(80), @BranchAddress NVARCHAR(300);
+  IF @FulfilmentType = N'Pickup'
+  BEGIN
+    SELECT @BranchName = Name, @BranchAddress = CONCAT(Line1, N', ', Municipality, N', ', Department)
+    FROM dbo.Branches WHERE IDBranch = @IDBranch AND IsActive = 1;
+    IF @BranchName IS NULL
+      THROW 50404, 'Branch not found.', 1;
+  END
+  ELSE
+  BEGIN
+    SELECT @Recipient = Recipient, @Phone = Phone, @Line1 = Line1, @Municipality = Municipality, @Department = Department
+    FROM dbo.Addresses WHERE IDAddress = @IDAddress AND IDUser = @IDUser AND IsActive = 1;
+    IF @Recipient IS NULL
+      THROW 50404, 'Address not found.', 1;
+  END;
 
   DECLARE @MaxLeadDays INT = (
     SELECT MAX(CAST(p.LeadTimeDays AS INT))
     FROM dbo.CartItems AS ci JOIN dbo.Variants AS v ON v.IDVariant = ci.IDVariant JOIN dbo.Products AS p ON p.IDProduct = v.IDProduct
     WHERE ci.IDCart = @IDCart);
   DECLARE @LocalToday DATE = CAST(((@Now AT TIME ZONE 'UTC') AT TIME ZONE 'Central America Standard Time') AS DATE);
-  IF @RequestedDeliveryDate < DATEADD(DAY, @MaxLeadDays, @LocalToday)
+  -- Sin fecha, la define el sistema (la primera que respeta la anticipación y deja tiempo para pagar). Una fecha enviada por una
+  -- llamada anterior se sigue validando contra la anticipación del producto más exigente.
+  IF @RequestedDeliveryDate IS NULL
+    SET @RequestedDeliveryDate = ISNULL((SELECT EstimatedDate FROM dbo.FU_Checkout_EstimatedDeliveryDate(@MaxLeadDays, @Now)),
+                                        DATEADD(DAY, @MaxLeadDays, @LocalToday));
+  ELSE IF @RequestedDeliveryDate < DATEADD(DAY, @MaxLeadDays, @LocalToday)
     THROW 50422, 'DELIVERY_DATE_TOO_SOON: The requested delivery date is earlier than the lead time of the products allows.', 1;
 
   -- 3. El plazo del pago. Con tarjeta, la ventana de la reserva; con depósito, la que deja la fecha de entrega (ADR-0016).
@@ -194,10 +221,12 @@ BEGIN
   --    inserta con un valor provisional único y se completa enseguida. No hay envío: el enunciado no lo pide, así que se guarda cero.
   INSERT INTO dbo.Orders
     (OrderNumber, IDUser, IDOrderStatus, IDCoupon, CouponCode, DeliveryRecipient, DeliveryPhone, DeliveryLine1,
-     DeliveryMunicipality, DeliveryDepartment, RequestedDeliveryDate, Subtotal, Discount, Shipping, Total, TaxableBase, Vat, CreatedAt)
+     DeliveryMunicipality, DeliveryDepartment, FulfilmentType, IDBranch, PickupBranchName, PickupBranchAddress,
+     RequestedDeliveryDate, Subtotal, Discount, Shipping, Total, TaxableBase, Vat, CreatedAt)
   VALUES
     (CONCAT(N'TMP-', LEFT(REPLACE(CAST(NEWID() AS NVARCHAR(36)), N'-', N''), 16)), @IDUser, 1, @IDCoupon, @CouponCode, @Recipient, @Phone, @Line1,
-     @Municipality, @Department, @RequestedDeliveryDate, @Subtotal, @Discount, 0, @Total, @TaxableBase, @Vat, @Now);
+     @Municipality, @Department, @FulfilmentType, @IDBranch, @BranchName, @BranchAddress,
+     @RequestedDeliveryDate, @Subtotal, @Discount, 0, @Total, @TaxableBase, @Vat, @Now);
   SET @IDOrder = SCOPE_IDENTITY();
 
   SET @OrderNumber = CONCAT(N'PED-', DATEPART(YEAR, @LocalToday), N'-',
@@ -257,7 +286,7 @@ BEGIN
 
   DECLARE @New NVARCHAR(MAX) = (
     SELECT o.IDOrder, o.OrderNumber, o.IDCoupon, o.CouponCode, Subtotal = CAST(o.Subtotal AS VARCHAR(25)), Discount = CAST(o.Discount AS VARCHAR(25)),
-           Total = CAST(o.Total AS VARCHAR(25)), o.RequestedDeliveryDate, IDPaymentMethod = @IDPaymentMethod, IDPayment = @IDPayment
+           Total = CAST(o.Total AS VARCHAR(25)), o.RequestedDeliveryDate, o.FulfilmentType, o.IDBranch, IDPaymentMethod = @IDPaymentMethod, IDPayment = @IDPayment
     FROM dbo.Orders AS o WHERE o.IDOrder = @IDOrder
     FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
   DECLARE @EntityKey NVARCHAR(40) = CAST(@IDOrder AS NVARCHAR(40));

@@ -20,6 +20,7 @@ class MemoryStore implements DemoStore {
     { coupon: DemoCoupon; startsAt: Date; endsAt: Date; idCategory: number | null }
   >();
   readonly bankAccounts = new Set<string>();
+  readonly branches = new Set<string>();
   readonly ledger: { idVariant: number; quantity: number; reason: string }[] = [];
   actors = new Set<number>();
 
@@ -77,6 +78,14 @@ class MemoryStore implements DemoStore {
   }
   findBankAccount(bankName: string, accountNumber: string) {
     return Promise.resolve(this.bankAccounts.has(`${bankName}|${accountNumber}`) ? 1 : null);
+  }
+  findBranch(name: string) {
+    return Promise.resolve(this.branches.has(name) ? 1 : null);
+  }
+  createBranch(actor: number, branch: { name: string }) {
+    this.actors.add(actor);
+    this.branches.add(branch.name);
+    return Promise.resolve(this.next());
   }
   createBankAccount(actor: number, account: { bankName: string; accountNumber: string }) {
     this.actors.add(actor);
@@ -200,6 +209,7 @@ describe('seedDemoCatalogue', () => {
     expect(summary.variants).toBe(allVariants.length);
     expect(summary.coupons).toBe(4);
     expect(summary.bankAccounts).toBe(2);
+    expect(summary.branches).toBe(2);
     expect([...store.actors]).toEqual([99]);
   });
 
@@ -225,6 +235,7 @@ describe('seedDemoCatalogue', () => {
       units: 0,
       coupons: 0,
       bankAccounts: 0,
+      branches: 0,
     });
     expect(store.ledger).toHaveLength(entries);
   });

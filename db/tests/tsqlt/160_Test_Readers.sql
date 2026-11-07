@@ -136,7 +136,7 @@ BEGIN
 
     CREATE TABLE #Result (IDOrder INT, OrderNumber NVARCHAR(20), IDUser INT, CustomerName NVARCHAR(120), CustomerEmail NVARCHAR(256), IDOrderStatus TINYINT,
                           StatusName NVARCHAR(30), CouponCode NVARCHAR(30), DeliveryRecipient NVARCHAR(120), DeliveryPhone NVARCHAR(20), DeliveryLine1 NVARCHAR(200),
-                          DeliveryMunicipality NVARCHAR(80), DeliveryDepartment NVARCHAR(80), RequestedDeliveryDate DATE, Subtotal VARCHAR(25), Discount VARCHAR(25),
+                          DeliveryMunicipality NVARCHAR(80), DeliveryDepartment NVARCHAR(80), RequestedDeliveryDate DATE, FulfilmentType NVARCHAR(10), IDBranch INT, PickupBranchName NVARCHAR(80), PickupBranchAddress NVARCHAR(300), Subtotal VARCHAR(25), Discount VARCHAR(25),
                           Shipping VARCHAR(25), Total VARCHAR(25), TaxableBase VARCHAR(25), Vat VARCHAR(25), CreatedAt DATETIME2(3), PaidAt DATETIME2(3),
                           Lines NVARCHAR(MAX), History NVARCHAR(MAX));
     INSERT INTO #Result EXEC dbo.SP_Orders_GetDetail @IDActor = @Ana, @IDOrder = @IDOrder;
@@ -173,7 +173,7 @@ BEGIN
 
     CREATE TABLE #Result (IDOrder INT, OrderNumber NVARCHAR(20), IDUser INT, CustomerName NVARCHAR(120), CustomerEmail NVARCHAR(256), IDOrderStatus TINYINT,
                           StatusName NVARCHAR(30), CouponCode NVARCHAR(30), DeliveryRecipient NVARCHAR(120), DeliveryPhone NVARCHAR(20), DeliveryLine1 NVARCHAR(200),
-                          DeliveryMunicipality NVARCHAR(80), DeliveryDepartment NVARCHAR(80), RequestedDeliveryDate DATE, Subtotal VARCHAR(25), Discount VARCHAR(25),
+                          DeliveryMunicipality NVARCHAR(80), DeliveryDepartment NVARCHAR(80), RequestedDeliveryDate DATE, FulfilmentType NVARCHAR(10), IDBranch INT, PickupBranchName NVARCHAR(80), PickupBranchAddress NVARCHAR(300), Subtotal VARCHAR(25), Discount VARCHAR(25),
                           Shipping VARCHAR(25), Total VARCHAR(25), TaxableBase VARCHAR(25), Vat VARCHAR(25), CreatedAt DATETIME2(3), PaidAt DATETIME2(3),
                           Lines NVARCHAR(MAX), History NVARCHAR(MAX));
     INSERT INTO #Result EXEC dbo.SP_Orders_GetDetail @IDActor = @Admin, @AsStaff = 1, @IDOrder = @IDOrder;
@@ -358,7 +358,7 @@ BEGIN
     DECLARE @Ana INT = Test_Shop.UserId(N'ana@shopcart.test');
     EXEC Test_Orders.AddLine @Email = N'ana@shopcart.test', @SKU = N'A-CAKE', @Quantity = 1;
 
-    CREATE TABLE #Result (LeadTimeDays TINYINT, EarliestDeliveryDate DATE, DeliveryDateAllowed BIT, DepositDeadlineAt DATETIME2(3), MinutesAvailable BIGINT,
+    CREATE TABLE #Result (LeadTimeDays TINYINT, DeliveryDate DATE, EstimatedDeliveryDate DATE, EarliestDeliveryDate DATE, DeliveryDateAllowed BIT, DepositDeadlineAt DATETIME2(3), MinutesAvailable BIGINT,
                           MinDepositHours INT, DepositAvailable BIT);
     INSERT INTO #Result EXEC dbo.SP_Payments_GetMethodsAndWindow @IDUser = @Ana, @DeliveryDate = '2030-06-20', @Now = '2030-06-01T12:00:00';
 
@@ -377,7 +377,7 @@ BEGIN
     DECLARE @Ana INT = Test_Shop.UserId(N'ana@shopcart.test');
     EXEC Test_Orders.AddLine @Email = N'ana@shopcart.test', @SKU = N'A-CAKE', @Quantity = 1;
 
-    CREATE TABLE #Result (LeadTimeDays TINYINT, EarliestDeliveryDate DATE, DeliveryDateAllowed BIT, DepositDeadlineAt DATETIME2(3), MinutesAvailable BIGINT,
+    CREATE TABLE #Result (LeadTimeDays TINYINT, DeliveryDate DATE, EstimatedDeliveryDate DATE, EarliestDeliveryDate DATE, DeliveryDateAllowed BIT, DepositDeadlineAt DATETIME2(3), MinutesAvailable BIGINT,
                           MinDepositHours INT, DepositAvailable BIT);
     INSERT INTO #Result EXEC dbo.SP_Payments_GetMethodsAndWindow @IDUser = @Ana, @DeliveryDate = '2030-06-01', @Now = '2030-06-01T12:00:00';
 
@@ -393,7 +393,7 @@ BEGIN
     UPDATE dbo.Products SET LeadTimeDays = 3 WHERE Name = N'Milk cake';
     EXEC Test_Orders.AddLine @Email = N'ana@shopcart.test', @SKU = N'A-CAKE', @Quantity = 1;
 
-    CREATE TABLE #Result (LeadTimeDays TINYINT, EarliestDeliveryDate DATE, DeliveryDateAllowed BIT, DepositDeadlineAt DATETIME2(3), MinutesAvailable BIGINT,
+    CREATE TABLE #Result (LeadTimeDays TINYINT, DeliveryDate DATE, EstimatedDeliveryDate DATE, EarliestDeliveryDate DATE, DeliveryDateAllowed BIT, DepositDeadlineAt DATETIME2(3), MinutesAvailable BIGINT,
                           MinDepositHours INT, DepositAvailable BIT);
     INSERT INTO #Result EXEC dbo.SP_Payments_GetMethodsAndWindow @IDUser = @Ana, @DeliveryDate = '2030-06-03', @Now = '2030-06-01T12:00:00';
 

@@ -6,12 +6,14 @@ import {
   ATTRIBUTE_FLAVOUR,
   ATTRIBUTE_SIZE,
   DEMO_BANK_ACCOUNTS,
+  DEMO_BRANCHES,
   DEMO_CATEGORIES,
   DEMO_COUPONS,
   DEMO_STOCK_REASON,
 } from './demo-catalogue-data.js';
 import type {
   DemoBankAccount,
+  DemoBranch,
   DemoCategory,
   DemoCoupon,
   DemoProduct,
@@ -40,6 +42,8 @@ export interface DemoStore {
   ): Promise<number>;
   findBankAccount(bankName: string, accountNumber: string): Promise<number | null>;
   createBankAccount(actor: number, account: DemoBankAccount): Promise<number>;
+  findBranch(name: string): Promise<number | null>;
+  createBranch(actor: number, branch: DemoBranch): Promise<number>;
 }
 
 export interface DemoSummary {
@@ -49,6 +53,7 @@ export interface DemoSummary {
   units: number;
   coupons: number;
   bankAccounts: number;
+  branches: number;
 }
 
 /** Atributos de una variante como el arreglo JSON que espera SP_Variants_SetAttributes. */
@@ -75,6 +80,7 @@ export async function seedDemoCatalogue(store: DemoStore, now: Date): Promise<De
     units: 0,
     coupons: 0,
     bankAccounts: 0,
+    branches: 0,
   };
   const actor = await store.adminId();
   const categoryIds = new Map<string, number>();
@@ -119,6 +125,12 @@ export async function seedDemoCatalogue(store: DemoStore, now: Date): Promise<De
     if ((await store.findBankAccount(account.bankName, account.accountNumber)) !== null) return;
     await store.createBankAccount(actor, account);
     summary.bankAccounts += 1;
+  });
+
+  await inSequence(DEMO_BRANCHES, async (branch) => {
+    if ((await store.findBranch(branch.name)) !== null) return;
+    await store.createBranch(actor, branch);
+    summary.branches += 1;
   });
 
   return summary;
@@ -244,6 +256,24 @@ export function createSqlDemoStore(pool: sql.ConnectionPool): DemoStore {
             .input('bank', sql.NVarChar(80), bankName)
             .input('number', sql.NVarChar(30), accountNumber),
       ),
+    findBranch: (name) =>
+      lookup('SELECT IDBranch AS Id FROM dbo.Branches WHERE Name = @name AND IsActive = 1;', (r) =>
+        r.input('name', sql.NVarChar(80), name),
+      ),
+    async createBranch(actor, branch) {
+      const result = await pool
+        .request()
+        .input('IDActor', sql.Int, actor)
+        .input('Name', sql.NVarChar(80), branch.name)
+        .input('Line1', sql.NVarChar(200), branch.line1)
+        .input('Municipality', sql.NVarChar(80), branch.municipality)
+        .input('Department', sql.NVarChar(80), branch.department)
+        .input('Phone', sql.NVarChar(20), branch.phone)
+        .input('OpeningHours', sql.NVarChar(200), branch.openingHours)
+        .output('IDBranch', sql.Int)
+        .execute('dbo.SP_Branches_Create');
+      return result.output['IDBranch'] as number;
+    },
     async createBankAccount(actor, account) {
       const result = await pool
         .request()
