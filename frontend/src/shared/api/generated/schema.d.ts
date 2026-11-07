@@ -235,6 +235,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/branches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Active branches for pickup */
+        get: operations["listBranches"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/products": {
         parameters: {
             query?: never;
@@ -300,6 +317,45 @@ export interface paths {
         post?: never;
         /** Deactivate a category */
         delete: operations["adminDeactivateCategory"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/branches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** All branches, including deactivated ones */
+        get: operations["adminListBranches"];
+        put?: never;
+        /** Add a branch */
+        post: operations["adminCreateBranch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/branches/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Edit an active branch */
+        put: operations["adminUpdateBranch"];
+        post?: never;
+        /**
+         * Remove a branch by deactivating it
+         * @description Branches are never deleted because past orders cite them. A branch with orders still waiting to be picked up cannot be deactivated (BRANCH_HAS_OPEN_ORDERS).
+         */
+        delete: operations["adminDeactivateBranch"];
         options?: never;
         head?: never;
         patch?: never;
@@ -517,7 +573,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Payment methods offered for a delivery date */
+        /**
+         * Payment methods offered for the estimated delivery or pickup date
+         * @description The customer does not choose the date. Without deliveryDate the system evaluates its own estimate (estimatedDeliveryDate).
+         */
         get: operations["getPaymentMethods"];
         put?: never;
         post?: never;
@@ -1315,6 +1374,26 @@ export interface components {
             isActive?: boolean;
             activeProducts?: number;
         };
+        Branch: {
+            idBranch: components["schemas"]["Id"];
+            name: string;
+            line1: string;
+            municipality: string;
+            department: string;
+            phone?: string | null;
+            openingHours?: string | null;
+            isActive: boolean;
+            /** @description Orders waiting to be picked up or delivered from this branch */
+            openOrders?: number;
+        };
+        BranchRequest: {
+            name: string;
+            line1: string;
+            municipality: string;
+            department: string;
+            phone?: string | null;
+            openingHours?: string | null;
+        };
         CategoryRequest: {
             name: string;
             description?: string | null;
@@ -1482,8 +1561,16 @@ export interface components {
             deadlineAt?: string | null;
         };
         PaymentMethodsView: {
-            /** Format: date */
+            /**
+             * Format: date
+             * @description The date that was evaluated
+             */
             deliveryDate: string;
+            /**
+             * Format: date
+             * @description The date the system defines for the delivery or the pickup. It is an estimate, not a promise.
+             */
+            estimatedDeliveryDate: string;
             /** Format: date */
             earliestDeliveryDate?: string;
             deliveryDateAllowed?: boolean;
@@ -1497,9 +1584,20 @@ export interface components {
         };
         ConfirmRequest: {
             idReservation: components["schemas"]["Id"];
-            idAddress: components["schemas"]["Id"];
-            /** Format: date */
-            deliveryDate: string;
+            /**
+             * @default Delivery
+             * @enum {string}
+             */
+            fulfilmentType: "Delivery" | "Pickup";
+            /** @description Required for a delivery, forbidden for a pickup */
+            idAddress?: number | null;
+            /** @description Required for a pickup, forbidden for a delivery */
+            idBranch?: number | null;
+            /**
+             * Format: date
+             * @description Optional and no longer sent by the checkout; when absent the system uses its estimate
+             */
+            deliveryDate?: string | null;
             /** @enum {string} */
             method: "CARD" | "BANK_DEPOSIT";
             idBankAccount?: number | null;
@@ -1559,11 +1657,16 @@ export interface components {
             idOrderStatus?: number;
             statusName: string;
             couponCode?: string | null;
-            deliveryRecipient?: string;
-            deliveryPhone?: string;
-            deliveryLine1?: string;
-            deliveryMunicipality?: string;
-            deliveryDepartment?: string;
+            /** @enum {string} */
+            fulfilmentType?: "Delivery" | "Pickup";
+            idBranch?: number | null;
+            pickupBranchName?: string | null;
+            pickupBranchAddress?: string | null;
+            deliveryRecipient?: string | null;
+            deliveryPhone?: string | null;
+            deliveryLine1?: string | null;
+            deliveryMunicipality?: string | null;
+            deliveryDepartment?: string | null;
             /** Format: date */
             requestedDeliveryDate?: string;
             subtotal?: components["schemas"]["MoneyText"];
@@ -2327,6 +2430,27 @@ export interface operations {
             429: components["responses"]["TooManyRequests"];
         };
     };
+    listBranches: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Branch"][];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
     searchProducts: {
         parameters: {
             query?: {
@@ -2507,6 +2631,135 @@ export interface operations {
                 content: {
                     "application/json": {
                         idCategory?: components["schemas"]["Id"];
+                        isActive?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminListBranches: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Branch"][];
+                };
+            };
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminCreateBranch: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BranchRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idBranch: components["schemas"]["Id"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminUpdateBranch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKeyOptional"];
+            };
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BranchRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idBranch?: components["schemas"]["Id"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminDeactivateBranch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKeyOptional"];
+            };
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idBranch?: components["schemas"]["Id"];
                         isActive?: boolean;
                     };
                 };
@@ -3065,7 +3318,7 @@ export interface operations {
     getPaymentMethods: {
         parameters: {
             query?: {
-                /** @description Required */
+                /** @description Optional. Kept for compatibility; the checkout no longer sends it. */
                 deliveryDate?: string;
             };
             header?: never;

@@ -58,6 +58,9 @@ export const guestSession = (
  * Un servidor falso para las pruebas: se declara qué responde cada "MÉTODO /ruta" y se anotan las llamadas recibidas.
  * Las pruebas de las pantallas lo instalan como `fetch` global y así recorren el mismo cliente tipado que usa la app.
  */
+// Lo que contesta el servidor falso cuando una prueba no lo declara: las pantallas del checkout piden las sucursales
+const defaults: Record<string, Reply> = { 'GET /api/v1/branches': () => json([]) };
+
 export function installFakeApi(routes: Record<string, Reply>) {
   const calls: Call[] = [];
   const fetchMock = vi.fn(
@@ -80,7 +83,8 @@ export function installFakeApi(routes: Record<string, Reply>) {
         body,
       };
       calls.push(call);
-      const reply = routes[`${call.method} ${call.path}`];
+      const reply =
+        routes[`${call.method} ${call.path}`] ?? defaults[`${call.method} ${call.path}`];
       if (reply === undefined) return apiError(404, 'ROUTE_NOT_FOUND');
       if (typeof reply === 'function') return reply(call);
       // Un Response solo se puede leer una vez: cada llamada recibe una copia

@@ -152,8 +152,13 @@ describe('the contact data of a guest', () => {
     await signInAsGuest('maria@example.test');
     installFakeApi({ 'GET /api/v1/cart': json(oneLine) });
     renderApp('/checkout');
-    expect(await screen.findByText('La personalización necesita una cuenta')).toBeDefined();
+    const toggle = await screen.findByRole('button', {
+      name: 'La personalización necesita una cuenta',
+    });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
     expect(screen.queryByLabelText(/Mensaje para/)).toBeNull();
+    await userEvent.setup().click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
     const main = within(screen.getByRole('main'));
     expect(main.getAllByRole('link', { name: 'Crear cuenta' }).length).toBeGreaterThan(0);
   });

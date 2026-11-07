@@ -55,11 +55,16 @@ test('a visitor buys as a guest, with the coupon, the made-to-order products and
   // La personalización queda bloqueada para el invitado, con el camino para tener una cuenta
   await expect(page.getByText('La personalización necesita una cuenta')).toBeVisible();
   await expect(page.getByLabel(/Mensaje para/)).toHaveCount(0);
+  await page.getByRole('button', { name: 'La personalización necesita una cuenta' }).click();
   await expect(
     page.getByRole('main').getByRole('link', { name: 'Crear cuenta' }).first(),
   ).toBeVisible();
 
-  // Dirección, una fecha en la que el depósito aún alcanza, la reserva de 15 minutos y la confirmación del pedido
+  // La fecha la define el sistema y se muestra como un estimado: no hay calendario. Después, la dirección de entrega, la
+  // reserva de 15 minutos y la confirmación del pedido
+  await expect(page.getByText(/La fecha estimada de entrega es el/)).toBeVisible();
+  await expect(page.getByText(/Es un estimado/)).toBeVisible();
+  await expect(page.getByLabel('Día de entrega')).toHaveCount(0);
   await page.getByLabel('Nombre de la dirección').fill('Casa');
   await page.getByLabel('Quién recibe').fill('Invitado E2E');
   await page.getByLabel('Teléfono de quien recibe').fill('5555-1234');
@@ -67,10 +72,8 @@ test('a visitor buys as a guest, with the coupon, the made-to-order products and
   await page.getByLabel('Departamento').fill('Guatemala');
   await page.getByLabel('Dirección', { exact: true }).fill('5a avenida 10-20 zona 1');
   await page.getByRole('button', { name: 'Guardar dirección' }).click();
-  await expect(page.getByText('Casa · Invitado E2E')).toBeVisible();
+  await expect(page.getByRole('radio', { name: /Casa · Invitado E2E/ })).toBeVisible();
 
-  const delivery = new Date(Date.now() + 6 * 24 * 60 * 60 * 1000);
-  await page.getByLabel('Día de entrega').fill(delivery.toISOString().slice(0, 10));
   await expect(page.getByText('Cuenta donde depositar')).toBeVisible();
   const reserve = page.getByRole('button', { name: 'Reservar mis productos' });
   await expect(reserve).toBeEnabled();
@@ -108,4 +111,31 @@ test('a visitor buys as a guest, with the coupon, the made-to-order products and
   await page.getByRole('link', { name: 'Volver a mis pedidos' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Mis pedidos' })).toBeVisible();
   await expect(page.getByRole('link', { name: /PED-/ }).first()).toBeVisible();
+
+  // Otro pedido de la misma sesión, esta vez para recoger en una sucursal: no pide dirección y su detalle lo dice
+  await header.getByRole('link', { name: 'Catálogo' }).click();
+  await page.getByLabel('Buscar').fill('avena');
+  await page.getByRole('link', { name: /Galletas de avena/ }).click();
+  await page.getByRole('button', { name: 'Agregar al carrito' }).click();
+  await expect(page.getByText('Agregado al carrito.')).toBeVisible();
+  await page.getByRole('link', { name: 'Ver carrito' }).click();
+  await page
+    .getByRole('complementary')
+    .getByRole('link', { name: 'Continuar con el pago' })
+    .click();
+
+  await page.getByLabel('Forma de recibirlo').selectOption({ label: 'Recoger en Sucursal Centro' });
+  await expect(page.getByText('6a avenida 10-20, zona 1')).toBeVisible();
+  await expect(page.getByText(/La fecha estimada para recogerlo es el/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Dirección de entrega' })).toHaveCount(0);
+  await expect(page.getByText('Cuenta donde depositar')).toBeVisible();
+  const reservePickup = page.getByRole('button', { name: 'Reservar mis productos' });
+  await expect(reservePickup).toBeEnabled();
+  await reservePickup.click();
+  await page.getByRole('button', { name: 'Confirmar pedido' }).click();
+
+  await expect(page).toHaveURL(/\/orders\/\d+\/payment$/);
+  await page.getByRole('link', { name: 'Ver el detalle del pedido' }).click();
+  await expect(page.getByRole('heading', { level: 2, name: 'Recoger en sucursal' })).toBeVisible();
+  await expect(page.getByText('Sucursal Centro')).toBeVisible();
 });

@@ -178,6 +178,35 @@ describe('the order detail', () => {
   });
 });
 
+describe('a pickup order', () => {
+  it('shows the branch instead of a delivery address', async () => {
+    await signInAs('Customer');
+    installFakeApi({
+      'GET /api/v1/orders/7': json(
+        detail({
+          fulfilmentType: 'Pickup',
+          idBranch: 5,
+          pickupBranchName: 'Sucursal Centro',
+          pickupBranchAddress: '6a avenida 10-20, Guatemala, Guatemala',
+          deliveryRecipient: null,
+          deliveryPhone: null,
+          deliveryLine1: null,
+          deliveryMunicipality: null,
+          deliveryDepartment: null,
+        }),
+      ),
+    });
+    renderApp('/orders/7');
+
+    expect(await screen.findByRole('heading', { name: 'Recoger en sucursal' })).toBeDefined();
+    expect(screen.getByText(/Sucursal Centro/)).toBeDefined();
+    expect(screen.getByText(/6a avenida 10-20, Guatemala, Guatemala/)).toBeDefined();
+    expect(screen.queryByRole('heading', { name: 'Entrega' })).toBeNull();
+    // La fecha se presenta como una estimación
+    expect(screen.getByText(/fecha estimada/)).toBeDefined();
+  });
+});
+
 describe('the order list query', () => {
   it('ignores a page or a status that is not valid', () => {
     expect(parseOrdersQuery(new URLSearchParams('page=0&status=99'))).toEqual({

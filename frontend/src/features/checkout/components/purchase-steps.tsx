@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError } from '../../../shared/api';
-import { todayText } from '../../../shared/lib/date';
+import { useBranches } from '../../branches/hooks/use-branches';
 import type { Cart } from '../../cart/model/cart-model';
 import { useConfirmOrder, usePaymentMethods, useReserveCart } from '../hooks/use-checkout';
+import type { Fulfilment } from '../hooks/use-checkout';
 import { AddressSection } from './address-section';
-import { DeliverySection } from './delivery-section';
+import { DELIVERY_CHOICE, FulfilmentSection } from './fulfilment-section';
 import { PaymentSection } from './payment-section';
 import { ReservationPanel } from './reservation-panel';
 import type { ActiveReservation } from './reservation-panel';
@@ -17,28 +18,35 @@ const signatureOf = (cart: Cart): string =>
     .join('|');
 
 /**
- * Los pasos que son iguales para todos los compradores (con cuenta o invitados): dirección, fecha de entrega, depósito y la
- * reserva con su confirmación. Todo lo que se decide (primera fecha posible, si el depósito alcanza, la cuenta) lo dice el
- * servidor; aquí solo se elige y se muestra.
+ * Los pasos que son iguales para todos los compradores (con cuenta o invitados): cómo se recibe el pedido (entrega a
+ * domicilio con su dirección, o recogida en una sucursal sin dirección), el depósito y la reserva con su confirmación. Todo
+ * lo que se decide (la fecha estimada, si el depósito alcanza, la cuenta) lo dice el servidor; aquí solo se elige y se muestra.
  */
 export function PurchaseSteps({ cart }: Readonly<{ cart: Cart }>) {
   const navigate = useNavigate();
+  const [choice, setChoice] = useState(DELIVERY_CHOICE);
   const [idAddress, setIdAddress] = useState<number | null>(null);
-  const [date, setDate] = useState('');
   const [idBank, setIdBank] = useState<number | null>(null);
   const [reservation, setReservation] = useState<ActiveReservation | null>(null);
   const [expired, setExpired] = useState(false);
 
   const signature = signatureOf(cart);
-  const methods = usePaymentMethods(date === '' ? todayText() : date, signature);
+  const branches = useBranches();
+  const methods = usePaymentMethods(signature);
   const reserve = useReserveCart();
   const confirm = useConfirmOrder();
   const view = methods.data;
 
-  // La primera fecha posible queda elegida; el cliente puede pedir una posterior
+  // Si la sucursal elegida deja de ofrecerse mientras se compra, se vuelve a la entrega a domicilio
   useEffect(() => {
-    if (date === '' && view !== undefined) setDate(view.earliestDeliveryDate ?? view.deliveryDate);
-  }, [view, date]);
+    if (
+      choice !== DELIVERY_CHOICE &&
+      branches.data !== undefined &&
+      !branches.data.some((branch) => String(branch.idBranch) === choice)
+    ) {
+      setChoice(DELIVERY_CHOICE);
+    }
+  }, [branches.data, choice]);
 
   // Cambiar el carrito suelta la reserva en el servidor (la describe tal como estaba): aquí también se descarta
   useEffect(() => {
@@ -46,13 +54,16 @@ export function PurchaseSteps({ cart }: Readonly<{ cart: Cart }>) {
   }, [signature]);
 
   const deposit = view?.methods.find((method) => method.method === 'BANK_DEPOSIT');
+
+  let fulfilment: Fulfilment | null = null;
+  if (choice !== DELIVERY_CHOICE) fulfilment = { type: 'Pickup', idBranch: Number(choice) };
+  else if (idAddress !== null) fulfilment = { type: 'Delivery', idAddress };
+
   const ready =
-    idAddress !== null &&
+    fulfilment !== null &&
     idBank !== null &&
-    date !== '' &&
     view !== undefined &&
     !methods.isFetching &&
-    view.deliveryDateAllowed !== false &&
     deposit?.available === true;
 
   const error =
@@ -62,14 +73,19 @@ export function PurchaseSteps({ cart }: Readonly<{ cart: Cart }>) {
 
   return (
     <>
-      <AddressSection selected={idAddress} onSelect={setIdAddress} />
-      <DeliverySection
-        date={date}
-        onDate={setDate}
+      <FulfilmentSection
+        choice={choice}
+        onChoice={setChoice}
+        branches={branches.data ?? []}
+        branchesLoading={branches.isPending}
+        branchesError={branches.error}
         view={view}
-        loading={methods.isPending}
-        error={methods.error}
+        viewLoading={methods.isPending}
+        viewError={methods.error}
       />
+      {choice === DELIVERY_CHOICE ? (
+        <AddressSection selected={idAddress} onSelect={setIdAddress} />
+      ) : null}
       <PaymentSection view={view} idBankAccount={idBank} onBank={setIdBank} />
       <ReservationPanel
         ready={ready}
@@ -90,14 +106,9 @@ export function PurchaseSteps({ cart }: Readonly<{ cart: Cart }>) {
           });
         }}
         onConfirm={() => {
-          if (reservation === null || idAddress === null || idBank === null) return;
+          if (reservation === null || fulfilment === null || idBank === null) return;
           confirm.mutate(
-            {
-              idReservation: reservation.idReservation,
-              idAddress,
-              deliveryDate: date,
-              idBankAccount: idBank,
-            },
+            { idReservation: reservation.idReservation, idBankAccount: idBank, fulfilment },
             {
               onSuccess: (order) => {
                 void navigate(`/orders/${String(order.idOrder)}/payment`, { replace: true });

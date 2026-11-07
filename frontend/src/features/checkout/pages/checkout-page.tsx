@@ -2,7 +2,8 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { hasAccount, hasContact, isGuestSession, useSession } from '../../../shared/auth';
 import { ForbiddenPage } from '../../../app/pages/forbidden-page';
-import { AccountRequired } from '../../cart/components/account-required';
+import { Disclosure } from '../../../shared/ui/disclosure';
+import { AccountActions } from '../../cart/components/account-required';
 import { CartColumns, CartGate } from '../../cart/components/cart-layout';
 import { CartSummary } from '../../cart/components/cart-summary';
 import { useCart } from '../../cart/hooks/use-cart';
@@ -13,30 +14,34 @@ import { LinePersonalisation } from '../components/line-personalisation';
 import { PurchaseSteps } from '../components/purchase-steps';
 import { RecoveryCodePanel } from '../components/recovery-code-panel';
 
-/** Personalización de cada producto: solo con cuenta. Un invitado o un visitante ve por qué y cómo desbloquearla. */
+/**
+ * Personalización de cada producto, en una sección desplegable. Con cuenta se escribe el mensaje (abierta, porque es lo que
+ * se viene a hacer aquí); un invitado o un visitante la ve cerrada, con el título que dice que necesita una cuenta, y al
+ * abrirla encuentra por qué y cómo desbloquearla.
+ */
 function PersonalisationSection({ cart, allowed }: Readonly<{ cart: Cart; allowed: boolean }>) {
   const { t } = useTranslation();
   if (!allowed) {
     return (
-      <AccountRequired
-        title={t('checkout.personalisation.locked.title')}
-        text={t('checkout.personalisation.locked.text')}
-        from="/checkout"
-      />
+      <Disclosure id="checkout-personalisation" title={t('checkout.personalisation.locked.title')}>
+        <p className="text-sm text-stone-600">{t('checkout.personalisation.locked.text')}</p>
+        <AccountActions from="/checkout" />
+      </Disclosure>
     );
   }
   return (
-    <section aria-labelledby="checkout-personalisation">
-      <h2 id="checkout-personalisation" className="text-2xl text-stone-900">
-        {t('checkout.personalisation.title')}
-      </h2>
-      <p className="mt-1 text-sm text-stone-600">{t('checkout.personalisation.intro')}</p>
-      <ul className="mt-4 divide-y divide-stone-200 border-y border-stone-200">
+    <Disclosure
+      id="checkout-personalisation"
+      title={t('checkout.personalisation.title')}
+      summary={t('checkout.personalisation.intro')}
+      defaultOpen
+    >
+      <ul className="divide-y divide-stone-200 border-y border-stone-200">
         {cart.lines.map((line) => (
           <LinePersonalisation key={line.idVariant} line={line} />
         ))}
       </ul>
-    </section>
+    </Disclosure>
   );
 }
 
