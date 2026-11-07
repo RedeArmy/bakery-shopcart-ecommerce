@@ -4,7 +4,7 @@ import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import type { RouteObject } from 'react-router-dom';
 import { routes } from '../../../src/app/router';
 import { auth } from '../../../src/shared/auth';
-import { installFakeApi, json, session } from './fake-api';
+import { guestSession, installFakeApi, json, session } from './fake-api';
 
 /** Dibuja un conjunto de rutas con un router en memoria y un QueryClient sin reintentos (un fallo se ve de inmediato). */
 export function renderRoutes(
@@ -29,6 +29,12 @@ export const renderApp = (entry: string | { pathname: string; state?: unknown })
 export async function signInAs(role: 'Customer' | 'Operator' | 'Administrator', name = 'Ana') {
   installFakeApi({ 'POST /api/v1/auth/login': json(session(name, role)) });
   await auth.login('ana@shopcart.test', 'a long password');
+}
+
+/** Deja la sesión única de la aplicación como la de un invitado (con o sin correo de contacto). */
+export async function signInAsGuest(email?: string) {
+  installFakeApi({ 'POST /api/v1/auth/guest': json(guestSession(9, email)) });
+  await auth.startGuest();
 }
 
 /** Devuelve la sesión única a "anónimo" para que una prueba no herede el estado de otra. */

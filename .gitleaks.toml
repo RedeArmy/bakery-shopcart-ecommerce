@@ -16,4 +16,6 @@ regexes = [
   '''FromDotEnv123''',
   # Clave de idempotencia ficticia de una prueba de sesión; ya no está en el árbol, pero sigue en el historial del PR #50 que gitleaks recorre
   '''key-12345678''',
+  # Token de carrito de visitante ficticio de una prueba de integración; ya no está en el árbol, pero sigue en el historial del PR #56
+  '''9d3f1c52-7a41-4a3e-9d1b-2f6c0b1e4a77''',
 ]

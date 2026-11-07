@@ -145,7 +145,7 @@ GO
 CREATE PROCEDURE Test_Constraints.[test an e-mail address is unique regardless of case]
 AS
 BEGIN
-    EXEC tSQLt.ExpectException @ExpectedMessagePattern = N'%UQ_Users_Email%';
+    EXEC tSQLt.ExpectException @ExpectedMessagePattern = N'%UX_Users_Email_Accounts%';
     INSERT INTO dbo.Users (IDRole, Email, PasswordHash, FullName)
     VALUES (1, N'FIXTURE.CUSTOMER@SHOPCART.TEST', N'not-a-real-hash', N'Duplicate');
 END;

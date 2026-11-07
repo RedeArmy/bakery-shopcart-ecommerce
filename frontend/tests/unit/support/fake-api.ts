@@ -24,7 +24,34 @@ export const session = (name = 'Ana', role = 'Customer', token = 'token-1') => (
   accessToken: token,
   refreshToken: 'r'.repeat(40),
   expiresIn: 900,
-  user: { idUser: 1, role, email: 'ana@shopcart.test', fullName: name, isActive: true },
+  user: {
+    idUser: 1,
+    role,
+    email: 'ana@shopcart.test',
+    fullName: name,
+    isActive: true,
+    isGuest: false,
+  },
+});
+
+/** La sesión de un invitado: una cuenta sin contraseña con un correo inventado hasta que dé el suyo. */
+export const guestSession = (
+  idUser = 9,
+  email = `guest-${idUser}@guest.invalid`,
+  token = 'guest-token',
+) => ({
+  accessToken: token,
+  refreshToken: 'g'.repeat(40),
+  expiresIn: 900,
+  user: {
+    idUser,
+    role: 'Customer',
+    email,
+    fullName: 'Guest',
+    phone: null,
+    isActive: true,
+    isGuest: true,
+  },
 });
 
 /**

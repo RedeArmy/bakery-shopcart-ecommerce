@@ -597,7 +597,7 @@ CREATE PROCEDURE Test_Auth.[test the profile lookup returns the role and never t
 AS
 BEGIN
     DECLARE @IDUser INT = (SELECT IDUser FROM dbo.Users WHERE Email = N'admin@shopcart.test');
-    CREATE TABLE #Result (IDUser INT, IDRole TINYINT, RoleName NVARCHAR(30), Email NVARCHAR(256), FullName NVARCHAR(120), Phone NVARCHAR(20), IsActive BIT);
+    CREATE TABLE #Result (IDUser INT, IDRole TINYINT, RoleName NVARCHAR(30), Email NVARCHAR(256), FullName NVARCHAR(120), Phone NVARCHAR(20), IsActive BIT, IsGuest BIT);
     INSERT INTO #Result EXEC dbo.SP_Users_GetById @IDUser = @IDUser;
 
     DECLARE @Rows INT = (SELECT COUNT(*) FROM #Result);
@@ -613,7 +613,7 @@ GO
 CREATE PROCEDURE Test_Auth.[test the profile lookup of an unknown account returns no rows and no error]
 AS
 BEGIN
-    CREATE TABLE #Result (IDUser INT, IDRole TINYINT, RoleName NVARCHAR(30), Email NVARCHAR(256), FullName NVARCHAR(120), Phone NVARCHAR(20), IsActive BIT);
+    CREATE TABLE #Result (IDUser INT, IDRole TINYINT, RoleName NVARCHAR(30), Email NVARCHAR(256), FullName NVARCHAR(120), Phone NVARCHAR(20), IsActive BIT, IsGuest BIT);
     INSERT INTO #Result EXEC dbo.SP_Users_GetById @IDUser = -1;
 
     DECLARE @Rows INT = (SELECT COUNT(*) FROM #Result);

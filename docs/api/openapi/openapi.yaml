@@ -141,6 +141,104 @@ paths:
           $ref: '#/components/responses/Locked'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /api/v1/auth/guest:
+    post:
+      tags:
+        - Authentication
+      summary: Start a guest session
+      description: Creates a guest account (no password, no email yet) and signs it in, so a shopper can check out without registering. The refresh token is also set in the `refreshToken` cookie (ADR-0026 and ADR-0027). A guest cannot use a coupon, order made-to-order products or add a personalisation (`ACCOUNT_REQUIRED`).
+      operationId: startGuestSession
+      responses:
+        '201':
+          description: Created
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/RefreshTokenCookie'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/auth/guest/contact:
+    put:
+      tags:
+        - Authentication
+      summary: Save the contact data of the guest
+      description: The name, email and phone of the guest. The checkout asks for them before the order is created (`GUEST_CONTACT_REQUIRED`). An email that belongs to a registered account answers 409 `EMAIL_BELONGS_TO_ACCOUNT`; that shopper must sign in.
+      operationId: setGuestContact
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GuestContactRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/auth/guest/recovery-code:
+    post:
+      tags:
+        - Authentication
+      summary: Issue the code that recovers the orders of the guest
+      description: Returns a new code once; only its hash is stored and each new code replaces the old one. The guest keeps it with the email to recover the orders on another browser. Needs a contact email (422 otherwise) and a guest account.
+      operationId: issueGuestRecoveryCode
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecoveryCode'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/auth/guest/recover:
+    post:
+      tags:
+        - Authentication
+      summary: Recover the session of a guest with the email and the recovery code
+      description: The same 401 `RECOVERY_INVALID` answers an unknown email and a wrong code. The refresh token is also set in the `refreshToken` cookie.
+      operationId: recoverGuestSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecoverGuestRequest'
+      responses:
+        '200':
+          description: Success
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/RefreshTokenCookie'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /api/v1/auth/refresh:
     post:
       tags:
@@ -902,7 +1000,7 @@ paths:
       tags:
         - Cart
       summary: Apply a coupon
-      description: An expired, exhausted or already used coupon answers with its own code (COUPON_EXPIRED, COUPON_EXHAUSTED, COUPON_ALREADY_USED).
+      description: 'An expired, exhausted or already used coupon answers with its own code (COUPON_EXPIRED, COUPON_EXHAUSTED, COUPON_ALREADY_USED). A guest account answers 422 `ACCOUNT_REQUIRED`: coupons are for registered accounts.'
       operationId: applyCoupon
       security:
         - bearerAuth: []
@@ -2945,6 +3043,41 @@ components:
         - email
         - password
         - fullName
+    GuestContactRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+          maxLength: 120
+        phone:
+          type: string
+          nullable: true
+          description: Digits, spaces and + ( ) -, between 6 and 20 characters
+      required:
+        - email
+        - fullName
+    RecoveryCode:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Ten characters (digits and letters without I, L, O and U); it is accepted with or without hyphens and in lower case
+      required:
+        - code
+    RecoverGuestRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        code:
+          type: string
+      required:
+        - email
+        - code
     LoginRequest:
       type: object
       properties:
@@ -2983,12 +3116,16 @@ components:
           nullable: true
         isActive:
           type: boolean
+        isGuest:
+          type: boolean
+          description: A guest account (no password, created to buy without registering)
       required:
         - idUser
         - role
         - email
         - fullName
         - isActive
+        - isGuest
     Session:
       type: object
       properties:

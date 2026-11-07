@@ -1,17 +1,20 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 import { errorMessage } from '../../../shared/api';
-import { useSession } from '../../../shared/auth';
+import { hasAccount, useSession } from '../../../shared/auth';
 import { Badge } from '../../../shared/ui/badge';
 import { Button } from '../../../shared/ui/button';
 import { TextField } from '../../../shared/ui/fields';
 import { useApplyCoupon, useRemoveCoupon } from '../hooks/use-cart';
 import { couponReasonKey } from '../model/cart-model';
 import type { Cart } from '../model/cart-model';
+import { AccountRequired } from './account-required';
 
-/** Cupón de descuento: solo las cuentas con sesión pueden usarlo; el visitante recibe la invitación a ingresar. */
+/**
+ * Cupón de descuento: solo para cuentas registradas (ADR-0027). Un visitante o un invitado puede comprar, pero un cupón
+ * necesita una cuenta de verdad: una de invitado se crea sin verificar a nadie y reutilizaría cupones de un uso por cliente.
+ */
 export function CouponBox({ cart }: Readonly<{ cart: Cart }>) {
   const { t } = useTranslation();
   const session = useSession();
@@ -19,14 +22,14 @@ export function CouponBox({ cart }: Readonly<{ cart: Cart }>) {
   const remove = useRemoveCoupon();
   const [code, setCode] = useState('');
 
-  if (session.status !== 'authenticated') {
+  if (session.status === 'unknown') return null;
+  if (!hasAccount(session)) {
     return (
-      <p className="text-sm text-stone-600">
-        <Link to="/login" state={{ from: '/cart' }} className="text-accent hover:underline">
-          {t('cart.coupon.signIn')}
-        </Link>{' '}
-        {t('cart.coupon.signInHint')}
-      </p>
+      <AccountRequired
+        title={t('cart.coupon.locked.title')}
+        text={t('cart.coupon.locked.text')}
+        from="/cart"
+      />
     );
   }
 

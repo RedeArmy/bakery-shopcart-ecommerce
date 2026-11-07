@@ -4,8 +4,9 @@ import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError, errorMessage } from '../../../shared/api';
-import { auth, useSession } from '../../../shared/auth';
+import { auth, hasAccount, useSession } from '../../../shared/auth';
 import { AuthLayout, FormAlert, SubmitButton, fieldError } from '../components/auth-layout';
+import { ContactFields } from '../components/contact-fields';
 import { TextField } from '../../../shared/ui/fields';
 import { registerSchema } from '../model/schemas';
 import type { RegisterValues } from '../model/schemas';
@@ -29,7 +30,8 @@ export function RegisterPage() {
 
   const arrival: unknown = location.state;
   const target = redirectTarget(arrival);
-  if (session.status === 'authenticated') return <Navigate to={target} replace />;
+  // Un invitado tiene sesión pero no cuenta: puede entrar o crear una cuenta desde aquí
+  if (hasAccount(session)) return <Navigate to={target} replace />;
 
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
@@ -61,27 +63,7 @@ export function RegisterPage() {
       switchState={arrival}
     >
       <form onSubmit={(event) => void onSubmit(event)} noValidate className="space-y-5">
-        <TextField
-          label={t('auth.fullName')}
-          autoComplete="name"
-          error={fieldError(t, errors.fullName?.message)}
-          {...register('fullName')}
-        />
-        <TextField
-          label={t('auth.email')}
-          type="email"
-          autoComplete="email"
-          error={fieldError(t, errors.email?.message)}
-          {...register('email')}
-        />
-        <TextField
-          label={t('auth.phone')}
-          optionalLabel={t('common.optional')}
-          type="tel"
-          autoComplete="tel"
-          error={fieldError(t, errors.phone?.message)}
-          {...register('phone')}
-        />
+        <ContactFields register={register} errors={errors} />
         <TextField
           label={t('auth.credentialLabel')}
           type="password"

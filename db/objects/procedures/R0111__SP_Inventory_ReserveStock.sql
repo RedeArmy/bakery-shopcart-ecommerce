@@ -1,10 +1,11 @@
 /* =====================================================================
    Objeto   : dbo.SP_Inventory_ReserveStock
-   Version  : 1.0.0
-   Cambio   : Primera versión: reserva atómica de todas las líneas de un carrito, sin sobreventa (ADR-0007)
+   Version  : 1.1.0
+   Cambio   : Un invitado no reserva productos por encargo ni personalización
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Nueva. Errores: 50400 parámetro inválido, 50404 carrito inexistente o ajeno, 50409 unidades agotadas,
               50422 carrito vacío o ventana de reserva sin configurar. Depende de R0110.
+   Cambio 1.1.0: sin cambios para una cuenta real.
    ===================================================================== */
 CREATE OR ALTER PROCEDURE dbo.SP_Inventory_ReserveStock
   @IDUser        INT,
@@ -39,6 +40,14 @@ BEGIN
     WHERE IDCart = @IDCart AND IDUser = @IDUser AND Status = N'Active'
   )
     THROW 50404, 'Cart not found.', 1;
+
+  -- Defensa en profundidad: un invitado no puede reservar personalización ni productos por encargo, aunque el producto haya
+  -- pasado a pedirse con anticipación después de que lo agregó al carrito
+  IF EXISTS (SELECT 1 FROM dbo.Users WHERE IDUser = @IDUser AND IsGuest = 1)
+     AND EXISTS (SELECT 1 FROM dbo.CartItems AS ci JOIN dbo.Variants AS v ON v.IDVariant = ci.IDVariant
+                 JOIN dbo.Products AS p ON p.IDProduct = v.IDProduct
+                 WHERE ci.IDCart = @IDCart AND (ci.Inscription IS NOT NULL OR p.LeadTimeDays > 0))
+    THROW 50422, 'ACCOUNT_REQUIRED: Made-to-order products and personalisation need an account.', 1;
 
   DECLARE @Lines INT = (SELECT COUNT(*) FROM dbo.CartItems WHERE IDCart = @IDCart);
   IF @Lines = 0

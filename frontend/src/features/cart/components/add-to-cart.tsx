@@ -3,12 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { errorMessage } from '../../../shared/api';
 import { Button } from '../../../shared/ui/button';
-import { TextField } from '../../../shared/ui/fields';
 import { QuantityStepper } from '../../../shared/ui/quantity-stepper';
 import { useCart, useSetCartItem } from '../hooks/use-cart';
-import { MAX_INSCRIPTION, MAX_QUANTITY, nextQuantity } from '../model/cart-model';
+import { MAX_QUANTITY, nextQuantity } from '../model/cart-model';
 
-/** Agregar la variante elegida al carrito: cantidad, inscripción opcional y el aviso de lo que ya había. */
+/** Agregar la variante elegida al carrito: cantidad y el aviso de lo que ya había. La personalización se escribe al pagar. */
 export function AddToCart({
   idVariant,
   available,
@@ -17,9 +16,9 @@ export function AddToCart({
   const cart = useCart();
   const setItem = useSetCartItem();
   const [quantity, setQuantity] = useState(1);
-  const [inscription, setInscription] = useState('');
 
-  const inCart = cart.data?.lines.find((line) => line.idVariant === idVariant)?.quantity ?? 0;
+  const existing = cart.data?.lines.find((line) => line.idVariant === idVariant);
+  const inCart = existing?.quantity ?? 0;
   const soldOut = available !== undefined && available <= 0;
   // Se puede elegir hasta lo que queda, descontando lo que ya está en el carrito
   const room = Math.max(1, Math.min(MAX_QUANTITY, (available ?? MAX_QUANTITY) - inCart));
@@ -28,22 +27,13 @@ export function AddToCart({
     setItem.mutate({
       idVariant,
       quantity: nextQuantity(inCart, quantity),
-      inscription: inscription.trim() === '' ? null : inscription.trim(),
+      // `PUT` reemplaza la línea: se reenvía la personalización que ya tenía para no borrarla al sumar unidades
+      inscription: existing?.inscription ?? null,
     });
   };
 
   return (
     <div className="space-y-4 rounded-card border border-stone-200 bg-white p-4">
-      <TextField
-        label={t('cart.add.inscriptionLabel')}
-        optionalLabel={t('common.optional')}
-        hint={t('cart.add.inscriptionHint', { max: MAX_INSCRIPTION })}
-        maxLength={MAX_INSCRIPTION}
-        value={inscription}
-        onChange={(event) => {
-          setInscription(event.target.value);
-        }}
-      />
       <div className="flex flex-wrap items-center gap-4">
         <QuantityStepper
           label={t('cart.add.quantity')}

@@ -81,6 +81,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/guest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a guest session
+         * @description Creates a guest account (no password, no email yet) and signs it in, so a shopper can check out without registering. The refresh token is also set in the `refreshToken` cookie (ADR-0026 and ADR-0027). A guest cannot use a coupon, order made-to-order products or add a personalisation (`ACCOUNT_REQUIRED`).
+         */
+        post: operations["startGuestSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/guest/contact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save the contact data of the guest
+         * @description The name, email and phone of the guest. The checkout asks for them before the order is created (`GUEST_CONTACT_REQUIRED`). An email that belongs to a registered account answers 409 `EMAIL_BELONGS_TO_ACCOUNT`; that shopper must sign in.
+         */
+        put: operations["setGuestContact"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/guest/recovery-code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Issue the code that recovers the orders of the guest
+         * @description Returns a new code once; only its hash is stored and each new code replaces the old one. The guest keeps it with the email to recover the orders on another browser. Needs a contact email (422 otherwise) and a guest account.
+         */
+        post: operations["issueGuestRecoveryCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/guest/recover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recover the session of a guest with the email and the recovery code
+         * @description The same 401 `RECOVERY_INVALID` answers an unknown email and a wrong code. The refresh token is also set in the `refreshToken` cookie.
+         */
+        post: operations["recoverGuestSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/refresh": {
         parameters: {
             query?: never;
@@ -362,7 +442,7 @@ export interface paths {
         put?: never;
         /**
          * Apply a coupon
-         * @description An expired, exhausted or already used coupon answers with its own code (COUPON_EXPIRED, COUPON_EXHAUSTED, COUPON_ALREADY_USED).
+         * @description An expired, exhausted or already used coupon answers with its own code (COUPON_EXPIRED, COUPON_EXHAUSTED, COUPON_ALREADY_USED). A guest account answers 422 `ACCOUNT_REQUIRED`: coupons are for registered accounts.
          */
         post: operations["applyCoupon"];
         /** Remove the coupon */
@@ -1176,6 +1256,22 @@ export interface components {
             fullName: string;
             phone?: string | null;
         };
+        GuestContactRequest: {
+            /** Format: email */
+            email: string;
+            fullName: string;
+            /** @description Digits, spaces and + ( ) -, between 6 and 20 characters */
+            phone?: string | null;
+        };
+        RecoveryCode: {
+            /** @description Ten characters (digits and letters without I, L, O and U); it is accepted with or without hyphens and in lower case */
+            code: string;
+        };
+        RecoverGuestRequest: {
+            /** Format: email */
+            email: string;
+            code: string;
+        };
         LoginRequest: {
             /** Format: email */
             email: string;
@@ -1192,6 +1288,8 @@ export interface components {
             fullName: string;
             phone?: string | null;
             isActive: boolean;
+            /** @description A guest account (no password, created to buy without registering) */
+            isGuest: boolean;
         };
         Session: {
             accessToken: string;
@@ -2023,6 +2121,106 @@ export interface operations {
             401: components["responses"]["Unauthorised"];
             403: components["responses"]["Forbidden"];
             423: components["responses"]["Locked"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    startGuestSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    "Set-Cookie": components["headers"]["RefreshTokenCookie"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    setGuestContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GuestContactRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserProfile"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    issueGuestRecoveryCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryCode"];
+                };
+            };
+            401: components["responses"]["Unauthorised"];
+            422: components["responses"]["Unprocessable"];
+        };
+    };
+    recoverGuestSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecoverGuestRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "Set-Cookie": components["headers"]["RefreshTokenCookie"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
             429: components["responses"]["TooManyRequests"];
         };
     };

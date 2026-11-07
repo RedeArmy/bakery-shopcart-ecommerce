@@ -1,9 +1,10 @@
 /* =====================================================================
    Objeto   : dbo.SP_Users_List
-   Version  : 1.1.0
-   Cambio   : El total ya no se calcula con COUNT(*) OVER () (un Window Spool que escribía cada fila en tempdb); se cuenta aparte y solo se leen las filas de la página; OPTION (RECOMPILE) por los filtros opcionales
+   Version  : 1.2.0
+   Cambio   : La lista de usuarios omite las cuentas de invitado
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Mismas columnas y mismo orden que 1.0.0. Nunca devuelve el hash de la contraseña. Errores: 50400 paginación inválida.
+   Cambio 1.2.0: mismas columnas y filtros.
    ===================================================================== */
 CREATE OR ALTER PROCEDURE dbo.SP_Users_List
   @Search     NVARCHAR(100) = NULL,
@@ -25,7 +26,9 @@ BEGIN
   ;WITH f AS (
     SELECT u.IDUser, u.CreatedAt
     FROM dbo.Users AS u
-    WHERE (@Search IS NULL OR CHARINDEX(@Search, u.Email) > 0 OR CHARINDEX(@Search, u.FullName) > 0)
+    -- Los invitados no se gestionan como usuarios: sus pedidos se ven en la lista de pedidos
+    WHERE u.IsGuest = 0
+      AND (@Search IS NULL OR CHARINDEX(@Search, u.Email) > 0 OR CHARINDEX(@Search, u.FullName) > 0)
       AND (@IDRole IS NULL OR u.IDRole = @IDRole)
       AND (@IsActive IS NULL OR u.IsActive = @IsActive)
   ), pg AS (

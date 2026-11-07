@@ -101,13 +101,17 @@ describe('OpenAPI contract', () => {
     expect(missing).toEqual([]);
   });
 
-  it('requires an Idempotency-Key on every mutating call except sign-in, renewal and the cart merge', () => {
+  it('requires an Idempotency-Key on every mutating call except sign-in, renewal, the cart merge and the guest session calls', () => {
     const exempt = new Set([
       'POST /api/v1/auth/register',
       'POST /api/v1/auth/login',
       'POST /api/v1/auth/refresh',
       'POST /api/v1/auth/logout',
       'POST /api/v1/cart/merge',
+      // Devuelven un token o un código secreto: repetirlos desde un almacén de respuestas lo dejaría guardado en claro
+      'POST /api/v1/auth/guest',
+      'POST /api/v1/auth/guest/recovery-code',
+      'POST /api/v1/auth/guest/recover',
     ]);
     const lacking: string[] = [];
     for (const [path, operations] of Object.entries(spec.paths)) {

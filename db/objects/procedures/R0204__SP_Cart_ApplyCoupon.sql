@@ -1,10 +1,11 @@
 /* =====================================================================
    Objeto   : dbo.SP_Cart_ApplyCoupon
-   Version  : 1.0.0
-   Cambio   : Primera versión: aplica un cupón al carrito del cliente si hoy es válido para él
+   Version  : 1.1.0
+   Cambio   : Una cuenta de invitado no aplica cupones
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Nueva. Un cupón por carrito: aplicar otro reemplaza al anterior. Errores: 50400, 50404 sin carrito o cupón
               inexistente, 50409 cupón agotado, 50422 el resto de motivos. El mensaje empieza por el código de la API.
+   Cambio 1.1.0: sin cambios para una cuenta registrada; un invitado recibe 50422 ACCOUNT_REQUIRED.
    ===================================================================== */
 CREATE OR ALTER PROCEDURE dbo.SP_Cart_ApplyCoupon
   @IDUser INT,
@@ -19,6 +20,11 @@ BEGIN
 
   IF @IDUser IS NULL OR ISNULL(@Code, N'') = N''
     THROW 50400, 'IDUser and Code are required.', 1;
+
+  -- Los cupones son de cuentas registradas: una cuenta de invitado se crea sin verificar a nadie y con ella se podrían
+  -- reutilizar cupones de un uso por cliente. La compra sin cuenta sigue permitida, sin descuento.
+  IF EXISTS (SELECT 1 FROM dbo.Users WHERE IDUser = @IDUser AND IsGuest = 1)
+    THROW 50422, 'ACCOUNT_REQUIRED: Coupons are only available with an account.', 1;
 
   SET @Now = ISNULL(@Now, SYSUTCDATETIME());
 

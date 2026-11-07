@@ -1,9 +1,10 @@
 /* =====================================================================
    Objeto   : dbo.SP_Users_RecordFailedAttempt
-   Version  : 1.0.0
-   Cambio   : Primera versión: cuenta un intento fallido y aplica el bloqueo progresivo de la cuenta
+   Version  : 1.1.0
+   Cambio   : Cuenta los intentos solo de las cuentas reales
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Nueva. Devuelve cero o una fila (FailedAttempts, LockedUntil); un correo desconocido no hace nada.
+   Cambio 1.1.0: sin cambios para las cuentas reales.
    ===================================================================== */
 CREATE OR ALTER PROCEDURE dbo.SP_Users_RecordFailedAttempt
   @Email NVARCHAR(256),
@@ -28,6 +29,6 @@ BEGIN
   CROSS APPLY (SELECT LockMinutes = CASE WHEN a.Attempts < 5 THEN 0
                                          WHEN a.Attempts - 5 >= 6 THEN 60
                                          ELSE POWER(2, a.Attempts - 5) END) AS m
-  WHERE u.Email = LTRIM(RTRIM(@Email));
+  WHERE u.Email = LTRIM(RTRIM(@Email)) AND u.IsGuest = 0;
 END;
 GO

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createSqlAuthRepository } from '../../src/modules/auth/infrastructure/sql-auth-repository.js';
 import { createSqlAuditRepository } from '../../src/modules/audit/infrastructure/sql-audit-repository.js';
 import { createSqlCartRepository } from '../../src/modules/cart/infrastructure/sql-cart-repository.js';
 import { createSqlCatalogueRepository } from '../../src/modules/catalogue/infrastructure/sql-catalogue-repository.js';
@@ -279,6 +280,38 @@ const cases: Case[] = [
     (e) => createSqlUsersRepository(e).setUserStatus(1, 2, true),
     'dbo.SP_Users_SetStatus',
     ['IDActor', 'IDUser', 'IsActive'],
+  ],
+  // Cuentas de invitado
+  [
+    'createGuest',
+    (e) => createSqlAuthRepository(e).createGuest(),
+    'dbo.SP_Users_CreateGuest',
+    [],
+    ['IDUser'],
+  ],
+  [
+    'setGuestContact',
+    (e) =>
+      createSqlAuthRepository(e).setGuestContact({
+        idUser: 1,
+        email: 'a@b.test',
+        fullName: 'a',
+        phone: null,
+      }),
+    'dbo.SP_Users_SetGuestContact',
+    ['IDUser', 'Email', 'FullName', 'Phone'],
+  ],
+  [
+    'setRecoveryCode',
+    (e) => createSqlAuthRepository(e).setRecoveryCode(1, 'a'.repeat(64)),
+    'dbo.SP_Users_SetRecoveryCode',
+    ['IDUser', 'CodeHash'],
+  ],
+  [
+    'findGuestsByEmail',
+    (e) => createSqlAuthRepository(e).findGuestsByEmail('a@b.test'),
+    'dbo.SP_Users_FindGuestsByEmail',
+    ['Email'],
   ],
   // Cupones
   [

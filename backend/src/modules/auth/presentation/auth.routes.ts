@@ -8,18 +8,26 @@ import type { AuthService } from '../application/auth-service.js';
 
 const email = z.string().trim().toLowerCase().pipe(z.email().max(256));
 
+const phone = z
+  .string()
+  .trim()
+  .regex(/^[0-9+() -]{6,20}$/)
+  .nullish()
+  .transform((value) => value ?? null);
+
 const registerBody = z.object({
   email,
   // Largo mínimo de NIST; el máximo evita que una contraseña enorme se use para agotar el servidor con argon2
   password: z.string().min(10).max(128),
   fullName: z.string().trim().min(1).max(120),
-  phone: z
-    .string()
-    .trim()
-    .regex(/^[0-9+() -]{6,20}$/)
-    .nullish()
-    .transform((value) => value ?? null),
+  phone,
 });
+const guestContactBody = z.object({
+  email,
+  fullName: z.string().trim().min(1).max(120),
+  phone,
+});
+const recoverBody = z.object({ email, code: z.string().trim().min(6).max(24) });
 const loginBody = z.object({ email, password: z.string().min(1).max(128) });
 const refreshToken = z.string().min(20).max(200);
 
@@ -76,6 +84,35 @@ export function createAuthRouter({
   router.post('/auth/login', limitAuthentication, async (req, res) => {
     const { email: address, password } = loginBody.parse(req.body);
     const session = unwrap(await service.login(address, password));
+    res.cookie(REFRESH_COOKIE_NAME, session.refreshToken, {
+      ...cookieBase,
+      maxAge: refreshCookie.maxAgeMs,
+    });
+    res.json(session);
+  });
+
+  // Quien compra sin registrarse recibe una sesión de invitado; el límite es el mismo que el del alta y el inicio de sesión
+  router.post('/auth/guest', limitAuthentication, async (_req, res) => {
+    const session = await service.startGuest();
+    res.cookie(REFRESH_COOKIE_NAME, session.refreshToken, {
+      ...cookieBase,
+      maxAge: refreshCookie.maxAgeMs,
+    });
+    res.status(201).json(session);
+  });
+
+  router.put('/auth/guest/contact', authenticate, async (req, res) => {
+    const body = guestContactBody.parse(req.body);
+    res.json(unwrap(await service.setGuestContact(requireUser(req).idUser, body)));
+  });
+
+  router.post('/auth/guest/recovery-code', authenticate, async (req, res) => {
+    res.status(201).json({ code: await service.newRecoveryCode(requireUser(req).idUser) });
+  });
+
+  router.post('/auth/guest/recover', limitAuthentication, async (req, res) => {
+    const { email: address, code } = recoverBody.parse(req.body);
+    const session = unwrap(await service.recoverGuest(address, code));
     res.cookie(REFRESH_COOKIE_NAME, session.refreshToken, {
       ...cookieBase,
       maxAge: refreshCookie.maxAgeMs,

@@ -1,10 +1,11 @@
 /* =====================================================================
    Objeto   : dbo.SP_Users_Provision
-   Version  : 1.0.0
-   Cambio   : Primera versión: alta de una cuenta con rol para las cuentas de demostración (administrador, operador, cliente)
+   Version  : 1.1.0
+   Cambio   : Busca la cuenta solo entre las cuentas reales
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Nueva. Es idempotente: si el correo ya existe devuelve esa cuenta sin cambiar nada. Errores: 50400 datos u
               rol inválidos. El runner le niega EXECUTE al login de la aplicación: solo lo usa el paso de semilla.
+   Cambio 1.1.0: un invitado con el mismo correo no se confunde con la cuenta de personal.
    ===================================================================== */
 CREATE OR ALTER PROCEDURE dbo.SP_Users_Provision
   @Email        NVARCHAR(256),
@@ -29,7 +30,7 @@ BEGIN
 
   -- SP_Users_Register nunca asigna un rol (un error del backend no debe poder crear un administrador desde un formulario
   -- público); esta sí, y por eso la aplicación no puede ejecutarla. Una cuenta que ya existe no se toca, ni su contraseña.
-  SET @IDUser = (SELECT IDUser FROM dbo.Users WHERE Email = @Email);
+  SET @IDUser = (SELECT IDUser FROM dbo.Users WHERE Email = @Email AND IsGuest = 0);
   SET @Created = 0;
   IF @IDUser IS NOT NULL RETURN;
 
@@ -41,7 +42,7 @@ BEGIN
   BEGIN CATCH
     -- Dos pasos de semilla simultáneos: gana el primero y el segundo devuelve su cuenta
     IF ERROR_NUMBER() NOT IN (2601, 2627) THROW;
-    SET @IDUser = (SELECT IDUser FROM dbo.Users WHERE Email = @Email);
+    SET @IDUser = (SELECT IDUser FROM dbo.Users WHERE Email = @Email AND IsGuest = 0);
   END CATCH;
 END;
 GO

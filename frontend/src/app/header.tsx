@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { CartLink } from '../features/cart/components/cart-link';
-import { auth, useSession } from '../shared/auth';
+import { auth, hasAccount, isGuestSession, useSession } from '../shared/auth';
 import { Button, ButtonLink } from '../shared/ui/button';
 import { CloseIcon, MenuIcon, UserIcon } from '../shared/ui/icons';
 import { visibleNavItems } from './navigation';
@@ -28,7 +28,7 @@ export function Header() {
   };
 
   const account =
-    session.status === 'authenticated' && session.user !== null ? (
+    hasAccount(session) && session.user !== null ? (
       <div className="flex items-center gap-2">
         <span className="hidden items-center gap-2 text-sm text-stone-700 md:flex">
           <UserIcon />
@@ -40,6 +40,10 @@ export function Header() {
       </div>
     ) : (
       <div className="flex items-center gap-1">
+        {/* Un invitado compra sin cuenta: se le recuerda, y desde aquí puede entrar o crear una */}
+        {isGuestSession(session) ? (
+          <span className="hidden text-sm text-stone-600 lg:block">{t('nav.guest')}</span>
+        ) : null}
         <ButtonLink to="/login" variant="ghost" className="whitespace-nowrap">
           {t('nav.signIn')}
         </ButtonLink>

@@ -54,37 +54,40 @@ const cartOf = (lines: ReturnType<typeof line>[], extra = {}) => ({
 
 const emptyCart = cartOf([], { idCart: null, subtotal: '0.00', total: '0.00', vat: '0.00' });
 
-const detail = json({
-  idProduct: 7,
-  idCategory: 1,
-  categoryName: 'Pasteles',
-  name: 'Pastel Tres Leches',
-  description: null,
-  leadTimeDays: 1,
-  isActive: true,
-  images: [],
-  variants: [
-    {
-      idVariant: 11,
-      sku: 'PAS-3L-06',
-      price: '145.00',
-      onHandStock: 12,
-      available: 12,
-      isActive: true,
-      attributes: [{ name: 'Tamaño', value: '6 porciones' }],
-    },
-    {
-      idVariant: 13,
-      sku: 'PAS-3L-24',
-      price: '480.00',
-      onHandStock: 0,
-      available: 0,
-      isActive: true,
-      attributes: [{ name: 'Tamaño', value: '24 porciones' }],
-    },
-  ],
-});
+const detailOf = (leadTimeDays: number) =>
+  json({
+    idProduct: 7,
+    idCategory: 1,
+    categoryName: 'Pasteles',
+    name: 'Pastel Tres Leches',
+    description: null,
+    leadTimeDays,
+    isActive: true,
+    images: [],
+    variants: [
+      {
+        idVariant: 11,
+        sku: 'PAS-3L-06',
+        price: '145.00',
+        onHandStock: 12,
+        available: 12,
+        isActive: true,
+        attributes: [{ name: 'Tamaño', value: '6 porciones' }],
+      },
+      {
+        idVariant: 13,
+        sku: 'PAS-3L-24',
+        price: '480.00',
+        onHandStock: 0,
+        available: 0,
+        isActive: true,
+        attributes: [{ name: 'Tamaño', value: '24 porciones' }],
+      },
+    ],
+  });
 
+// Del mismo día: un visitante puede pedirlo
+const detail = detailOf(0);
 const callsTo = (calls: Call[], method: string, path: string) =>
   calls.filter((call) => call.method === method && call.path === path);
 
@@ -99,7 +102,7 @@ describe('cart page as a visitor', () => {
     expect(callsTo(calls, 'GET', '/api/v1/cart')).toHaveLength(0);
   });
 
-  it('lists the lines with the totals of the server and invites to sign in for the coupon and the payment', async () => {
+  it('lists the lines with the totals of the server and lets a visitor go to the payment but not use a coupon', async () => {
     getGuestToken();
     installFakeApi({
       'GET /api/v1/cart': json(
@@ -118,10 +121,11 @@ describe('cart page as a visitor', () => {
     // Sin descuento no se muestra la línea
     expect(within(summary).queryByText('Descuento')).toBeNull();
 
-    expect(within(summary).getByRole('link', { name: 'Inicie sesión' })).toBeDefined();
+    // Un visitante paga sin cuenta, pero los cupones son de las cuentas registradas
     expect(within(summary).queryByLabelText('Cupón de descuento')).toBeNull();
-    const pay = within(summary).getByRole('link', { name: 'Iniciar sesión para pagar' });
-    expect(pay.getAttribute('href')).toBe('/login');
+    expect(within(summary).getByText('Los cupones se aplican con una cuenta')).toBeDefined();
+    const pay = within(summary).getByRole('link', { name: 'Continuar con el pago' });
+    expect(pay.getAttribute('href')).toBe('/checkout');
   });
 
   it('sends the visitor token and changes a quantity keeping the inscription', async () => {
@@ -198,11 +202,14 @@ describe('cart page with an account', () => {
   it('applies a coupon and shows the discount that the server calculated', async () => {
     await signInAs('Customer');
     const user = userEvent.setup();
+    const discounted = signedCart({ couponCode: 'WELCOME10', discount: '29.00', total: '261.00' });
+    let applied = false;
     const { calls } = installFakeApi({
-      'GET /api/v1/cart': json(signedCart()),
-      'POST /api/v1/cart/coupon': json(
-        signedCart({ couponCode: 'WELCOME10', discount: '29.00', total: '261.00' }),
-      ),
+      'GET /api/v1/cart': () => json(applied ? discounted : signedCart()),
+      'POST /api/v1/cart/coupon': () => {
+        applied = true;
+        return json(discounted);
+      },
     });
     renderApp('/cart');
     await screen.findByText('Pastel Tres Leches');
@@ -279,7 +286,7 @@ describe('cart page with an account', () => {
 });
 
 describe('adding from the product page', () => {
-  it('adds as a visitor with the token, the quantity and the inscription', async () => {
+  it('adds as a visitor with the token and the quantity, without asking for a personalisation', async () => {
     const user = userEvent.setup();
     const { calls } = installFakeApi({
       'GET /api/v1/products/7': detail,
@@ -288,13 +295,14 @@ describe('adding from the product page', () => {
     renderApp('/catalogue/7');
     await screen.findByRole('heading', { level: 1, name: 'Pastel Tres Leches' });
 
-    await user.type(screen.getByLabelText(/Inscripción/), 'Feliz cumpleaños');
+    // La personalización se escribe al pagar, no en la ficha del producto
+    expect(screen.queryByLabelText(/Inscripción|Mensaje/)).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Una unidad más' }));
     await user.click(screen.getByRole('button', { name: 'Agregar al carrito' }));
 
     expect(await screen.findByText('Agregado al carrito.')).toBeDefined();
     const put = callsTo(calls, 'PUT', '/api/v1/cart/items/11')[0];
-    expect(put?.body).toEqual({ quantity: 2, inscription: 'Feliz cumpleaños' });
+    expect(put?.body).toEqual({ quantity: 2, inscription: null });
     expect(put?.headers.get('X-Cart-Token')).toBe(peekGuestToken());
     expect(peekGuestToken()).not.toBeNull();
     // El encabezado ya muestra cuántos productos lleva
@@ -303,7 +311,7 @@ describe('adding from the product page', () => {
   });
 
   it('adds on top of what the cart already has', async () => {
-    getGuestToken();
+    await signInAs('Customer');
     const user = userEvent.setup();
     const { calls } = installFakeApi({
       'GET /api/v1/products/7': detail,
@@ -317,6 +325,26 @@ describe('adding from the product page', () => {
     expect(callsTo(calls, 'PUT', '/api/v1/cart/items/11')[0]?.body).toEqual({
       quantity: 3,
       inscription: null,
+    });
+  });
+
+  it('keeps the personalisation of the line when it adds more units', async () => {
+    await signInAs('Customer');
+    const user = userEvent.setup();
+    const { calls } = installFakeApi({
+      'GET /api/v1/products/7': detail,
+      'GET /api/v1/cart': json(
+        cartOf([line(11, 'Pastel Tres Leches', 1, 145, { inscription: 'Para Ana' })]),
+      ),
+      'PUT /api/v1/cart/items/11': json(cartOf([line(11, 'Pastel Tres Leches', 2, 145)])),
+    });
+    renderApp('/catalogue/7');
+    await screen.findByText('Ya tiene 1 unidad en su carrito.');
+    await user.click(screen.getByRole('button', { name: 'Agregar al carrito' }));
+    await screen.findByText('Agregado al carrito.');
+    expect(callsTo(calls, 'PUT', '/api/v1/cart/items/11')[0]?.body).toEqual({
+      quantity: 2,
+      inscription: 'Para Ana',
     });
   });
 
@@ -348,10 +376,14 @@ describe('cart and session', () => {
   it('hands the visitor cart to the account when the customer signs in, and forgets the token', async () => {
     const token = getGuestToken();
     const merged = cartOf([line(11, 'Pastel Tres Leches', 2, 145)]);
+    let done = false;
     const { calls } = installFakeApi({
-      'GET /api/v1/cart': json(emptyCart),
+      'GET /api/v1/cart': () => json(done ? merged : emptyCart),
       'POST /api/v1/auth/login': json(session('Ana', 'Customer')),
-      'POST /api/v1/cart/merge': json(merged),
+      'POST /api/v1/cart/merge': () => {
+        done = true;
+        return json(merged);
+      },
     });
     renderApp('/cart');
     await screen.findByText('Su carrito está vacío');

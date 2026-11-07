@@ -34,6 +34,19 @@ export const routes: RouteObject[] = [
         }),
       },
       {
+        // El pago no exige cuenta: quien no tiene sesión compra como invitado o entra, y la pantalla lo resuelve (ADR-0027)
+        path: 'checkout',
+        lazy: async () => ({
+          Component: (await import('../features/checkout/pages/checkout-page')).CheckoutPage,
+        }),
+      },
+      {
+        path: 'recover',
+        lazy: async () => ({
+          Component: (await import('../features/auth/pages/recover-page')).RecoverPage,
+        }),
+      },
+      {
         path: 'login',
         lazy: async () => ({
           Component: (await import('../features/auth/pages/login-page')).LoginPage,
