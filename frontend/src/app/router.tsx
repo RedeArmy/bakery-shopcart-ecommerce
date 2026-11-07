@@ -2,6 +2,7 @@ import { createBrowserRouter } from 'react-router-dom';
 import type { RouteObject } from 'react-router-dom';
 import { HomePage } from '../features/catalogue/pages/home-page';
 import { Layout } from './layout';
+import { ProtectedRoute } from './protected-route';
 import { NotFoundPage } from './pages/not-found-page';
 import { Splash } from './pages/splash';
 
@@ -57,6 +58,18 @@ export const routes: RouteObject[] = [
         lazy: async () => ({
           Component: (await import('../features/auth/pages/register-page')).RegisterPage,
         }),
+      },
+      {
+        // El pedido y su pago son del cliente (incluido el invitado, que también es Customer)
+        element: <ProtectedRoute roles={['Customer']} />,
+        children: [
+          {
+            path: 'orders/:id/payment',
+            lazy: async () => ({
+              Component: (await import('../features/payments/pages/payment-page')).PaymentPage,
+            }),
+          },
+        ],
       },
       { path: '*', element: <NotFoundPage /> },
     ],
