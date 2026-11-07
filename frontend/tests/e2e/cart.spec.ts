@@ -100,4 +100,12 @@ test('a visitor buys as a guest, with the coupon, the made-to-order products and
   await page.getByRole('button', { name: 'Enviar comprobante' }).click();
   await expect(page.getByText('En revisión').first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Enviar comprobante' })).toHaveCount(0);
+
+  // El pedido aparece en "Mis pedidos" (el invitado también es cliente), pendiente mientras se revisa el depósito
+  await page.getByRole('link', { name: 'Ver el detalle del pedido' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: /^Pedido PED-/ })).toBeVisible();
+  await expect(page.getByText('Galletas de avena')).toBeVisible();
+  await page.getByRole('link', { name: 'Volver a mis pedidos' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Mis pedidos' })).toBeVisible();
+  await expect(page.getByRole('link', { name: /PED-/ }).first()).toBeVisible();
 });

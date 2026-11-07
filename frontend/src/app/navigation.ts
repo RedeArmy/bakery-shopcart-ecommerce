@@ -12,7 +12,10 @@ export interface NavItem {
  * Los menús salen de esta configuración filtrada por rol, la misma idea que las rutas protegidas. Cada pantalla nueva
  * añade aquí su entrada con los roles que pueden verla.
  */
-export const NAV_ITEMS: readonly NavItem[] = [{ labelKey: 'nav.catalogue', to: '/catalogue' }];
+export const NAV_ITEMS: readonly NavItem[] = [
+  { labelKey: 'nav.catalogue', to: '/catalogue' },
+  { labelKey: 'nav.orders', to: '/orders', roles: ['Customer'] },
+];
 
 export function visibleNavItems(
   role: Role | null,

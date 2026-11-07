@@ -79,6 +79,12 @@ export function PaymentPage() {
           </div>
           <aside className="space-y-4">
             {isGuestSession(session) ? <RecoveryCodePanel /> : null}
+            <Link
+              to={`/orders/${String(idOrder)}`}
+              className="block text-sm text-accent hover:underline"
+            >
+              {t('payment.viewOrder')}
+            </Link>
             <Link to="/catalogue" className="block text-sm text-accent hover:underline">
               {t('payment.keepShopping')}
             </Link>

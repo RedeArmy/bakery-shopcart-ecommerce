@@ -60,9 +60,21 @@ export const routes: RouteObject[] = [
         }),
       },
       {
-        // El pedido y su pago son del cliente (incluido el invitado, que también es Customer)
+        // Los pedidos y su pago son del cliente (incluido el invitado, que también es Customer)
         element: <ProtectedRoute roles={['Customer']} />,
         children: [
+          {
+            path: 'orders',
+            lazy: async () => ({
+              Component: (await import('../features/orders/pages/orders-page')).OrdersPage,
+            }),
+          },
+          {
+            path: 'orders/:id',
+            lazy: async () => ({
+              Component: (await import('../features/orders/pages/order-page')).OrderPage,
+            }),
+          },
           {
             path: 'orders/:id/payment',
             lazy: async () => ({
