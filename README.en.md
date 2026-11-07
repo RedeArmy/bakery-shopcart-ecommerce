@@ -39,7 +39,7 @@ The nine modules of the brief are built in the database and the backend. What ea
 | RF-08 Dashboard and reports | Complete (the charts belong to Phase 2) | [ADR-0009](docs/adr/0009-definition-of-completed-order-for-reports.md) |
 | RF-09 Audit log | Complete | [Data model](docs/database/er-diagram.md) |
 
-The 21 acceptance criteria of the brief are in the [criteria map](docs/quality/acceptance-criteria-map.md): for each one it says what makes it hold and which test proves it. The tests are 577 for the database (tSQLt), 16 concurrency scenarios with real connections, 19 HTTP flows against SQL Server and more than 550 unit tests.
+The 21 acceptance criteria of the brief are in the [criteria map](docs/quality/acceptance-criteria-map.md): for each one it says what makes it hold and which test proves it. The tests are 598 for the database (tSQLt), 16 concurrency scenarios with real connections, 20 HTTP flows against SQL Server and more than 550 unit tests.
 
 ## 3. Architecture
 
@@ -66,7 +66,7 @@ flowchart LR
 
 Example, `PUT /api/v1/cart/items/{id}`: `cart.routes.ts` validates the quantity (1 to 99) and takes the user from the token, calls `CartRepository.setItem`, and `sql-cart-repository.ts` runs `SP_Cart_SetItemQuantity`, which is the one that checks the stock. Everything is wired in a single place, `backend/src/composition-root.ts`. The logic that has to be atomic lives in the stored procedures ([ADR-0002](docs/adr/0002-critical-rules-in-stored-procedures-and-checks.md)); the backend orchestrates and never calculates amounts.
 
-The contract is in [docs/api/openapi/openapi.yaml](docs/api/openapi/openapi.yaml) and has **77 operations**:
+The contract is in [docs/api/openapi/openapi.yaml](docs/api/openapi/openapi.yaml) and has **82 operations**:
 
 | Module | Operations | Module | Operations |
 |---|---|---|---|
@@ -76,7 +76,7 @@ The contract is in [docs/api/openapi/openapi.yaml](docs/api/openapi/openapi.yaml
 | Addresses | 3 | Coupons | 4 |
 | Checkout | 3 | Users | 2 |
 | Audit log and system | 4 | Dashboard | 5 |
-| Health | 2 | | |
+| Health | 2 | Branches | 5 |
 
 More detail in [docs/architecture](docs/architecture/01-system-overview.md) and in the [C4](docs/architecture/c4/context.md) diagrams.
 
@@ -116,7 +116,7 @@ The brief leaves some decisions open on purpose. These are the positions taken; 
 
 ## 6. Data model and lifecycle
 
-The full diagram and the order of the migrations are in [docs/database/er-diagram.md](docs/database/er-diagram.md). The database has 40 tables, 87 stored procedures, 17 table functions, 6 views and 11 triggers. Summary of the main relationships:
+The full diagram and the order of the migrations are in [docs/database/er-diagram.md](docs/database/er-diagram.md). The database has 41 tables, 91 stored procedures, 18 table functions, 6 views and 11 triggers. Summary of the main relationships:
 
 ```mermaid
 erDiagram
@@ -221,17 +221,17 @@ To start from scratch, database included, use `docker compose down --volumes`, d
 
 ## 8. How to verify the delivery
 
-**With the Postman collection.** Its 38 requests are the fewest that prove the delivery, and the first folder that matters is **authentication**: it registers a customer, signs in, reads the profile, rejects a missing token and a wrong password, and checks the rotation of the refresh token. The others go through the catalogue, the cart, the coupons, the checkout with its idempotency, the ownership of data, the order lifecycle and the audit log. The table of what each folder proves is in the [Postman README](docs/api/postman/README.md) and the map of each criterion to its test in the [acceptance criteria map](docs/quality/acceptance-criteria-map.md). To explore the 77 operations, import `docs/api/openapi/openapi.yaml` in Postman: it generates one request per operation.
+**With the Postman collection.** Its 38 requests are the fewest that prove the delivery, and the first folder that matters is **authentication**: it registers a customer, signs in, reads the profile, rejects a missing token and a wrong password, and checks the rotation of the refresh token. The others go through the catalogue, the cart, the coupons, the checkout with its idempotency, the ownership of data, the order lifecycle and the audit log. The table of what each folder proves is in the [Postman README](docs/api/postman/README.md) and the map of each criterion to its test in the [acceptance criteria map](docs/quality/acceptance-criteria-map.md). To explore the 82 operations, import `docs/api/openapi/openapi.yaml` in Postman: it generates one request per operation.
 
 **With the automated tests.** The database and concurrency tests run against a throwaway SQL Server:
 
 | What is tested | Command |
 |---|---|
 | Unit tests of the backend, the runner and the scripts | `npm test` |
-| 577 database tests (tSQLt) | `npm run sql:test:up` and then `npm run sql:test` |
+| 598 database tests (tSQLt) | `npm run sql:test:up` and then `npm run sql:test` |
 | 16 concurrency scenarios with real connections | `npm run sql:concurrency` |
-| HTTP flows against SQL Server (19) | `npm run test:integration -w backend`, with the test server migrated ([commands](docs/quality/sql-testing-tsqlt.md#concurrency-http-and-performance-suites)) |
-| Procedure coverage by tests (87 of 87) | `npm run sql:coverage` |
+| HTTP flows against SQL Server (20) | `npm run test:integration -w backend`, with the test server migrated ([commands](docs/quality/sql-testing-tsqlt.md#concurrency-http-and-performance-suites)) |
+| Procedure coverage by tests (91 of 91) | `npm run sql:coverage` |
 | Timings of lists and reports with 50,000 orders | `npm run sql:bench` |
 
 ## 9. Commands
@@ -292,8 +292,8 @@ Full index in [docs/README.md](docs/README.md). API contract in [docs/api/openap
 
 ## 14. Delivery status
 
-**Phase 1, database and backend: complete.** 14 migrations, 87 procedures, the 77-operation API, authentication with token rotation, the simulated payment, the background jobs (expiry of reservations and payments, data purge, reconciliation of amounts and stock) and the tests described in section 8. The history of changes and the decisions are in [STATUS](docs/progress/STATUS.md) and [ROADMAP](docs/progress/ROADMAP.md).
+**Phase 1, database and backend: complete.** 15 migrations, 91 procedures, the 82-operation API, authentication with token rotation, the simulated payment, the background jobs (expiry of reservations and payments, data purge, reconciliation of amounts and stock) and the tests described in section 8. The history of changes and the decisions are in [STATUS](docs/progress/STATUS.md) and [ROADMAP](docs/progress/ROADMAP.md).
 
-**Demo data.** When the environment starts there are the four test accounts and a small shop: 60 products in 6 categories (97 variants and 2,230 units, three out of stock on purpose), the coupons `WELCOME10`, `CAKES25`, `SOLDOUT` and `EXPIRED`, and two fictitious bank accounts. They are created through the real procedures and running the step again duplicates nothing ([details and how to see each coupon message](docs/operations/demo-data.md)). The Postman collection still creates its own data.
+**Demo data.** When the environment starts there are the four test accounts and a small shop: 60 products in 6 categories (97 variants and 2,230 units, three out of stock on purpose), the coupons `WELCOME10`, `CAKES25`, `SOLDOUT` and `EXPIRED`, two fictitious bank accounts and two branches for picking orders up. They are created through the real procedures and running the step again duplicates nothing ([details and how to see each coupon message](docs/operations/demo-data.md)). The Postman collection still creates its own data.
 
 **Phase 2, frontend: pending.** Protected routes and menus by role, forms with validation, tables with server-side paging and filters, dashboard charts, loading, empty and error states, transparent token renewal and a responsive interface, with end-to-end tests.

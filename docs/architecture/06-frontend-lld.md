@@ -42,9 +42,10 @@ Catalogue, product detail (size and flavour), cart, checkout (guest or account, 
 
 ### The checkout and the deposit payment
 
-- **Steps.** `PurchaseSteps` (shared by accounts and guests once a guest has given the contact data): address, delivery date, bank account, reservation, confirmation. The first address is preselected and a new one is added in place (`POST /addresses` with an `Idempotency-Key`).
-- **The server decides.** The delivery date input only has a `min`; `earliestDeliveryDate`, `deliveryDateAllowed` and the deposit offer (`available`, `reason`, `deadlineAt`) come from `GET /checkout/payment-methods`, asked again for each date and whenever the cart signature changes. The client computes no date and no amount.
-- **Reservation.** `POST /checkout/start` returns the expiry; a `Countdown` shows it and, at zero, drops the reservation and asks to reserve again. Confirming sends `{idReservation, idAddress, deliveryDate, method: 'BANK_DEPOSIT', idBankAccount}` with a key kept across retries and renewed on success, then goes to `/orders/:id/payment` replacing the history entry so the back button does not return to a spent checkout.
+- **Steps.** `PurchaseSteps` (shared by accounts and guests once a guest has given the contact data): how the order is received, the address when it is a delivery, the bank account, the reservation and the confirmation. The personalisation (account) or the notice that it needs an account (guest) and the delivery address are collapsible sections (`Disclosure`: a button inside the heading with `aria-expanded` and `aria-controls`; the content stays mounted while it is collapsed, so what was typed is not lost).
+- **Delivery or pickup, as a dropdown.** One `<select>` offers "Home delivery" and "Pick up at <branch>" for each active branch (`GET /branches`, public). A delivery shows the address section as before (the first address is preselected and a new one is added in place with `POST /addresses` and an `Idempotency-Key`); a pickup shows the branch with its address, phone and opening hours and asks for no address. If the chosen branch stops being offered, the choice goes back to the delivery.
+- **The date is not chosen.** There is no calendar: the server defines it (`estimatedDeliveryDate` of `GET /checkout/payment-methods`, asked again whenever the cart signature changes) and the screen says it is an estimate that can move a few days either way. The deposit offer (`available`, `reason`, `deadlineAt`) comes from the same call. The client computes no date and no amount.
+- **Reservation.** `POST /checkout/start` returns the expiry; a `Countdown` shows it and, at zero (or when the confirmation answers `RESERVATION_EXPIRED`), drops the reservation and asks to reserve again. Confirming sends `{idReservation, fulfilmentType, idAddress | idBranch, method: 'BANK_DEPOSIT', idBankAccount}` (no date) with a key kept across retries and renewed on success, then goes to `/orders/:id/payment` replacing the history entry so the back button does not return to a spent checkout.
 - **Payment page.** Instructions (exact amount, reference = order number, account, deadline with countdown), the proof form (reference, date, amount prefilled from the order, file with a preview; type and size checks are only convenience) and the status. A rejected payment shows the reason and, while attempts remain, opens another attempt with the same bank account. For a guest session the recovery code panel is on the side. Another customer's order answers 404 and shows the not-found view.
 
 ### My orders
@@ -70,7 +71,9 @@ Catalogue, product detail (size and flavour), cart, checkout (guest or account, 
 
 ## Administration screens
 
-Dashboard, products, categories, inventory and ledger, coupons, orders, users, audit log, and:
+Dashboard, products, categories, inventory and ledger, coupons, orders, users, audit log, branches, and:
+
+- **Branches (built).** `/admin/branches`, a route for the `Administrator` role with its menu entry. It lists every branch (the deactivated ones too, without actions) with the number of orders still waiting in each one; the active ones can be edited or removed. "Removing" asks for a confirmation and deactivates the branch (ADR-0028); the server refuses it while orders are waiting (`BRANCH_HAS_OPEN_ORDERS`) and the answer is shown. The form is the same for creating and editing, with the name unique among the active branches (`BRANCH_NAME_IN_USE`). It is also the first administration screen: the rest are still to be built.
 
 - **Deposits to review:** table with server-side pagination, sorting and filters; columns order, customer, amount, reference, age. Visual alerts for a mismatching amount or an age over 24 h. A side panel shows the proof (image or PDF through an authenticated blob) with approve, or reject with a mandatory reason.
 - **Refunds:** orphan payments and returns pending to refund.
