@@ -67,7 +67,9 @@ describe('the deposit offer when it is not available', () => {
     });
     renderApp('/checkout');
 
-    expect(await screen.findByText('El depósito no está disponible para esa fecha.')).toBeDefined();
+    expect(
+      await screen.findByText('El depósito no está disponible en este momento.'),
+    ).toBeDefined();
   });
 });
 

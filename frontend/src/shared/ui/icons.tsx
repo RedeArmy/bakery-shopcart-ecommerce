@@ -62,3 +62,9 @@ export const CakeIcon = (props: Readonly<SVGProps<SVGSVGElement>>) => (
     <path d="M12 12V8M12 5.5v.01" />
   </Icon>
 );
+
+export const ChevronDownIcon = (props: Readonly<SVGProps<SVGSVGElement>>) => (
+  <Icon {...props}>
+    <path d="M6 9l6 6 6-6" />
+  </Icon>
+);

@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { errorMessage } from '../../../shared/api';
 import { Button } from '../../../shared/ui/button';
+import { Disclosure } from '../../../shared/ui/disclosure';
 import { TextField } from '../../../shared/ui/fields';
 import { ErrorState, LoadingSkeleton } from '../../../shared/ui/states';
 import { fieldError } from '../../auth/components/auth-layout';
@@ -171,12 +172,21 @@ export function AddressSection({
     );
   }
 
+  // Con la sección cerrada se ve a dónde va el pedido
+  const chosen = active.find((address) => address.idAddress === selected);
+  const summary =
+    chosen === undefined
+      ? t('checkout.address.pending')
+      : `${chosen.label} · ${chosen.recipient}, ${chosen.line1}`;
+
   return (
-    <section aria-labelledby="checkout-address" className="space-y-4">
-      <h2 id="checkout-address" className="text-2xl text-stone-900">
-        {t('checkout.address.title')}
-      </h2>
+    <Disclosure
+      id="checkout-address"
+      title={t('checkout.address.title')}
+      summary={summary}
+      defaultOpen
+    >
       {body}
-    </section>
+    </Disclosure>
   );
 }

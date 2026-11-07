@@ -21,6 +21,7 @@ export const esGT = {
   nav: {
     catalogue: 'Catálogo',
     orders: 'Mis pedidos',
+    branches: 'Sucursales',
     cart: 'Carrito',
     guest: 'Invitado',
     signIn: 'Iniciar sesión',
@@ -43,7 +44,7 @@ export const esGT = {
     eyebrow: 'Hecho por encargo',
     title: 'Pasteles que se hornean para su celebración',
     subtitle:
-      'Elija el tamaño y el sabor, indique la fecha de entrega y pague con depósito bancario.',
+      'Elija el tamaño y el sabor, escoja si lo recibe en su casa o lo recoge en una sucursal y pague con depósito bancario.',
     cta: 'Ver el catálogo',
     categories: 'Categorías',
     newest: 'Lo más nuevo',
@@ -51,7 +52,7 @@ export const esGT = {
     trust: {
       madeToOrder: {
         title: 'Hecho por encargo',
-        text: 'Cada pedido se prepara para su fecha.',
+        text: 'Cada pedido se prepara por encargo y le damos una fecha estimada.',
       },
       reserved: {
         title: 'Existencias apartadas',
@@ -161,6 +162,7 @@ export const esGT = {
     },
     address: {
       title: 'Dirección de entrega',
+      pending: 'Todavía no eligió una dirección.',
       newTitle: 'Nueva dirección',
       add: 'Agregar otra dirección',
       save: 'Guardar dirección',
@@ -181,10 +183,17 @@ export const esGT = {
         phoneInvalid: 'Use solo números, espacios, guiones o paréntesis (de 6 a 20 caracteres).',
       },
     },
-    delivery: {
-      title: 'Fecha de entrega',
-      label: 'Día de entrega',
-      earliest: 'La primera fecha posible para su pedido es el {{date}}.',
+    fulfilment: {
+      title: 'Cómo recibe su pedido',
+      label: 'Forma de recibirlo',
+      delivery: 'Entrega a domicilio',
+      pickupGroup: 'Recoger en sucursal',
+      pickupAt: 'Recoger en {{name}}',
+      phone: 'Teléfono: {{phone}}',
+      estimateDelivery: 'La fecha estimada de entrega es el {{date}}.',
+      estimatePickup: 'La fecha estimada para recogerlo es el {{date}}.',
+      estimateNote:
+        'Es un estimado: puede ser unos días antes o después, según la preparación de su pedido.',
     },
     payment: {
       title: 'Forma de pago',
@@ -194,14 +203,15 @@ export const esGT = {
       account: 'Cuenta donde depositar',
       accountOption: '{{bank}}, {{type}} {{number}}, a nombre de {{holder}}',
       accountType: { Checking: 'Cuenta monetaria', Savings: 'Cuenta de ahorro' },
-      unavailable: 'El depósito no está disponible para esa fecha.',
+      unavailable: 'El depósito no está disponible en este momento.',
     },
     confirm: {
       title: 'Confirmar el pedido',
       reserveText:
         'Al reservar apartamos sus productos durante 15 minutos para que nadie más los compre mientras confirma.',
       reserve: 'Reservar mis productos',
-      missing: 'Elija la dirección, una fecha posible y la cuenta para poder reservar.',
+      missing:
+        'Elija cómo recibirlo (con su dirección, si es entrega) y la cuenta para poder reservar.',
       reserved: 'Sus productos están reservados por',
       confirmText:
         'Si cambia algo del carrito la reserva se suelta y hay que reservar otra vez. Al confirmar se crea el pedido, pendiente del depósito.',
@@ -312,6 +322,42 @@ export const esGT = {
     leadTimeNote_other: 'Se prepara por encargo: pídalo con {{count}} días de anticipación.',
     sameDayNote: 'Se prepara por encargo y puede estar listo el mismo día.',
   },
+  branches: {
+    title: 'Sucursales',
+    intro:
+      'Las sucursales activas se ofrecen al cliente para recoger su pedido. Quitar una la desactiva: los pedidos ya hechos conservan sus datos.',
+    add: 'Agregar sucursal',
+    newTitle: 'Nueva sucursal',
+    editTitle: 'Editar sucursal',
+    create: 'Crear sucursal',
+    save: 'Guardar cambios',
+    edit: 'Editar',
+    remove: 'Quitar',
+    removeTitle: '¿Quitar esta sucursal?',
+    removeText:
+      'Dejará de ofrecerse para recoger pedidos. Los pedidos ya hechos conservan sus datos y no se pierde nada.',
+    removeConfirm: 'Sí, quitarla',
+    removeKeep: 'No, conservarla',
+    emptyTitle: 'Todavía no hay sucursales',
+    emptyText: 'Agregue la primera para que los clientes puedan recoger sus pedidos.',
+    openOrders_one: '{{count}} pedido esperando',
+    openOrders_other: '{{count}} pedidos esperando',
+    status: { active: 'Activa', inactive: 'Desactivada' },
+    fields: {
+      name: 'Nombre de la sucursal',
+      line1: 'Dirección',
+      municipality: 'Municipio',
+      department: 'Departamento',
+      phone: 'Teléfono',
+      openingHours: 'Horario',
+    },
+    hours: { hint: 'Por ejemplo «Lunes a sábado de 8:00 a 18:00».' },
+    validation: {
+      required: 'Este dato es obligatorio.',
+      tooLong: 'Este dato es demasiado largo.',
+      phoneInvalid: 'Use solo números, espacios, guiones o paréntesis (de 6 a 20 caracteres).',
+    },
+  },
   orders: {
     title: 'Mis pedidos',
     filter: 'Estado',
@@ -321,7 +367,8 @@ export const esGT = {
     emptyFilteredTitle: 'No hay pedidos con ese estado',
     emptyFilteredText: 'Pruebe con otro estado o vea todos.',
     browse: 'Ver el catálogo',
-    deliveryOn: 'entrega el {{date}}',
+    deliveryOn: 'fecha estimada: {{date}}',
+    pickup: 'Recoger en sucursal',
     back: 'Volver a mis pedidos',
     detailTitle: 'Pedido {{number}}',
     notFoundTitle: 'Este pedido no existe',
@@ -362,7 +409,7 @@ export const esGT = {
   payment: {
     eyebrow: 'Su pedido',
     title: 'Pedido {{number}}',
-    summary: 'Entrega el {{date}} · Total',
+    summary: 'Fecha estimada: {{date}} · Total',
     viewOrder: 'Ver el detalle del pedido',
     keepShopping: 'Seguir viendo el catálogo',
     notFoundTitle: 'Este pedido no existe',
@@ -477,6 +524,10 @@ export const esGT = {
         'Falta muy poco para la entrega y ya no se puede pagar con depósito.',
       DEPOSIT_ATTEMPTS_EXCEEDED: 'Este pedido ya usó todos sus intentos de depósito.',
       REFERENCE_ALREADY_USED: 'Esa referencia bancaria ya se usó en otro pago.',
+      BRANCH_HAS_OPEN_ORDERS:
+        'La sucursal todavía tiene pedidos esperando. Podrá quitarla cuando se entreguen o se cancelen.',
+      BRANCH_NAME_IN_USE: 'Ya hay una sucursal activa con ese nombre.',
+      BRANCH_INACTIVE: 'Una sucursal desactivada ya no se puede editar: cree una nueva.',
       PAYMENT_PROOF_REUSED: 'Ese comprobante ya se usó en otro pago.',
       AMOUNT_MISMATCH: 'El monto depositado no coincide con el total del pedido.',
       PAYLOAD_TOO_LARGE: 'El archivo pesa más de 5 MB.',

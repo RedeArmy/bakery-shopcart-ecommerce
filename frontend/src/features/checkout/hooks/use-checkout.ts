@@ -63,22 +63,17 @@ export function useCreateAddress() {
 }
 
 /**
- * Lo que ofrece el pago para una fecha de entrega: la primera fecha posible según los productos del carrito, si la elegida
- * alcanza y qué métodos y cuentas hay. Se pide de nuevo al cambiar la fecha o el carrito: el servidor es quien decide.
+ * Lo que ofrece el pago: la fecha estimada de entrega o recogida (la define el servidor según los productos del carrito, el
+ * cliente no la elige), si el depósito alcanza y qué cuentas hay. Se pide de nuevo al cambiar el carrito.
  */
-export function usePaymentMethods(deliveryDate: string | null, cartSignature: string) {
+export function usePaymentMethods(cartSignature: string) {
   const { user } = useSession();
   return useQuery({
-    queryKey: ['payment-methods', user?.idUser ?? null, deliveryDate, cartSignature],
-    enabled: user !== null && deliveryDate !== null,
+    queryKey: ['payment-methods', user?.idUser ?? null, cartSignature],
+    enabled: user !== null,
     staleTime: 0,
     queryFn: async ({ signal }) =>
-      unwrap(
-        await api.GET('/api/v1/checkout/payment-methods', {
-          params: { query: { deliveryDate: deliveryDate ?? '' } },
-          signal,
-        }),
-      ),
+      unwrap(await api.GET('/api/v1/checkout/payment-methods', { signal })),
   });
 }
 
@@ -98,11 +93,14 @@ export function useReserveCart() {
   });
 }
 
+/** Cómo se recibe el pedido: en una dirección del cliente o recogiéndolo en una sucursal. */
+export type Fulfilment =
+  { type: 'Delivery'; idAddress: number } | { type: 'Pickup'; idBranch: number };
+
 export interface ConfirmInput {
   idReservation: number;
-  idAddress: number;
-  deliveryDate: string;
   idBankAccount: number;
+  fulfilment: Fulfilment;
 }
 
 /** Crea el pedido a pagar por depósito. Un reintento con la misma llave devuelve el mismo pedido. */
@@ -114,7 +112,15 @@ export function useConfirmOrder() {
       const order = unwrap(
         await api.POST('/api/v1/checkout/confirm', {
           params: { header: { 'Idempotency-Key': key.current() } },
-          body: { ...input, method: 'BANK_DEPOSIT' },
+          // La fecha no se envía: la define el sistema
+          body: {
+            idReservation: input.idReservation,
+            idBankAccount: input.idBankAccount,
+            method: 'BANK_DEPOSIT',
+            fulfilmentType: input.fulfilment.type,
+            idAddress: input.fulfilment.type === 'Delivery' ? input.fulfilment.idAddress : null,
+            idBranch: input.fulfilment.type === 'Pickup' ? input.fulfilment.idBranch : null,
+          },
         }),
       );
       key.renew();

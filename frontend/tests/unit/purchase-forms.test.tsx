@@ -141,28 +141,7 @@ describe('the address of the checkout', () => {
   });
 });
 
-describe('the delivery date and the reservation', () => {
-  it('explains a date that is too soon and does not allow the reservation', async () => {
-    await signInAs('Customer');
-    installFakeApi({
-      'GET /api/v1/cart': json(cart),
-      'GET /api/v1/addresses': json([address]),
-      'GET /api/v1/checkout/payment-methods': json(methods({ deliveryDateAllowed: false })),
-    });
-    renderApp('/checkout');
-
-    expect(await screen.findByText(/primera fecha posible/)).toBeDefined();
-    expect(
-      await screen.findByText(
-        'Esa fecha no alcanza para preparar sus productos. Elija una posterior.',
-      ),
-    ).toBeDefined();
-    const reserve = screen.getByRole<HTMLButtonElement>('button', {
-      name: 'Reservar mis productos',
-    });
-    expect(reserve.disabled).toBe(true);
-  });
-
+describe('the deposit and the reservation', () => {
   it('shows the deadline of the deposit and the reason when it no longer reaches', async () => {
     await signInAs('Customer');
     installFakeApi({

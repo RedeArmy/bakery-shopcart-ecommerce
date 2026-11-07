@@ -104,6 +104,19 @@ export function OrderPage() {
             </ul>
           </section>
 
+          {data.fulfilmentType === 'Pickup' ? (
+            <section aria-labelledby="order-delivery" className="space-y-2">
+              <h2 id="order-delivery" className="text-2xl text-stone-900">
+                {t('orders.pickup')}
+              </h2>
+              <p className="text-stone-700">
+                {data.pickupBranchName}
+                <br />
+                {data.pickupBranchAddress}
+              </p>
+            </section>
+          ) : null}
+
           {data.deliveryLine1 ? (
             <section aria-labelledby="order-delivery" className="space-y-2">
               <h2 id="order-delivery" className="text-2xl text-stone-900">
