@@ -796,7 +796,7 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
     expect(str(personalised.body, 'error.code')).toBe('ACCOUNT_REQUIRED');
     const visitor = await api()
       .put(`/api/v1/cart/items/${idCustomVariant}`)
-      .set('X-Cart-Token', '9d3f1c52-7a41-4a3e-9d1b-2f6c0b1e4a77')
+      .set('X-Cart-Token', '11111111-1111-4111-8111-111111111111')
       .send({ quantity: 1 });
     expect(visitor.status).toBe(422);
     expect(str(visitor.body, 'error.code')).toBe('ACCOUNT_REQUIRED');
