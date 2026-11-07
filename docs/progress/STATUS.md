@@ -1,6 +1,6 @@
 # Status
 
-_Last updated: Saturday 31 October 2026 (end of the verification, architecture and rename session)._
+_Last updated: Friday 6 November 2026 (end of the checkout and deposit payment session)._
 
 ## Current stage
 
@@ -8,6 +8,7 @@ _Last updated: Saturday 31 October 2026 (end of the verification, architecture a
 
 ## Done since the last update
 
+- **The checkout and the deposit payment are on screen** (6 November). The checkout now has the delivery address (choose or add one), the delivery date (the server says the earliest possible one and whether the deposit still reaches), the bank account, and the 15-minute reservation with its countdown; confirming creates the order and opens `/orders/:id/payment`. That page shows the exact amount, the reference (the order number), the account and the deadline, takes the proof (JPEG, PNG or PDF up to 5 MB) and follows the payment status until a person reviews it: under review, approved, rejected with the reason and another attempt while attempts remain, or expired. It works the same for accounts and guests. It was checked in the browser against the real backend (order, reservation, proof and the move to "under review"). 225 frontend unit tests (20 new in 5 files) and 9 end-to-end scenarios (the guest one now goes from the cart to the proof). Not built yet: the order confirmation with the recovery code, my orders, and the staff screens.
 - **A coupon of one use per customer is spent by the person, not by the account** (6 November, migration V0014). `Users.EmailKey` normalises the email (lower case, no `+tag`, no dots for Gmail) and the limit counts every account with the same key, also under concurrency: 10 alias accounts racing for a coupon give exactly one winner. 577 database tests and 17 concurrency scenarios. A person with unrelated mailboxes is still possible (open question 14).
 - **Guests can check out without an account** (6 November, [ADR-0027](../adr/0027-guest-accounts-for-checkout-without-registering.md)). A guest is a password-less account (migration V0013, four procedures, 30 tSQLt tests); the session opens when the visitor continues as a guest at checkout, the visitor cart goes with it, and the checkout asks for the contact data and offers a recovery code (`/recover` gives the session back with the email and the code). Coupons, personalisation and made-to-order products (`leadTimeDays` above 0) need a registered account: the database refuses them for a visitor or a guest and the screens explain why. 4 new API operations (77), 567 database tests, 361 backend tests plus 19 HTTP flows and 205 frontend tests, and 9 end-to-end scenarios. Next are the address, the delivery date and the deposit of the checkout, then the order confirmation where the recovery code belongs.
 - **The personalisation moved to the checkout** (6 November). The product page only asks for the quantity; `/checkout` (customers only) opens with a personalisation section with one optional message per product (up to 60 characters, with a counter), saved in the cart line and carried to the order line. The payment button of the cart now leads to a real page. The address, the delivery date and the deposit are the next steps of that page. 179 unit tests and 9 end-to-end scenarios.
@@ -35,7 +36,7 @@ _Last updated: Saturday 31 October 2026 (end of the verification, architecture a
 
 1. **Add `audit` to the required checks of the ruleset in GitHub** (owner action), after the job has passed once on a pull request.
 2. **Make the `integration` job a required check** after it has been stable for a few pull requests, together with `audit`.
-3. **The screens, in the order of the frontend design:** checkout and deposit, my orders, the deposit review queue, staff orders, the dashboard, then the rest of the administration (authentication, the shell, the catalogue and the cart are done). Use one small pull request per block.
+3. **The screens, in the order of the frontend design:** my orders and the order confirmation with the recovery code, the deposit review queue, staff orders, the dashboard, then the rest of the administration (authentication, the shell, the catalogue, the cart, the checkout and the deposit payment are done). Use one small pull request per block.
 4. **Housekeeping:** update the primary checkout (`git pull --ff-only`). Merged branches are deleted by hand, by the owner's decision.
 
 ## Spike results

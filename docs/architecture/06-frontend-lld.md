@@ -40,6 +40,13 @@ Catalogue, product detail (size and flavour), cart, checkout (guest or account, 
 | Payment status | Badge `Pending`, `Under review`, `Approved`, `Rejected` (with the reason and an "Upload another proof" button while attempts remain), `Expired`. It refreshes with `refetchInterval` until the status is terminal |
 | Card | Not built: no payment gateway is required, so the card selector and `/orders/:number/payment-result` do not exist |
 
+### The checkout and the deposit payment
+
+- **Steps.** `PurchaseSteps` (shared by accounts and guests once a guest has given the contact data): address, delivery date, bank account, reservation, confirmation. The first address is preselected and a new one is added in place (`POST /addresses` with an `Idempotency-Key`).
+- **The server decides.** The delivery date input only has a `min`; `earliestDeliveryDate`, `deliveryDateAllowed` and the deposit offer (`available`, `reason`, `deadlineAt`) come from `GET /checkout/payment-methods`, asked again for each date and whenever the cart signature changes. The client computes no date and no amount.
+- **Reservation.** `POST /checkout/start` returns the expiry; a `Countdown` shows it and, at zero, drops the reservation and asks to reserve again. Confirming sends `{idReservation, idAddress, deliveryDate, method: 'BANK_DEPOSIT', idBankAccount}` with a key kept across retries and renewed on success, then goes to `/orders/:id/payment` replacing the history entry so the back button does not return to a spent checkout.
+- **Payment page.** Instructions (exact amount, reference = order number, account, deadline with countdown), the proof form (reference, date, amount prefilled from the order, file with a preview; type and size checks are only convenience) and the status. A rejected payment shows the reason and, while attempts remain, opens another attempt with the same bank account. For a guest session the recovery code panel is on the side. Another customer's order answers 404 and shows the not-found view.
+
 ### The cart
 
 - **Whose cart it is.** With a session the server identifies the cart by the access token. A visitor sends `X-Cart-Token`, a UUID the browser creates the first time the visitor adds something and keeps in `localStorage` (`shopcart.cartToken`); it is not a credential. A visitor who has added nothing has no token and the cart screen is empty without calling the server.
