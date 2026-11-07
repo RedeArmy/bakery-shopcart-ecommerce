@@ -4,6 +4,9 @@ import type { Result } from '../../../shared-kernel/index.js';
 
 export type PaymentMethodCode = 'CARD' | 'BANK_DEPOSIT';
 
+/** Cómo recibe el cliente el pedido: en su dirección o recogiéndolo en una sucursal. */
+export type FulfilmentType = 'Delivery' | 'Pickup';
+
 export interface CartSummary {
   idCart: number | null;
   itemCount: number;
@@ -12,6 +15,10 @@ export interface CartSummary {
 
 export interface DepositWindow {
   leadTimeDays: number;
+  /** La fecha que se evaluó: la pedida o, si no se pidió ninguna, la estimada por el sistema */
+  deliveryDate: string;
+  /** La fecha que define el sistema: la primera que respeta la anticipación y deja tiempo para pagar */
+  estimatedDeliveryDate: string;
   earliestDeliveryDate: string;
   deliveryDateAllowed: boolean;
   depositDeadlineAt: string;
@@ -41,8 +48,13 @@ export interface ConfirmCommand {
   userId: number;
   idempotencyKey: string;
   idReservation: number;
-  idAddress: number;
-  deliveryDate: string;
+  fulfilmentType: FulfilmentType;
+  /** Solo con entrega a domicilio */
+  idAddress: number | null;
+  /** Solo con recogida */
+  idBranch: number | null;
+  /** Ya no la elige el cliente: sin fecha la define el sistema (una fecha enviada se sigue validando) */
+  deliveryDate: string | null;
   method: PaymentMethodCode;
   idBankAccount: number | null;
 }
@@ -51,13 +63,15 @@ export interface ConfirmCommand {
 export interface CheckoutRepositoryPort {
   cartSummary(userId: number): Promise<CartSummary>;
   reserve(userId: number, idCart: number): Promise<{ idReservation: number; expiresAt: string }>;
-  depositWindow(userId: number, deliveryDate: string): Promise<DepositWindow>;
+  depositWindow(userId: number, deliveryDate: string | null): Promise<DepositWindow>;
   bankAccounts(): Promise<BankAccount[]>;
   createOrder(input: {
     userId: number;
     idReservation: number;
-    idAddress: number;
-    deliveryDate: string;
+    fulfilmentType: FulfilmentType;
+    idAddress: number | null;
+    idBranch: number | null;
+    deliveryDate: string | null;
     idPaymentMethod: number;
     storedKey: string;
     idBankAccount: number | null;
@@ -74,6 +88,8 @@ export interface MethodOffer {
 
 export interface PaymentMethodsView {
   deliveryDate: string;
+  /** La fecha estimada de entrega o recogida; el cliente la ve como una estimación, no la elige */
+  estimatedDeliveryDate: string;
   earliestDeliveryDate: string;
   deliveryDateAllowed: boolean;
   methods: MethodOffer[];
@@ -93,13 +109,14 @@ export class CheckoutService {
     private readonly cardAvailable: boolean,
   ) {}
 
-  async paymentMethods(userId: number, deliveryDate: string): Promise<PaymentMethodsView> {
+  async paymentMethods(userId: number, deliveryDate: string | null): Promise<PaymentMethodsView> {
     const window = await this.repository.depositWindow(userId, deliveryDate);
     let depositReason: string | null = null;
     if (!window.deliveryDateAllowed) depositReason = 'DELIVERY_DATE_TOO_SOON';
     else if (!window.depositAvailable) depositReason = 'DEPOSIT_UNAVAILABLE_FOR_DATE';
     return {
-      deliveryDate,
+      deliveryDate: window.deliveryDate,
+      estimatedDeliveryDate: window.estimatedDeliveryDate,
       earliestDeliveryDate: window.earliestDeliveryDate,
       deliveryDateAllowed: window.deliveryDateAllowed,
       methods: [
@@ -148,6 +165,21 @@ export class CheckoutService {
         new AppError(422, 'PAYMENT_METHOD_UNAVAILABLE', 'The card payment is not available'),
       );
     }
+    // Una entrega lleva dirección y ninguna sucursal; una recogida lleva sucursal y ninguna dirección
+    if (
+      command.fulfilmentType === 'Delivery' &&
+      (command.idAddress === null || command.idBranch !== null)
+    ) {
+      return err(
+        new AppError(400, 'VALIDATION_ERROR', 'A delivery needs an address and no branch'),
+      );
+    }
+    if (
+      command.fulfilmentType === 'Pickup' &&
+      (command.idBranch === null || command.idAddress !== null)
+    ) {
+      return err(new AppError(400, 'VALIDATION_ERROR', 'A pickup needs a branch and no address'));
+    }
     if (command.method === 'BANK_DEPOSIT' && command.idBankAccount === null) {
       return err(
         new AppError(
@@ -161,7 +193,9 @@ export class CheckoutService {
       await this.repository.createOrder({
         userId: command.userId,
         idReservation: command.idReservation,
+        fulfilmentType: command.fulfilmentType,
         idAddress: command.idAddress,
+        idBranch: command.idBranch,
         deliveryDate: command.deliveryDate,
         idPaymentMethod: METHOD_ID[command.method],
         storedKey: storedKeyOf(command.userId, command.idempotencyKey),
