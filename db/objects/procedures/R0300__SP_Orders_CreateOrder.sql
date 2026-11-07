@@ -1,14 +1,15 @@
 /* =====================================================================
    Objeto   : dbo.SP_Orders_CreateOrder
    Version  : 1.1.0
-   Cambio   : Un invitado necesita un correo de contacto real y no lleva cupón
+   Cambio   : Un invitado necesita un correo de contacto real y no lleva cupón; el cupón se bloquea por persona (correo normalizado)
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Nueva. El backend NO envía importes: todo se recalcula aquí en centavos enteros. Es idempotente por llave: repetir
               la llamada con la misma llave y la misma reserva devuelve el mismo pedido. Errores: 50400 parámetros,
               50404 reserva, dirección o cuenta inexistentes o ajenas, 50409 reserva vencida, cupón agotado, existencias o llave
               repetida, 50422 reglas de negocio. Los mensajes de cupón, reserva y depósito empiezan por el código de la API.
    Cambio 1.1.0: sin cambios para una cuenta real; 50422 GUEST_CONTACT_REQUIRED para un invitado sin contacto y 50422
-              ACCOUNT_REQUIRED para un invitado con un cupón en el carrito.
+              ACCOUNT_REQUIRED para un invitado con un cupón en el carrito. El bloqueo del cupón es por la clave
+              del correo, no por cuenta.
    ===================================================================== */
 CREATE OR ALTER PROCEDURE dbo.SP_Orders_CreateOrder
   @IDUser                INT,
@@ -140,7 +141,11 @@ BEGIN
     IF EXISTS (SELECT 1 FROM dbo.Users WHERE IDUser = @IDUser AND IsGuest = 1)
       THROW 50422, 'ACCOUNT_REQUIRED: Coupons are only available with an account.', 1;
 
-    DECLARE @LockResource NVARCHAR(100) = CONCAT(N'Coupon:', @IDCoupon, N':', @IDUser), @LockResult INT;
+    -- El bloqueo es de la persona (la clave del correo) y no de la cuenta: dos cuentas alias que piden el mismo cupón a la vez
+    -- se serializan, y la segunda ya ve el uso de la primera. Se guarda el hash porque el recurso admite 255 caracteres.
+    DECLARE @LockResource NVARCHAR(100) = CONCAT(N'Coupon:', @IDCoupon, N':',
+      CONVERT(VARCHAR(64), HASHBYTES('SHA2_256', ISNULL((SELECT EmailKey FROM dbo.Users WHERE IDUser = @IDUser), CAST(@IDUser AS NVARCHAR(20)))), 2)),
+      @LockResult INT;
     EXEC @LockResult = sp_getapplock @Resource = @LockResource, @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 5000;
     IF @LockResult < 0
       THROW 50409, 'The coupon is being used by another request; retry.', 1;

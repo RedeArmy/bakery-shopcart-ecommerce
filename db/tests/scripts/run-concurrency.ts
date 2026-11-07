@@ -708,6 +708,69 @@ async function lastCouponUse(pool: sql.ConnectionPool): Promise<void> {
   await checkInvariant(pool, 'last coupon use', [variant]);
 }
 
+// Diez cuentas de la misma persona (el mismo correo con la etiqueta +algo) piden a la vez un cupón de un uso por cliente: el
+// bloqueo es por la clave del correo, así que solo una se lleva el descuento y las demás ven el uso de la primera
+async function aliasCouponRace(pool: sql.ConnectionPool): Promise<void> {
+  const accounts = 10;
+  console.log(
+    `\n${accounts} accounts of the same person compete for a coupon of one use per customer`,
+  );
+  await pool
+    .request()
+    .batch(
+      "INSERT INTO dbo.Coupons (Code, Type, Value, MinimumAmount, StartsAt, EndsAt, PerCustomerUsageLimit) VALUES (N'RACE-PER', N'Percentage', 10.00, 0, '2020-01-01', '2099-12-31', 1);",
+    );
+  const [variant = 0] = await createVariants(pool, 'als', [50]);
+  const carts = await createCarts(pool, 'als', accounts);
+  // Todas las cuentas pasan a ser alias de la misma persona: race-als-same+<id>@... tiene la clave race-als-same@...
+  await pool
+    .request()
+    .batch(
+      "UPDATE dbo.Users SET Email = CONCAT(N'race-als-same+', IDUser, N'@shopcart.test') WHERE Email LIKE N'race-als-%';",
+    );
+  await addLines(
+    pool,
+    carts.map((cart) => ({ IDCart: cart.IDCart, IDVariant: variant, Quantity: 1 })),
+  );
+  const addresses = await createAddresses(pool, 'als');
+  await pool
+    .request()
+    .batch(
+      "UPDATE c SET IDCoupon = (SELECT IDCoupon FROM dbo.Coupons WHERE Code = N'RACE-PER') FROM dbo.Carts AS c JOIN dbo.Users AS u ON u.IDUser = c.IDUser WHERE u.Email LIKE N'race-als-%';",
+    );
+  const reservations = await Promise.all(carts.map((cart) => reserveCart(pool, cart)));
+
+  const attempts = await Promise.all(
+    carts.map((cart, index) =>
+      placeOrder(
+        pool,
+        cart,
+        reservations[index] ?? 0,
+        addresses.get(cart.IDUser) ?? 0,
+        `race-alias-${index}`,
+      ),
+    ),
+  );
+  const created = attempts.filter((attempt) => attempt.outcome === 'created').length;
+  const alreadyUsed = attempts.filter((attempt) =>
+    attempt.message.startsWith('COUPON_ALREADY_USED'),
+  ).length;
+  console.log(
+    `  created ${created}, coupon already used ${alreadyUsed}, other ${accounts - created - alreadyUsed}`,
+  );
+  check('exactly one account takes the coupon', created, 1);
+  check('every other alias is refused as already used', alreadyUsed, accounts - 1);
+  check(
+    'one coupon usage was recorded for the person',
+    await scalar(
+      pool,
+      "SELECT Value = COUNT(*) FROM dbo.CouponUsages AS cu JOIN dbo.Users AS u ON u.IDUser = cu.IDUser WHERE u.Email LIKE N'race-als-%';",
+    ),
+    1,
+  );
+  await checkInvariant(pool, 'alias coupon race', [variant]);
+}
+
 // Una confirmación de pago llega varias veces a la vez (un webhook reintentado, dos operadores): el pago se aprueba una sola
 // vez, el stock baja una sola vez y el libro de dinero cobra una sola vez
 async function paymentConfirmRace(pool: sql.ConnectionPool): Promise<void> {
@@ -1450,6 +1513,7 @@ async function main(): Promise<number> {
       () => idempotencyRace(pool),
       () => orderDoubleClick(pool),
       () => lastCouponUse(pool),
+      () => aliasCouponRace(pool),
       () => paymentConfirmRace(pool),
       () => approveVersusReject(pool),
       () => returnRace(pool),
