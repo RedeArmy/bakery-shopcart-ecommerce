@@ -4,6 +4,7 @@ import type { RequestHandler, Router } from 'express';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { createAuditRouter } from '../../src/modules/audit/index.js';
+import { createBranchesRouter } from '../../src/modules/branches/index.js';
 import { createCartRouter } from '../../src/modules/cart/index.js';
 import { buildCategoryTree, createCatalogueRouter } from '../../src/modules/catalogue/index.js';
 import {
@@ -672,6 +673,8 @@ describe('order routes', () => {
 describe('checkout', () => {
   const window = {
     leadTimeDays: 0,
+    deliveryDate: '2030-06-02',
+    estimatedDeliveryDate: '2030-06-02',
     earliestDeliveryDate: '2030-06-01',
     deliveryDateAllowed: true,
     depositDeadlineAt: '2030-06-02T12:00:00.000Z',
@@ -779,7 +782,9 @@ describe('checkout', () => {
       userId: 7,
       idempotencyKey: 'key-0001-abcd',
       idReservation: 9,
+      fulfilmentType: 'Delivery' as const,
       idAddress: 3,
+      idBranch: null,
       deliveryDate: '2030-06-20',
       idBankAccount: null,
     };
@@ -795,7 +800,9 @@ describe('checkout', () => {
       userId: 7,
       idempotencyKey: 'key-0001-abcd',
       idReservation: 9,
+      fulfilmentType: 'Delivery',
       idAddress: 3,
+      idBranch: null,
       deliveryDate: '2030-06-20',
       method: 'BANK_DEPOSIT',
       idBankAccount: 1,
@@ -808,6 +815,119 @@ describe('checkout', () => {
     });
     expect(storedKeyOf(7, 'key-0001-abcd')).not.toBe(storedKeyOf(8, 'key-0001-abcd'));
     expect(storedKeyOf(7, 'key-0001-abcd')).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('estimates the date when the customer sends none and says it is only an estimate', async () => {
+    const view = await new CheckoutService(repo().port, false).paymentMethods(7, null);
+    expect(view.estimatedDeliveryDate).toBe(window.estimatedDeliveryDate);
+    expect(view.deliveryDate).toBe(window.deliveryDate);
+  });
+
+  it('asks the data port for the estimated date when there is no date', async () => {
+    const asked: (string | null)[] = [];
+    const { port } = repo({
+      depositWindow: (_user, date) => {
+        asked.push(date);
+        return Promise.resolve(window);
+      },
+    });
+    await new CheckoutService(port, false).paymentMethods(7, null);
+    await new CheckoutService(port, false).paymentMethods(7, '2030-06-20');
+    expect(asked).toEqual([null, '2030-06-20']);
+  });
+
+  it('refuses a delivery without an address or with a branch, and a pickup without a branch or with an address', async () => {
+    const service = new CheckoutService(repo().port, false);
+    const base = {
+      userId: 7,
+      idempotencyKey: 'key-0001-abcd',
+      idReservation: 9,
+      deliveryDate: null,
+      method: 'BANK_DEPOSIT' as const,
+      idBankAccount: 1,
+    };
+    const noAddress = await service.confirm({
+      ...base,
+      fulfilmentType: 'Delivery',
+      idAddress: null,
+      idBranch: null,
+    });
+    const mixedDelivery = await service.confirm({
+      ...base,
+      fulfilmentType: 'Delivery',
+      idAddress: 3,
+      idBranch: 2,
+    });
+    const noBranch = await service.confirm({
+      ...base,
+      fulfilmentType: 'Pickup',
+      idAddress: null,
+      idBranch: null,
+    });
+    const mixedPickup = await service.confirm({
+      ...base,
+      fulfilmentType: 'Pickup',
+      idAddress: 3,
+      idBranch: 2,
+    });
+    for (const refused of [noAddress, mixedDelivery, noBranch, mixedPickup]) {
+      expect(!refused.ok && refused.error.httpStatus).toBe(400);
+    }
+  });
+
+  it('creates a pickup order with the branch, no address and no date', async () => {
+    const { port, created } = repo();
+    const result = await new CheckoutService(port, false).confirm({
+      userId: 7,
+      idempotencyKey: 'key-0001-abcd',
+      idReservation: 9,
+      fulfilmentType: 'Pickup',
+      idAddress: null,
+      idBranch: 2,
+      deliveryDate: null,
+      method: 'BANK_DEPOSIT',
+      idBankAccount: 1,
+    });
+    expect(result.ok).toBe(true);
+    expect(created[0]).toMatchObject({
+      fulfilmentType: 'Pickup',
+      idAddress: null,
+      idBranch: 2,
+      deliveryDate: null,
+    });
+  });
+
+  it('accepts a pickup confirmation without an address or a date and a payment-methods query without a date', async () => {
+    const service = new CheckoutService(repo().port, false);
+    const app = appWith(createCheckoutRouter(kit, service));
+    expect((await request(app).get('/checkout/payment-methods').set(as('7:Customer'))).status).toBe(
+      200,
+    );
+    const pickup = await request(app)
+      .post('/checkout/confirm')
+      .set(as('7:Customer'))
+      .set('Idempotency-Key', 'key-0002-abcd')
+      .send({
+        idReservation: 9,
+        fulfilmentType: 'Pickup',
+        idBranch: 2,
+        method: 'BANK_DEPOSIT',
+        idBankAccount: 1,
+      });
+    expect(pickup.status).toBe(201);
+    const mixed = await request(app)
+      .post('/checkout/confirm')
+      .set(as('7:Customer'))
+      .set('Idempotency-Key', 'key-0003-abcd')
+      .send({
+        idReservation: 9,
+        fulfilmentType: 'Pickup',
+        idBranch: 2,
+        idAddress: 3,
+        method: 'BANK_DEPOSIT',
+        idBankAccount: 1,
+      });
+    expect(mixed.status).toBe(400);
   });
 
   it('serves the three routes to a customer and refuses an invalid date', async () => {
@@ -1060,5 +1180,76 @@ describe('payments', () => {
     expect((await request(app).get('/admin/orders/4/payment').set(as('2:Operator'))).status).toBe(
       200,
     );
+  });
+});
+
+describe('branches', () => {
+  const body = {
+    name: 'Centro',
+    line1: '6th Avenue',
+    municipality: 'Guatemala',
+    department: 'Guatemala',
+  };
+
+  it('lists the active branches to anyone, and all of them only to an administrator', async () => {
+    const { repository, calls } = fake({ list: [] });
+    const app = appWith(createBranchesRouter(kit, repository));
+    expect((await request(app).get('/branches')).status).toBe(200);
+    expect(calls.at(-1)?.args).toEqual([false]);
+    expect((await request(app).get('/admin/branches')).status).toBe(401);
+    expect((await request(app).get('/admin/branches').set(as('2:Operator'))).status).toBe(403);
+    expect((await request(app).get('/admin/branches').set(as('7:Customer'))).status).toBe(403);
+    expect((await request(app).get('/admin/branches').set(as('1:Administrator'))).status).toBe(200);
+    expect(calls.at(-1)?.args).toEqual([true]);
+  });
+
+  it('lets only an administrator add, edit or remove a branch, with the actor taken from the token', async () => {
+    const { repository, calls } = fake({ create: 9, update: undefined, deactivate: undefined });
+    const app = appWith(createBranchesRouter(kit, repository));
+    const key = { 'Idempotency-Key': 'key-0001-abcd' };
+
+    expect(
+      (await request(app).post('/admin/branches').set(as('2:Operator')).send(body)).status,
+    ).toBe(403);
+    expect((await request(app).post('/admin/branches').send(body)).status).toBe(401);
+    const created = await request(app)
+      .post('/admin/branches')
+      .set(as('1:Administrator'))
+      .set(key)
+      .send(body);
+    expect(created.status).toBe(201);
+    expect(created.body).toEqual({ idBranch: 9 });
+    expect(calls.at(-1)?.args[0]).toBe(1);
+
+    const updated = await request(app)
+      .put('/admin/branches/9')
+      .set(as('1:Administrator'))
+      .send(body);
+    expect(updated.body).toEqual({ idBranch: 9 });
+    const removed = await request(app).delete('/admin/branches/9').set(as('1:Administrator'));
+    expect(removed.status).toBe(200);
+    expect(removed.body).toEqual({ idBranch: 9, isActive: false });
+    expect((await request(app).delete('/admin/branches/9').set(as('2:Operator'))).status).toBe(403);
+  });
+
+  it('validates the body and the identifier', async () => {
+    const { repository } = fake({ create: 1 });
+    const app = appWith(createBranchesRouter(kit, repository));
+    const key = { 'Idempotency-Key': 'key-0001-abcd' };
+    const empty = await request(app)
+      .post('/admin/branches')
+      .set(as('1:Administrator'))
+      .set(key)
+      .send({ ...body, name: '  ' });
+    expect(empty.status).toBe(400);
+    const missing = await request(app)
+      .post('/admin/branches')
+      .set(as('1:Administrator'))
+      .set(key)
+      .send({ name: 'Only a name' });
+    expect(missing.status).toBe(400);
+    expect(
+      (await request(app).put('/admin/branches/abc').set(as('1:Administrator')).send(body)).status,
+    ).toBe(400);
   });
 });

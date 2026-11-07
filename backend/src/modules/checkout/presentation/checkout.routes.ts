@@ -8,11 +8,14 @@ import { POLICIES } from '../../../platform/rate-limit/rate-limit.js';
 import type { CheckoutService } from '../application/checkout-service.js';
 
 const dateOnly = z.iso.date();
-const methodsQuery = z.object({ deliveryDate: dateOnly });
+// La fecha ya no la elige el cliente: sin ella el sistema evalúa la que él define. Se acepta por compatibilidad.
+const methodsQuery = z.object({ deliveryDate: dateOnly.optional() });
 const confirmBody = z.object({
   idReservation: positiveInt,
-  idAddress: positiveInt,
-  deliveryDate: dateOnly,
+  fulfilmentType: z.enum(['Delivery', 'Pickup']).default('Delivery'),
+  idAddress: positiveInt.nullish(),
+  idBranch: positiveInt.nullish(),
+  deliveryDate: dateOnly.nullish(),
   method: z.enum(['CARD', 'BANK_DEPOSIT']),
   idBankAccount: positiveInt.nullish(),
 });
@@ -27,7 +30,7 @@ export function createCheckoutRouter(kit: RouteKit, service: CheckoutService): R
     kit.rateLimit(POLICIES.publicCatalogue),
     async (req, res) => {
       const { deliveryDate } = methodsQuery.parse(req.query);
-      res.json(await service.paymentMethods(requireUser(req).idUser, deliveryDate));
+      res.json(await service.paymentMethods(requireUser(req).idUser, deliveryDate ?? null));
     },
   );
 
@@ -55,8 +58,10 @@ export function createCheckoutRouter(kit: RouteKit, service: CheckoutService): R
           // El middleware ya comprobó que la cabecera existe y tiene la forma correcta
           idempotencyKey: req.header('Idempotency-Key') ?? '',
           idReservation: body.idReservation,
-          idAddress: body.idAddress,
-          deliveryDate: body.deliveryDate,
+          fulfilmentType: body.fulfilmentType,
+          idAddress: body.idAddress ?? null,
+          idBranch: body.idBranch ?? null,
+          deliveryDate: body.deliveryDate ?? null,
           method: body.method,
           idBankAccount: body.idBankAccount ?? null,
         }),

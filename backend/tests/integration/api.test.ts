@@ -894,6 +894,98 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
     expect(field(accountLogin.body, 'user.isGuest')).toBe(false);
   });
 
+  it('lets the administrator manage the branches and a customer pick an order up in one, with the date set by the system', async () => {
+    const branch = {
+      name: `Branch ${runId}`,
+      line1: '6th Avenue 10-20',
+      municipality: 'Guatemala',
+      department: 'Guatemala',
+      openingHours: 'Monday to Friday 8:00 to 18:00',
+    };
+    // Solo un administrador mantiene las sucursales
+    expect((await post(customerA.token, '/admin/branches', branch)).status).toBe(403);
+    expect((await get(operator, '/admin/branches')).status).toBe(403);
+    const created = await post(administrator, '/admin/branches', branch);
+    expect(created.status).toBe(201);
+    const idBranch = num(created.body, 'idBranch');
+    // Dos sucursales activas no comparten nombre
+    expect((await post(administrator, '/admin/branches', branch)).status).toBe(409);
+
+    // Las activas se ven sin cuenta
+    const publicList = await api().get('/api/v1/branches');
+    expect(publicList.status).toBe(200);
+    expect(JSON.stringify(publicList.body)).toContain(branch.name);
+
+    // La fecha ya no se elige: el sistema la estima y el depósito está disponible para ella
+    const cart = await as(customerA.token, api().put(`/api/v1/cart/items/${idVariant}`)).send({
+      quantity: 1,
+    });
+    expect(cart.status).toBe(200);
+    const methods = await get(customerA.token, '/checkout/payment-methods');
+    expect(methods.status).toBe(200);
+    expect(str(methods.body, 'estimatedDeliveryDate')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(
+      list(methods.body, 'methods').find((offer) => offer['method'] === 'BANK_DEPOSIT')?.[
+        'available'
+      ],
+    ).toBe(true);
+
+    const started = await post(customerA.token, '/checkout/start');
+    expect(started.status).toBe(201);
+    const idReservation = num(started.body, 'idReservation');
+    // Una recogida no lleva dirección
+    const mixed = await post(customerA.token, '/checkout/confirm', {
+      idReservation,
+      fulfilmentType: 'Pickup',
+      idBranch,
+      idAddress: customerA.idAddress,
+      method: 'BANK_DEPOSIT',
+      idBankAccount,
+    });
+    expect(mixed.status).toBe(400);
+    const confirmed = await post(customerA.token, '/checkout/confirm', {
+      idReservation,
+      fulfilmentType: 'Pickup',
+      idBranch,
+      method: 'BANK_DEPOSIT',
+      idBankAccount,
+    });
+    expect(confirmed.status).toBe(201);
+    const idOrder = num(confirmed.body, 'idOrder');
+
+    // El pedido guarda la sucursal y ninguna dirección; otro cliente no lo ve
+    const order = await get(customerA.token, `/orders/${idOrder}`);
+    expect(str(order.body, 'fulfilmentType')).toBe('Pickup');
+    expect(str(order.body, 'pickupBranchName')).toBe(branch.name);
+    expect(field(order.body, 'deliveryLine1')).toBeNull();
+    expect(str(order.body, 'requestedDeliveryDate')).toBe(
+      str(methods.body, 'estimatedDeliveryDate'),
+    );
+    expect((await get(customerB.token, `/orders/${idOrder}`)).status).toBe(404);
+
+    // Con un pedido esperando no se puede cerrar la sucursal
+    const blocked = await as(administrator, api().delete(`/api/v1/admin/branches/${idBranch}`));
+    expect(blocked.status).toBe(422);
+    expect(str(blocked.body, 'error.code')).toBe('BRANCH_HAS_OPEN_ORDERS');
+
+    // Al cancelarse el pedido sí: se desactiva, deja de ofrecerse y la administración la sigue viendo
+    const cancelled = await post(customerA.token, `/orders/${idOrder}/cancel`, {});
+    expect(cancelled.status).toBe(200);
+    const removed = await as(administrator, api().delete(`/api/v1/admin/branches/${idBranch}`));
+    expect(removed.status).toBe(200);
+    expect(field(removed.body, 'isActive')).toBe(false);
+    expect(JSON.stringify((await api().get('/api/v1/branches')).body)).not.toContain(branch.name);
+    expect(JSON.stringify((await get(administrator, '/admin/branches')).body)).toContain(
+      branch.name,
+    );
+    // Una sucursal desactivada ya no se puede editar
+    const edited = await as(administrator, api().put(`/api/v1/admin/branches/${idBranch}`)).send(
+      branch,
+    );
+    expect(edited.status).toBe(422);
+    expect(str(edited.body, 'error.code')).toBe('BRANCH_INACTIVE');
+  });
+
   it('keeps the money and the stock reconciled after all the flows', async () => {
     const money = await admin.query('SELECT Total = COUNT(*) FROM dbo.VW_Reconciliation_Amounts');
     expect(money.recordset[0]?.['Total']).toBe(0);

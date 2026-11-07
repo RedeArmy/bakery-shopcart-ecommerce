@@ -16,6 +16,8 @@ tags:
     description: 'Accounts and sessions. Login, refresh and logout take no Idempotency-Key: they use rate limiting, lockout and token rotation.'
   - name: Catalogue
     description: Public catalogue and its administration
+  - name: Branches
+    description: Branches where an order can be picked up; the active ones are public, maintenance is for administrators
   - name: Cart
     description: Visitor (X-Cart-Token) or customer cart. Quantities are absolute, so repeating a request is harmless.
   - name: Addresses
@@ -333,6 +335,23 @@ paths:
                   $ref: '#/components/schemas/CategoryNode'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /api/v1/branches:
+    get:
+      tags:
+        - Branches
+      summary: Active branches for pickup
+      operationId: listBranches
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Branch'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /api/v1/products:
     get:
       tags:
@@ -557,6 +576,150 @@ paths:
                 type: object
                 properties:
                   idCategory:
+                    $ref: '#/components/schemas/Id'
+                  isActive:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/branches:
+    get:
+      tags:
+        - Branches
+      summary: All branches, including deactivated ones
+      operationId: adminListBranches
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Branch'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      tags:
+        - Branches
+      summary: Add a branch
+      operationId: adminCreateBranch
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BranchRequest'
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idBranch:
+                    $ref: '#/components/schemas/Id'
+                required:
+                  - idBranch
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/branches/{id}:
+    put:
+      tags:
+        - Branches
+      summary: Edit an active branch
+      operationId: adminUpdateBranch
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BranchRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idBranch:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    delete:
+      tags:
+        - Branches
+      summary: Remove a branch by deactivating it
+      description: Branches are never deleted because past orders cite them. A branch with orders still waiting to be picked up cannot be deactivated (BRANCH_HAS_OPEN_ORDERS).
+      operationId: adminDeactivateBranch
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idBranch:
                     $ref: '#/components/schemas/Id'
                   isActive:
                     type: boolean
@@ -1187,14 +1350,15 @@ paths:
     get:
       tags:
         - Checkout
-      summary: Payment methods offered for a delivery date
+      summary: Payment methods offered for the estimated delivery or pickup date
+      description: The customer does not choose the date. Without deliveryDate the system evaluates its own estimate (estimatedDeliveryDate).
       operationId: getPaymentMethods
       security:
         - bearerAuth: []
       parameters:
         - name: deliveryDate
           in: query
-          description: Required
+          description: Optional. Kept for compatibility; the checkout no longer sends it.
           schema:
             type: string
             format: date
@@ -3185,6 +3349,65 @@ components:
           type: boolean
         activeProducts:
           type: integer
+    Branch:
+      type: object
+      properties:
+        idBranch:
+          $ref: '#/components/schemas/Id'
+        name:
+          type: string
+        line1:
+          type: string
+        municipality:
+          type: string
+        department:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        openingHours:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        openOrders:
+          type: integer
+          description: Orders waiting to be picked up or delivered from this branch
+      required:
+        - idBranch
+        - name
+        - line1
+        - municipality
+        - department
+        - isActive
+    BranchRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 80
+        line1:
+          type: string
+          maxLength: 200
+        municipality:
+          type: string
+          maxLength: 80
+        department:
+          type: string
+          maxLength: 80
+        phone:
+          type: string
+          maxLength: 20
+          nullable: true
+        openingHours:
+          type: string
+          maxLength: 200
+          nullable: true
+      required:
+        - name
+        - line1
+        - municipality
+        - department
     CategoryRequest:
       type: object
       properties:
@@ -3632,6 +3855,11 @@ components:
         deliveryDate:
           type: string
           format: date
+          description: The date that was evaluated
+        estimatedDeliveryDate:
+          type: string
+          format: date
+          description: The date the system defines for the delivery or the pickup. It is an estimate, not a promise.
         earliestDeliveryDate:
           type: string
           format: date
@@ -3647,6 +3875,7 @@ components:
             $ref: '#/components/schemas/BankAccount'
       required:
         - deliveryDate
+        - estimatedDeliveryDate
         - methods
         - bankAccounts
     Reservation:
@@ -3665,11 +3894,25 @@ components:
       properties:
         idReservation:
           $ref: '#/components/schemas/Id'
+        fulfilmentType:
+          type: string
+          enum:
+            - Delivery
+            - Pickup
+          default: Delivery
         idAddress:
-          $ref: '#/components/schemas/Id'
+          type: integer
+          nullable: true
+          description: Required for a delivery, forbidden for a pickup
+        idBranch:
+          type: integer
+          nullable: true
+          description: Required for a pickup, forbidden for a delivery
         deliveryDate:
           type: string
           format: date
+          nullable: true
+          description: Optional and no longer sent by the checkout; when absent the system uses its estimate
         method:
           type: string
           enum:
@@ -3680,8 +3923,6 @@ components:
           nullable: true
       required:
         - idReservation
-        - idAddress
-        - deliveryDate
         - method
     CreatedOrder:
       type: object
@@ -3804,16 +4045,35 @@ components:
         couponCode:
           type: string
           nullable: true
+        fulfilmentType:
+          type: string
+          enum:
+            - Delivery
+            - Pickup
+        idBranch:
+          type: integer
+          nullable: true
+        pickupBranchName:
+          type: string
+          nullable: true
+        pickupBranchAddress:
+          type: string
+          nullable: true
         deliveryRecipient:
           type: string
+          nullable: true
         deliveryPhone:
           type: string
+          nullable: true
         deliveryLine1:
           type: string
+          nullable: true
         deliveryMunicipality:
           type: string
+          nullable: true
         deliveryDepartment:
           type: string
+          nullable: true
         requestedDeliveryDate:
           type: string
           format: date
