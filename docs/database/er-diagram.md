@@ -9,6 +9,7 @@ erDiagram
   Users ||--o{ Addresses : registers
   Users ||--o{ Carts : owns
   Users ||--o{ Orders : places
+  Branches ||--o{ Orders : "is the pickup point of"
   Categories ||--o{ Products : groups
   Categories ||--o{ Categories : "parent of"
   Products ||--o{ ProductImages : shows
@@ -60,6 +61,7 @@ erDiagram
 | `V0008` | `IdempotentRequests`, `AuditLog`, `Configuration`, `DdlHistory` (`SchemaVersion` and `ObjectVersions` are created by the runner) |
 | `V0009` | Triggers (immutability, valid transitions, frozen amounts, DDL capture) and permissions |
 | `V0011` | `UX_Reservations_OneActivePerCart`: a cart holds at most one active reservation without an order |
+| `V0015` | `Branches`; `Orders.FulfilmentType`, `IDBranch`, `PickupBranchName`, `PickupBranchAddress` and `CK_Orders_Fulfilment` (a delivery has an address, a pickup has a branch); the delivery address columns become nullable |
 | `R*` | Functions, views and procedures with a version header |
 | `S*` | Idempotent seeds |
 

@@ -58,6 +58,7 @@ Environment states used in the register: **Verified** (run and checked), **Pendi
 | V0012 | `V0012__add_retention_indexes_and_category_foreign_key.sql` | Operation and retention indexes, category foreign key | Schema, additive | Low | Draft |
 | V0013 | `V0013__add_guest_accounts.sql` | Guest accounts | Schema, additive | Medium | Draft |
 | V0014 | `V0014__add_normalised_email_key.sql` | Normalised email key for the coupon limit | Schema, additive | Low | Draft |
+| V0015 | `V0015__add_branches_and_pickup.sql` | Branches and pickup | Schema, additive | Medium | Draft |
 
 Risk is the impact of a defect in the migration, not of running it: all nine run on an empty database, take no meaningful locks and move no data. **High** marks the migrations that protect money (V0007) or that can block legitimate writes if wrong (V0009).
 
@@ -311,6 +312,26 @@ Each entry uses the template in section 7. Common fields for V0001 to V0009 (V00
 | Reviewer | Repository owner |
 | Environments | Local Verified (applied, 577 tSQLt tests and the concurrency checks passed); CI Pending; Production Not deployed |
 
+### V0015: Branches and pickup
+
+| Field | Value |
+|---|---|
+| File | `db/migrations/V0015__add_branches_and_pickup.sql` |
+| SHA-256 | `0dfc4cfb2fbbf751fcd394aac6859ecc4848422c206dbe8a79aa9ebaf4e612e1` |
+| Description | The table `Branches` (name, address, phone, opening hours, active flag) and the fields of an order that is picked up in a branch instead of delivered: `Orders.FulfilmentType` (`Delivery` or `Pickup`), `IDBranch` and a frozen copy of the branch name and address. The five delivery address columns of `Orders` become nullable, because a pickup has no address. |
+| Objects created | Table `Branches`; unique index `UX_Branches_Name_Active (Name) WHERE IsActive = 1`; columns `Orders.FulfilmentType`, `IDBranch`, `PickupBranchName`, `PickupBranchAddress`; constraint `CK_Orders_Fulfilment`; index `IX_Orders_Branch` |
+| Key rules | An order is either a delivery with its complete address and no branch, or a pickup with its branch and no address, never a mix (`CK_Orders_Fulfilment`). A branch is never deleted: "removing" it deactivates it, and a branch with orders still waiting (pending payment, paid, in preparation or dispatched) cannot be deactivated. A deactivated branch frees its name |
+| Depends on | V0005 |
+| Data migration | None: every existing order keeps its address and takes the default `FulfilmentType = 'Delivery'` |
+| Online impact | Relaxing five columns to NULL and adding a constrained column with a default on `Orders` rewrites little data on the current volume; the new constraint is checked against the existing rows |
+| Compatibility | Existing calls keep working: `SP_Orders_CreateOrder` defaults to a delivery and still accepts an address and a date |
+| Rollback | Compensating migration: only possible while no pickup order exists (restore the NOT NULL columns, drop the constraint, the columns and `Branches`) |
+| Tests | `Test_Branches` and `Test_PickupOrders` (the maintenance rules, the estimated date, the pickup order and its frozen copy, the constraint) and an HTTP flow |
+| Author, date | Eder Yafeth Garcia Quiroa, 7 November 2026 |
+| Pull request | Pending |
+| Reviewer | Repository owner |
+| Environments | Local Verified (applied, tSQLt and the HTTP flows passed); CI Pending; Production Not deployed |
+
 ### Reference seeds
 
 Seeds are idempotent `MERGE` scripts applied after the migrations. They are registered because the code, the API and the tests assume exactly these values. The common fields are the same as above, except the pull request, which is the one that adds them (see the revision history), and the rollback, which is to correct the seed and let the runner apply the new version.
@@ -389,3 +410,4 @@ Programmable objects and seeds: a change to an `R####` object needs only the ver
 | 30 October 2026 | V0012 and S0006 added with the database review: operation and retention indexes, the category foreign key and the retention settings | Eder Yafeth Garcia Quiroa |
 | 6 November 2026 | V0013 added: guest accounts | Eder Yafeth Garcia Quiroa |
 | 6 November 2026 | V0014 added: normalised email key for the coupon limit | Eder Yafeth Garcia Quiroa |
+| 7 November 2026 | V0015 added: branches and pickup | Eder Yafeth Garcia Quiroa |
