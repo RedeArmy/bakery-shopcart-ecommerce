@@ -96,11 +96,12 @@ async function seedAccounts(pool: sql.ConnectionPool, passwords: SeedConfig): Pr
     catalogue.products +
     catalogue.variants +
     catalogue.coupons +
-    catalogue.bankAccounts;
+    catalogue.bankAccounts +
+    catalogue.branches;
   console.log(
     added === 0
       ? 'Demo catalogue is up to date.'
-      : `Demo catalogue created: ${catalogue.categories} categories, ${catalogue.products} products, ${catalogue.variants} variants (${catalogue.units} units), ${catalogue.coupons} coupons, ${catalogue.bankAccounts} bank accounts.`,
+      : `Demo catalogue created: ${catalogue.categories} categories, ${catalogue.products} products, ${catalogue.variants} variants (${catalogue.units} units), ${catalogue.coupons} coupons, ${catalogue.bankAccounts} bank accounts, ${catalogue.branches} branches.`,
   );
 }
 
