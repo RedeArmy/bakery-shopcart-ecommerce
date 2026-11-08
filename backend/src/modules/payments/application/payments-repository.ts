@@ -5,6 +5,16 @@ export interface DepositSearch {
   statusId: number;
   from: Date | null;
   to: Date | null;
+  /** Texto literal: número de pedido, o nombre o correo del cliente */
+  search: string | null;
+  page: number;
+  size: number;
+}
+
+export interface CashSearch {
+  statusId: number;
+  /** Texto literal: número de pedido, o nombre o correo del cliente */
+  search: string | null;
   page: number;
   size: number;
 }
@@ -27,6 +37,8 @@ export interface PaymentsRepository extends PaymentsRepositoryPort {
     idBankAccount: number | null,
   ): Promise<{ idPayment: number; expiresAt: string }>;
   listDeposits(search: DepositSearch): Promise<Page<Row>>;
+  /** Los pagos en efectivo, para que quien atiende en la sucursal encuentre el que va a cobrar. */
+  listCash(search: CashSearch): Promise<Page<Row>>;
   /** Resultados esperados en el texto devuelto (Approved, AlreadyApproved, Orphan, RejectedAmountMismatch); el 422 es para lo inválido. */
   approve(actor: number, idPayment: number): Promise<string>;
   /** Un operador confirma el cobro en efectivo en sucursal: Approved, AlreadyApproved u Orphan. */

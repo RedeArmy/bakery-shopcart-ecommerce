@@ -2094,6 +2094,12 @@ paths:
           schema:
             type: string
             format: date-time
+        - name: search
+          in: query
+          description: A literal text looked for in the order number and in the name and email of the customer.
+          schema:
+            type: string
+            maxLength: 100
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Size'
       responses:
@@ -2108,6 +2114,66 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/DepositQueueItem'
+                  page:
+                    type: integer
+                    minimum: 1
+                  size:
+                    type: integer
+                    minimum: 1
+                    maximum: 100
+                  total:
+                    type: integer
+                required:
+                  - items
+                  - page
+                  - size
+                  - total
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/payments/cash:
+    get:
+      tags:
+        - Payments
+      summary: Cash payments, for the person who collects them in the branch
+      description: By default the pending ones, the ones that expire first at the top. `search` is a literal text looked for in the order number and in the name and email of the customer.
+      operationId: adminListCashPayments
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - Pending
+              - Approved
+              - Expired
+            default: Pending
+        - name: search
+          in: query
+          schema:
+            type: string
+            maxLength: 100
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CashQueueItem'
                   page:
                     type: integer
                     minimum: 1
@@ -4690,6 +4756,45 @@ components:
         - orderNumber
         - amount
         - statusName
+    CashQueueItem:
+      type: object
+      properties:
+        idPayment:
+          $ref: '#/components/schemas/Id'
+        idOrder:
+          $ref: '#/components/schemas/Id'
+        orderNumber:
+          type: string
+        customerName:
+          type: string
+        customerEmail:
+          type: string
+        amount:
+          $ref: '#/components/schemas/MoneyText'
+        idPaymentStatus:
+          type: integer
+        statusName:
+          type: string
+        pickupBranchName:
+          type: string
+          nullable: true
+        requestedDeliveryDate:
+          type: string
+          format: date
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - idPayment
+        - idOrder
+        - orderNumber
+        - amount
+        - statusName
+        - expiresAt
     ReviewOutcome:
       type: object
       properties:

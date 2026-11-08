@@ -30,6 +30,13 @@ const depositsQuery = pageQuery.extend({
   status: z.enum(['Pending', 'UnderReview', 'Approved', 'Rejected']).default('UnderReview'),
   from: instant.optional(),
   to: instant.optional(),
+  search: z.string().trim().max(100).optional(),
+});
+
+const CASH_STATUS = { Pending: 1, Approved: 3, Expired: 6 } as const;
+const cashQuery = pageQuery.extend({
+  status: z.enum(['Pending', 'Approved', 'Expired']).default('Pending'),
+  search: z.string().trim().max(100).optional(),
 });
 
 const bankAccountBody = z.object({
@@ -163,6 +170,20 @@ export function createPaymentsRouter(
         statusId: DEPOSIT_STATUS[query.status],
         from: query.from ?? null,
         to: query.to ?? null,
+        search: query.search ?? null,
+        page: query.page,
+        size: query.size,
+      }),
+    );
+  });
+
+  // Quien atiende en la sucursal busca aquí el pedido que el cliente viene a pagar en efectivo
+  router.get('/admin/payments/cash', ...staff, async (req, res) => {
+    const query = cashQuery.parse(req.query);
+    res.json(
+      await repository.listCash({
+        statusId: CASH_STATUS[query.status],
+        search: query.search ?? null,
         page: query.page,
         size: query.size,
       }),

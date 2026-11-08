@@ -62,6 +62,18 @@ describe('visibleNavItems', () => {
   it('has the catalogue as a public entry in the real configuration', () => {
     expect(visibleNavItems(null, NAV_ITEMS).map((item) => item.to)).toContain('/catalogue');
   });
+
+  it('gives the payment review to the staff and keeps it away from customers and visitors', () => {
+    const reviewPaths = ['/admin/payments/deposits', '/admin/payments/cash'];
+    const of = (role: Parameters<typeof visibleNavItems>[0]) =>
+      visibleNavItems(role, NAV_ITEMS).map((item) => item.to);
+    expect(of('Operator')).toEqual(expect.arrayContaining(reviewPaths));
+    expect(of('Administrator')).toEqual(expect.arrayContaining(reviewPaths));
+    expect(of('Customer')).not.toContain('/admin/payments/cash');
+    expect(of(null)).not.toContain('/admin/payments/deposits');
+    // Las sucursales y los métodos de pago siguen siendo solo del administrador
+    expect(of('Operator')).not.toContain('/admin/branches');
+  });
 });
 
 describe('redirectTarget', () => {

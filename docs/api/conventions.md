@@ -159,9 +159,11 @@ Responses answer **429** with the standard error, `Retry-After` and `RateLimit-L
 | `POST /webhooks/recurrente` | Public (Svix signature) | 2 | No JWT or Idempotency-Key (uses `svix-id`) |
 | `GET /admin/orders?status=&search=&from=&to=&page=`, `GET /admin/orders/{id}`, `GET /admin/orders/{id}/payment` | Operator, Administrator | 1 | `search` is the order number or the customer email |
 | `PATCH /admin/orders/{id}/status`, `POST /admin/orders/{id}/returns` | Operator, Administrator | 1 | Idempotency-Key |
-| `GET /admin/payments/deposits?status=&from=&to=&page=` | Operator, Administrator | 1 | Review queue, server-side pagination |
+| `GET /admin/payments/deposits?status=&from=&to=&search=&page=` | Operator, Administrator | 1 | Review queue, server-side pagination; `search` is a literal text looked for in the order number and in the name and email of the customer |
+| `GET /admin/payments/cash?status=&search=&page=` | Operator, Administrator | 1 | Cash payments (`Pending` by default, the ones that expire first at the top, `Approved`, `Expired`), for the person who collects them in the branch; same `search` |
 | `GET /admin/payments/{id}/proofs/{proofId}` | Operator, Administrator | 1 | Download |
 | `POST /admin/payments/{id}/approve`, `POST /admin/payments/{id}/reject` | Operator, Administrator | 1 | `reject` requires `{ reason }`. Idempotency-Key |
+| `POST /admin/payments/{id}/confirm-cash` | Operator, Administrator | 1 | The cash was collected in the branch: the order becomes paid. Idempotency-Key; confirming twice answers `AlreadyApproved` |
 | `GET/POST/PUT/DELETE /admin/coupons` | Administrator | 1 | |
 | `GET /admin/dashboard/summary`, `/sales?granularity=day\|week\|month`, `/sales-by-category`, `/top-products?limit=`, `/abandoned-carts?page=&size=` | Administrator | 1 | Dates are Guatemala days (`from`, `to`; default: the last 30 days). By `PaidAt`, net of returns; 30 requests per minute |
 | `GET /admin/audit-log?module=&page=` | Administrator | 1 | |

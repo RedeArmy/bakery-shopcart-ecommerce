@@ -350,3 +350,112 @@ BEGIN
     EXEC tSQLt.AssertEquals @Expected = 1, @Actual = @CardRefused;
 END;
 GO
+
+-- Lista de cobros en efectivo ---------------------------------------------------------------------
+
+CREATE PROCEDURE Test_PaymentMethods.[test the pending cash payment is listed with its order number, branch and amount]
+AS
+BEGIN
+    DECLARE @User INT, @IDOrder INT, @IDPayment INT;
+    EXEC Test_PaymentMethods.NewCashOrder @IDUser = @User OUTPUT, @IDOrder = @IDOrder OUTPUT, @IDPayment = @IDPayment OUTPUT;
+
+    CREATE TABLE #Cash (IDPayment INT, IDOrder INT, OrderNumber NVARCHAR(20), CustomerName NVARCHAR(120), CustomerEmail NVARCHAR(256), Amount VARCHAR(25),
+                       IDPaymentStatus TINYINT, StatusName NVARCHAR(30), PickupBranchName NVARCHAR(80), RequestedDeliveryDate DATE,
+                       ExpiresAt DATETIME2(3), CreatedAt DATETIME2(3), TotalCount INT);
+    INSERT INTO #Cash EXEC dbo.SP_Payments_ListCash;
+
+    DECLARE @Rows INT = (SELECT COUNT(*) FROM #Cash), @Listed INT = (SELECT IDPayment FROM #Cash), @Total INT = (SELECT TotalCount FROM #Cash);
+    DECLARE @Number NVARCHAR(20) = (SELECT OrderNumber FROM dbo.Orders WHERE IDOrder = @IDOrder);
+    DECLARE @Shown NVARCHAR(20) = (SELECT OrderNumber FROM #Cash);
+    DECLARE @Amount VARCHAR(25) = CAST((SELECT Amount FROM dbo.Payments WHERE IDPayment = @IDPayment) AS VARCHAR(25));
+    DECLARE @ShownAmount VARCHAR(25) = (SELECT Amount FROM #Cash);
+    DECLARE @HasBranch INT = (SELECT COUNT(*) FROM #Cash WHERE PickupBranchName IS NOT NULL);
+
+    EXEC tSQLt.AssertEquals @Expected = 1, @Actual = @Rows;
+    EXEC tSQLt.AssertEquals @Expected = 1, @Actual = @Total;
+    EXEC tSQLt.AssertEquals @Expected = @IDPayment, @Actual = @Listed;
+    EXEC tSQLt.AssertEqualsString @Expected = @Number, @Actual = @Shown;
+    EXEC tSQLt.AssertEqualsString @Expected = @Amount, @Actual = @ShownAmount;
+    EXEC tSQLt.AssertEquals @Expected = 1, @Actual = @HasBranch;
+END;
+GO
+
+CREATE PROCEDURE Test_PaymentMethods.[test a deposit is not listed as a cash payment]
+AS
+BEGIN
+    DECLARE @User INT, @IDReservation INT, @Branch INT, @IDOrder INT, @IDPayment INT, @Number NVARCHAR(20), @Expires DATETIME2(3);
+    EXEC Test_PickupOrders.NewReservation @IDUser = @User OUTPUT, @IDReservation = @IDReservation OUTPUT, @IDBranch = @Branch OUTPUT;
+    EXEC dbo.SP_Orders_CreateOrder @IDUser = @User, @IDReservation = @IDReservation, @FulfilmentType = N'Pickup', @IDBranch = @Branch,
+         @IDPaymentMethod = 2, @IdempotencyKey = N'key-dep-3', @Now = '2030-06-01T12:05:00', @IDOrder = @IDOrder OUTPUT,
+         @IDPayment = @IDPayment OUTPUT, @OrderNumber = @Number OUTPUT, @PaymentExpiresAt = @Expires OUTPUT;
+
+    CREATE TABLE #Cash (IDPayment INT, IDOrder INT, OrderNumber NVARCHAR(20), CustomerName NVARCHAR(120), CustomerEmail NVARCHAR(256), Amount VARCHAR(25),
+                       IDPaymentStatus TINYINT, StatusName NVARCHAR(30), PickupBranchName NVARCHAR(80), RequestedDeliveryDate DATE,
+                       ExpiresAt DATETIME2(3), CreatedAt DATETIME2(3), TotalCount INT);
+    INSERT INTO #Cash EXEC dbo.SP_Payments_ListCash;
+
+    DECLARE @Rows INT = (SELECT COUNT(*) FROM #Cash);
+    EXEC tSQLt.AssertEquals @Expected = 0, @Actual = @Rows;
+END;
+GO
+
+CREATE PROCEDURE Test_PaymentMethods.[test the search finds a cash payment by order number and by email and leaves out the rest]
+AS
+BEGIN
+    DECLARE @User INT, @IDOrder INT, @IDPayment INT;
+    EXEC Test_PaymentMethods.NewCashOrder @IDUser = @User OUTPUT, @IDOrder = @IDOrder OUTPUT, @IDPayment = @IDPayment OUTPUT;
+    DECLARE @Number NVARCHAR(20) = (SELECT OrderNumber FROM dbo.Orders WHERE IDOrder = @IDOrder);
+    DECLARE @Email NVARCHAR(256) = (SELECT Email FROM dbo.Users WHERE IDUser = @User);
+
+    CREATE TABLE #Cash (IDPayment INT, IDOrder INT, OrderNumber NVARCHAR(20), CustomerName NVARCHAR(120), CustomerEmail NVARCHAR(256), Amount VARCHAR(25),
+                       IDPaymentStatus TINYINT, StatusName NVARCHAR(30), PickupBranchName NVARCHAR(80), RequestedDeliveryDate DATE,
+                       ExpiresAt DATETIME2(3), CreatedAt DATETIME2(3), TotalCount INT);
+    INSERT INTO #Cash EXEC dbo.SP_Payments_ListCash @Search = @Number;
+    DECLARE @ByNumber INT = (SELECT COUNT(*) FROM #Cash);
+    DELETE FROM #Cash;
+    INSERT INTO #Cash EXEC dbo.SP_Payments_ListCash @Search = @Email;
+    DECLARE @ByEmail INT = (SELECT COUNT(*) FROM #Cash);
+    DELETE FROM #Cash;
+    -- El texto es literal: un comodín no coincide con todo
+    INSERT INTO #Cash EXEC dbo.SP_Payments_ListCash @Search = N'%';
+    DECLARE @Wildcard INT = (SELECT COUNT(*) FROM #Cash);
+    DELETE FROM #Cash;
+    INSERT INTO #Cash EXEC dbo.SP_Payments_ListCash @Search = N'nobody-has-this-text';
+    DECLARE @Unknown INT = (SELECT COUNT(*) FROM #Cash);
+
+    EXEC tSQLt.AssertEquals @Expected = 1, @Actual = @ByNumber;
+    EXEC tSQLt.AssertEquals @Expected = 1, @Actual = @ByEmail;
+    EXEC tSQLt.AssertEquals @Expected = 0, @Actual = @Wildcard;
+    EXEC tSQLt.AssertEquals @Expected = 0, @Actual = @Unknown;
+END;
+GO
+
+CREATE PROCEDURE Test_PaymentMethods.[test a confirmed cash payment leaves the pending list and shows in the collected history]
+AS
+BEGIN
+    DECLARE @User INT, @IDOrder INT, @IDPayment INT, @Outcome VARCHAR(30);
+    DECLARE @Admin INT = Test_Shop.UserId(N'admin@shopcart.test');
+    EXEC Test_PaymentMethods.NewCashOrder @IDUser = @User OUTPUT, @IDOrder = @IDOrder OUTPUT, @IDPayment = @IDPayment OUTPUT;
+    EXEC dbo.SP_Payments_ConfirmCash @IDActor = @Admin, @IDPayment = @IDPayment, @Now = '2030-06-02T15:00:00', @Outcome = @Outcome OUTPUT;
+
+    CREATE TABLE #Cash (IDPayment INT, IDOrder INT, OrderNumber NVARCHAR(20), CustomerName NVARCHAR(120), CustomerEmail NVARCHAR(256), Amount VARCHAR(25),
+                       IDPaymentStatus TINYINT, StatusName NVARCHAR(30), PickupBranchName NVARCHAR(80), RequestedDeliveryDate DATE,
+                       ExpiresAt DATETIME2(3), CreatedAt DATETIME2(3), TotalCount INT);
+    INSERT INTO #Cash EXEC dbo.SP_Payments_ListCash;
+    DECLARE @Pending INT = (SELECT COUNT(*) FROM #Cash);
+    DELETE FROM #Cash;
+    INSERT INTO #Cash EXEC dbo.SP_Payments_ListCash @IDPaymentStatus = 3;
+    DECLARE @Collected INT = (SELECT COUNT(*) FROM #Cash WHERE IDPayment = @IDPayment);
+
+    EXEC tSQLt.AssertEquals @Expected = 0, @Actual = @Pending;
+    EXEC tSQLt.AssertEquals @Expected = 1, @Actual = @Collected;
+END;
+GO
+
+CREATE PROCEDURE Test_PaymentMethods.[test the cash list refuses an invalid page size]
+AS
+BEGIN
+    EXEC tSQLt.ExpectException @ExpectedErrorNumber = 50400;
+    EXEC dbo.SP_Payments_ListCash @PageSize = 0;
+END;
+GO

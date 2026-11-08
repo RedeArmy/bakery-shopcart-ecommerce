@@ -1,13 +1,14 @@
 // cspell:disable
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 // Usan los datos de demostración (npm run up con SEED_DEMO_DATA=true): Galletas de avena (del mismo día, Q45.00), Pastel
 // Tres Leches (por encargo, Q145.00).
 // El borde deja pasar 10 llamadas por minuto a /auth (ráfaga de 5): esta prueba usa 1 (la sesión de invitado) y la de la
 // sesión, que además cubre al cliente con cuenta (productos por encargo, personalización), otras 4.
 
-test('a visitor buys as a guest, with the coupon, the made-to-order products and the personalisation locked, and sends the proof', async ({
+test('a visitor buys as a guest, with the coupon, the made-to-order products and the personalisation locked, sends the proof, and the staff approves the deposit and confirms the cash', async ({
   page,
+  staffSession: staff,
 }) => {
   const header = page.getByRole('banner');
 
@@ -152,6 +153,9 @@ test('a visitor buys as a guest, with the coupon, the made-to-order products and
 
   await expect(page).toHaveURL(/\/orders\/\d+\/payment$/);
   await expect(page.getByRole('heading', { level: 2, name: 'Pague en la sucursal' })).toBeVisible();
+  const cashTitle = page.getByRole('heading', { level: 1, name: /^Pedido PED-/ });
+  const cashNumber = /PED-\d{4}-\d+/.exec((await cashTitle.textContent()) ?? '')?.[0] ?? '';
+  expect(cashNumber).not.toBe('');
   // El estado también habla del efectivo: el pedido queda reservado hasta que se pague en la sucursal
   await expect(page.getByText('Esperando su pago en efectivo')).toBeVisible();
   await expect(page.getByText('Esperando su depósito')).toHaveCount(0);
@@ -181,4 +185,42 @@ test('a visitor buys as a guest, with the coupon, the made-to-order products and
   await expect(
     page.getByText(/No encontramos un pedido con ese número y ese correo/),
   ).toBeVisible();
+
+  // El personal atiende lo que el cliente dejó pendiente: aprueba el depósito y confirma el cobro en efectivo. Usa la pestaña de
+  // personal que comparte toda la ejecución (fixtures.ts); sin la contraseña de la cuenta de demostración esta parte no se ejecuta.
+  if (staff === null) return;
+
+  // La cola de depósitos se busca por el número del pedido: el cliente dice «ya envié mi comprobante del PED-…»
+  await staff.getByRole('banner').getByRole('link', { name: 'Depósitos' }).click();
+  await expect(
+    staff.getByRole('heading', { level: 1, name: 'Revisión de depósitos' }),
+  ).toBeVisible();
+  await staff.getByLabel('Buscar un pedido').fill(orderNumber);
+  await staff.getByRole('button', { name: 'Buscar' }).click();
+  const deposit = staff.getByRole('listitem').filter({ hasText: orderNumber });
+  await expect(deposit.getByText('Q135.00').first()).toBeVisible();
+  await expect(deposit.getByRole('button', { name: 'Ver comprobante' })).toBeVisible();
+  await deposit.getByRole('button', { name: 'Aprobar' }).click();
+  await expect(staff.getByText('Depósito aprobado: el pedido quedó pagado.')).toBeVisible();
+
+  // El cliente llega a la sucursal con su número: se busca, se cobra en caja y se confirma con un segundo paso
+  await staff.getByRole('banner').getByRole('link', { name: 'Cobros en efectivo' }).click();
+  await expect(staff.getByRole('heading', { level: 1, name: 'Cobros en efectivo' })).toBeVisible();
+  await staff.getByLabel('Buscar un pedido').fill(cashNumber);
+  await staff.getByRole('button', { name: 'Buscar' }).click();
+  const cash = staff.getByRole('listitem').filter({ hasText: cashNumber });
+  await expect(cash.getByText('Centro')).toBeVisible();
+  await cash.getByRole('button', { name: 'Confirmar cobro' }).click();
+  await cash.getByRole('button', { name: 'Sí, recibí el pago' }).click();
+  await expect(staff.getByText('Cobro confirmado: el pedido quedó pagado.')).toBeVisible();
+
+  // El cliente ve sus dos pedidos pagados con la misma consulta pública, sin recargar la página: cada recarga renueva la sesión y
+  // cuenta para el límite de llamadas a /auth del borde
+  for (const number of [orderNumber, cashNumber]) {
+    await page.getByLabel('Número de pedido').fill(number);
+    await page.getByLabel('Correo del pedido').fill(guestEmail);
+    await page.getByRole('button', { name: 'Consultar' }).click();
+    await expect(page.getByRole('heading', { level: 3, name: `Pedido ${number}` })).toBeVisible();
+    await expect(page.getByText('Pagado').first()).toBeVisible();
+  }
 });

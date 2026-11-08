@@ -66,6 +66,21 @@ const CASES: readonly BenchCase[] = [
     maxReads: 2500,
   },
   {
+    name: 'Payments_ListPendingDeposits, searching by number',
+    sql: "EXEC dbo.SP_Payments_ListPendingDeposits @IDPaymentStatus = 3, @Search = N'BN-4999';",
+    maxReads: 10000,
+  },
+  {
+    name: 'Payments_ListCash, pending',
+    sql: 'EXEC dbo.SP_Payments_ListCash;',
+    maxReads: 100,
+  },
+  {
+    name: 'Payments_ListCash, history searching by number',
+    sql: "EXEC dbo.SP_Payments_ListCash @IDPaymentStatus = 3, @Search = N'BN-4999';",
+    maxReads: 10000,
+  },
+  {
     name: 'Dashboard_AbandonedCarts',
     sql: 'EXEC dbo.SP_Dashboard_AbandonedCarts;',
     maxReads: 2000,

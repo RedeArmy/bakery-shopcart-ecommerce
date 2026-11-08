@@ -4,6 +4,7 @@ import { camelRow, toPage } from '../../../platform/http/serialise.js';
 import type { Page, Row } from '../../../platform/http/serialise.js';
 import type {
   BankAccountInput,
+  CashSearch,
   DepositSearch,
   PaymentsRepository,
 } from '../application/payments-repository.js';
@@ -101,6 +102,17 @@ export function createSqlPaymentsRepository(execute: ProcedureExecutor): Payment
         { name: 'IDPaymentStatus', type: sql.TinyInt, value: search.statusId },
         { name: 'From', type: sql.DateTime2(3), value: search.from },
         { name: 'To', type: sql.DateTime2(3), value: search.to },
+        { name: 'PageNumber', type: sql.Int, value: search.page },
+        { name: 'PageSize', type: sql.Int, value: search.size },
+        { name: 'Search', type: sql.NVarChar(100), value: search.search },
+      ]);
+      return toPage(result.rows, search.page, search.size);
+    },
+
+    async listCash(search: CashSearch): Promise<Page<Row>> {
+      const result = await execute<Row>('dbo.SP_Payments_ListCash', [
+        { name: 'IDPaymentStatus', type: sql.TinyInt, value: search.statusId },
+        { name: 'Search', type: sql.NVarChar(100), value: search.search },
         { name: 'PageNumber', type: sql.Int, value: search.page },
         { name: 'PageSize', type: sql.Int, value: search.size },
       ]);
