@@ -152,10 +152,18 @@ test('a visitor buys as a guest, with the coupon, the made-to-order products and
 
   await expect(page).toHaveURL(/\/orders\/\d+\/payment$/);
   await expect(page.getByRole('heading', { level: 2, name: 'Pague en la sucursal' })).toBeVisible();
+  // El estado también habla del efectivo: el pedido queda reservado hasta que se pague en la sucursal
+  await expect(page.getByText('Esperando su pago en efectivo')).toBeVisible();
+  await expect(page.getByText('Esperando su depósito')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Enviar comprobante' })).toHaveCount(0);
   await page.getByRole('link', { name: 'Ver el detalle del pedido' }).click();
   await expect(page.getByRole('heading', { level: 2, name: 'Recoger en sucursal' })).toBeVisible();
   await expect(page.getByText('Sucursal Centro')).toBeVisible();
+  // El detalle también habla del efectivo y no del comprobante
+  await expect(
+    page.getByText(/reservado hasta que llegue a la sucursal y pague en efectivo/),
+  ).toBeVisible();
+  await expect(page.getByText(/Cuando suba su comprobante/)).toHaveCount(0);
 
   // Cualquiera, con o sin cuenta, consulta el pedido desde la página principal con su número y su correo
   await page.goto('/');

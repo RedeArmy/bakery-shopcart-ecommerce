@@ -446,6 +446,8 @@ export const esGT = {
     deliveryOn: 'fecha estimada: {{date}}',
     pickup: 'Recoger en sucursal',
     deliveryNotes: 'Notas para la entrega',
+    awaitingCash:
+      'Su pedido está reservado hasta que llegue a la sucursal y pague en efectivo. Quien lo atienda confirmará el pago.',
     verifyingDeposit:
       'Recibimos su comprobante. Una persona lo está verificando con el banco y, al confirmarlo, el pedido pasa a pagado.',
     awaitingDeposit:
@@ -541,6 +543,21 @@ export const esGT = {
       attemptsLeft_other: 'Le quedan {{count}} intentos.',
       noAttempts: 'Ya no quedan intentos. Escríbanos para resolverlo.',
       retry: 'Subir otro comprobante',
+      // Un pago en efectivo no tiene comprobante ni revisión: solo espera, se recibe o vence
+      cash: {
+        Pending: {
+          title: 'Esperando su pago en efectivo',
+          text: 'Su pedido está reservado hasta que llegue a la sucursal y pague en efectivo.',
+        },
+        Approved: {
+          title: 'Pago recibido',
+          text: 'Recibimos su pago en efectivo. Su pedido ya está confirmado.',
+        },
+        Expired: {
+          title: 'Plazo vencido',
+          text: 'No se pagó en la sucursal a tiempo y el pedido se canceló.',
+        },
+      },
       Pending: {
         title: 'Esperando su depósito',
         text: 'Su pedido está reservado mientras llega el depósito.',

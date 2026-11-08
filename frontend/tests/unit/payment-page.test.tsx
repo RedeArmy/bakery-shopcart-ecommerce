@@ -128,4 +128,57 @@ describe('a payment in cash', () => {
     expect(screen.queryByRole('button', { name: 'Enviar comprobante' })).toBeNull();
     expect(screen.queryByText('Cuentas donde puede depositar')).toBeNull();
   });
+
+  it('talks about paying in cash in the status, not about a deposit', async () => {
+    await signInAs('Customer');
+    installFakeApi({
+      'GET /api/v1/orders/7': json({
+        ...order,
+        fulfilmentType: 'Pickup',
+        pickupBranchName: 'Centro',
+      }),
+      'GET /api/v1/orders/7/payment': json([payment({ methodKind: 'Cash' })]),
+    });
+    renderApp('/orders/7/payment');
+
+    expect(await screen.findByText('Esperando su pago en efectivo')).toBeDefined();
+    expect(
+      screen.getByText(/reservado hasta que llegue a la sucursal y pague en efectivo/),
+    ).toBeDefined();
+    expect(screen.queryByText('Esperando su depósito')).toBeNull();
+    expect(screen.queryByText(/mientras llega el depósito/)).toBeNull();
+  });
+
+  it('says the cash was received once the payment is approved, and that the time ran out when it expires', async () => {
+    await signInAs('Customer');
+    installFakeApi({
+      'GET /api/v1/orders/7': json(order),
+      'GET /api/v1/orders/7/payment': json([
+        payment({ methodKind: 'Cash', statusName: 'Approved' }),
+      ]),
+    });
+    renderApp('/orders/7/payment');
+    expect(await screen.findByText('Pago recibido')).toBeDefined();
+    expect(screen.getByText(/Recibimos su pago en efectivo/)).toBeDefined();
+    cleanup();
+
+    installFakeApi({
+      'GET /api/v1/orders/7': json(order),
+      'GET /api/v1/orders/7/payment': json([
+        payment({ methodKind: 'Cash', statusName: 'Expired' }),
+      ]),
+    });
+    renderApp('/orders/7/payment');
+    expect(await screen.findByText(/No se pagó en la sucursal a tiempo/)).toBeDefined();
+  });
+
+  it('keeps the deposit wording for a deposit payment', async () => {
+    await signInAs('Customer');
+    installFakeApi({
+      'GET /api/v1/orders/7': json(order),
+      'GET /api/v1/orders/7/payment': json([payment({ methodKind: 'Deposit' })]),
+    });
+    renderApp('/orders/7/payment');
+    expect(await screen.findByText('Esperando su depósito')).toBeDefined();
+  });
 });

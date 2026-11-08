@@ -9,6 +9,7 @@ import { EmptyState, ErrorState, LoadingSkeleton } from '../../../shared/ui/stat
 import { useOrder } from '../../payments/hooks/use-payment';
 import { CancelOrder } from '../components/cancel-order';
 import { OrderStatusBadge } from '../components/order-status-badge';
+import { PaymentNotice } from '../components/payment-notice';
 import { OrderTimeline } from '../components/order-timeline';
 import { canCancel, displayStatus } from '../model/order-status';
 
@@ -179,13 +180,7 @@ export function OrderPage() {
             </dl>
           </section>
           {waiting ? (
-            <p className="rounded-card bg-amber-50 p-3 text-sm text-stone-700">
-              {t(
-                data.paymentStatusName === 'UnderReview'
-                  ? 'orders.verifyingDeposit'
-                  : 'orders.awaitingDeposit',
-              )}
-            </p>
+            <PaymentNotice idOrder={idOrder} paymentStatusName={data.paymentStatusName} />
           ) : null}
           {waiting ? (
             <ButtonLink to={`/orders/${String(idOrder)}/payment`} className="w-full">

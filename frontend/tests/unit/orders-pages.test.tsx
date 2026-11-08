@@ -231,7 +231,8 @@ describe('the order as the customer follows it', () => {
     renderApp('/orders/7');
 
     expect(await screen.findByText(/Tocar el timbre dos veces/)).toBeDefined();
-    expect(screen.getByText(/una persona lo revisará con el banco/)).toBeDefined();
+    // El aviso espera a saber con qué se paga: llega después del encabezado
+    expect(await screen.findByText(/una persona lo revisará con el banco/)).toBeDefined();
     expect(screen.getAllByText('Pagado').length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: /Repetir/ })).toBeNull();
   });
@@ -321,6 +322,50 @@ describe('the status the customer sees when a proof is waiting to be checked', (
     expect(screen.getAllByText('Pendiente de verificación de pago').length).toBeGreaterThanOrEqual(
       2,
     );
-    expect(screen.getByText(/Una persona lo está verificando con el banco/)).toBeDefined();
+    expect(await screen.findByText(/Una persona lo está verificando con el banco/)).toBeDefined();
+  });
+});
+
+describe('what the order detail says about paying', () => {
+  const payment = (extra = {}) => ({
+    idPayment: 1,
+    isCurrent: true,
+    statusName: 'Pending',
+    amount: '145.00',
+    ...extra,
+  });
+
+  it('talks about paying in cash in the branch when the payment is in cash', async () => {
+    await signInAs('Customer');
+    installFakeApi({
+      'GET /api/v1/orders/7': json(detail({ paymentStatusName: 'Pending' })),
+      'GET /api/v1/orders/7/payment': json([payment({ methodKind: 'Cash' })]),
+    });
+    renderApp('/orders/7');
+
+    expect(
+      await screen.findByText(/reservado hasta que llegue a la sucursal y pague en efectivo/),
+    ).toBeDefined();
+    expect(screen.queryByText(/Cuando suba su comprobante/)).toBeNull();
+  });
+
+  it('keeps the deposit notice for a deposit and the verification notice once the proof arrived', async () => {
+    await signInAs('Customer');
+    installFakeApi({
+      'GET /api/v1/orders/7': json(detail({ paymentStatusName: 'Pending' })),
+      'GET /api/v1/orders/7/payment': json([payment({ methodKind: 'Deposit' })]),
+    });
+    renderApp('/orders/7');
+    expect(await screen.findByText(/Cuando suba su comprobante/)).toBeDefined();
+    cleanup();
+
+    installFakeApi({
+      'GET /api/v1/orders/7': json(detail({ paymentStatusName: 'UnderReview' })),
+      'GET /api/v1/orders/7/payment': json([
+        payment({ methodKind: 'Deposit', statusName: 'UnderReview' }),
+      ]),
+    });
+    renderApp('/orders/7');
+    expect(await screen.findByText(/Una persona lo está verificando con el banco/)).toBeDefined();
   });
 });
