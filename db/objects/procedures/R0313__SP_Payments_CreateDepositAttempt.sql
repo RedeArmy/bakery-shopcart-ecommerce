@@ -1,7 +1,8 @@
 /* =====================================================================
    Objeto   : dbo.SP_Payments_CreateDepositAttempt
-   Version  : 1.0.0
+   Version  : 1.1.0
    Cambio   : Primera versión: nuevo intento de depósito para un pedido cuyo depósito se rechazó (no figuraba en el catálogo)
+   Cambio 1.1.0: la cuenta es opcional (V0017): si el intento anterior no tenía cuenta, el nuevo tampoco; una indicada debe existir y estar activa.
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Nueva. Un pago rechazado es terminal: reintentar crea otro pago para el mismo pedido. Errores: 50400,
               50404 pedido inexistente o ajeno, 50409 reserva vencida o llave repetida, 50422 el pedido no admite otro intento.
@@ -47,7 +48,7 @@ BEGIN
   IF @IDBankAccount IS NULL
     SET @IDBankAccount = (SELECT TOP (1) d.IDBankAccount FROM dbo.PaymentDeposits AS d JOIN dbo.Payments AS p ON p.IDPayment = d.IDPayment
                           WHERE p.IDOrder = @IDOrder ORDER BY p.IDPayment DESC);
-  IF @IDBankAccount IS NULL OR NOT EXISTS (SELECT 1 FROM dbo.BankAccounts WHERE IDBankAccount = @IDBankAccount AND IsActive = 1)
+  IF @IDBankAccount IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.BankAccounts WHERE IDBankAccount = @IDBankAccount AND IsActive = 1)
     THROW 50404, 'Bank account not found.', 1;
 
   -- El nuevo intento vive lo que le quede a la reserva, que el rechazo ya amplió (SP_Payments_RejectDeposit)

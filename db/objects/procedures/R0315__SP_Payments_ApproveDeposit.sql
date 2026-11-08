@@ -1,7 +1,8 @@
 /* =====================================================================
    Objeto   : dbo.SP_Payments_ApproveDeposit
-   Version  : 1.0.0
+   Version  : 1.1.0
    Cambio   : Primera versión: un operador aprueba un depósito en revisión si el monto depositado es exactamente el del pedido
+   Cambio 1.1.0: la clase de depósito se reconoce por PaymentMethods.Kind y no por el identificador 2, para que valga también para los métodos que crea el administrador (V0017).
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Nueva. @Outcome: Approved, AlreadyApproved, Orphan (el pedido ya no estaba vigente) o RejectedAmountMismatch
               (el monto depositado no coincide: se rechaza con motivo, no hay aprobaciones parciales).
@@ -31,12 +32,12 @@ BEGIN
 
   -- El bloqueo del pago entra siempre por la clave primaria y sin join, igual que SP_Payments_RejectDeposit: con otro camino de acceso
   -- los dos procedimientos tomaban los índices de Payments en orden opuesto y se esperaban en círculo (deadlock de la prueba de concurrencia)
-  DECLARE @Status TINYINT, @Amount DECIMAL(18,2), @Deposited DECIMAL(18,2);
-  SELECT @Status = IDPaymentStatus, @Amount = Amount
+  DECLARE @Status TINYINT, @Amount DECIMAL(18,2), @Deposited DECIMAL(18,2), @IDMethod TINYINT;
+  SELECT @Status = IDPaymentStatus, @Amount = Amount, @IDMethod = IDPaymentMethod
   FROM dbo.Payments WITH (UPDLOCK, ROWLOCK, INDEX(PK_Payments))
-  WHERE IDPayment = @IDPayment AND IDPaymentMethod = 2;
+  WHERE IDPayment = @IDPayment;
 
-  IF @Status IS NULL
+  IF @Status IS NULL OR NOT EXISTS (SELECT 1 FROM dbo.PaymentMethods WHERE IDPaymentMethod = @IDMethod AND Kind = N'Deposit')
     THROW 50404, 'Payment not found.', 1;
 
   SELECT @Deposited = DepositedAmount FROM dbo.PaymentDeposits WHERE IDPayment = @IDPayment;

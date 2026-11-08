@@ -59,6 +59,8 @@ Environment states used in the register: **Verified** (run and checked), **Pendi
 | V0013 | `V0013__add_guest_accounts.sql` | Guest accounts | Schema, additive | Medium | Draft |
 | V0014 | `V0014__add_normalised_email_key.sql` | Normalised email key for the coupon limit | Schema, additive | Low | Draft |
 | V0015 | `V0015__add_branches_and_pickup.sql` | Branches and pickup | Schema, additive | Medium | Draft |
+| V0016 | `V0016__add_delivery_notes.sql` | Delivery notes | Schema, additive | Low | Draft |
+| V0017 | `V0017__payment_methods_maintenance.sql` | Payment methods maintenance | Schema, additive | Medium | Draft |
 
 Risk is the impact of a defect in the migration, not of running it: all nine run on an empty database, take no meaningful locks and move no data. **High** marks the migrations that protect money (V0007) or that can block legitimate writes if wrong (V0009).
 
@@ -330,6 +332,44 @@ Each entry uses the template in section 7. Common fields for V0001 to V0009 (V00
 | Author, date | Eder Yafeth Garcia Quiroa, 7 November 2026 |
 | Pull request | Pending |
 | Reviewer | Repository owner |
+
+### V0016: Delivery notes
+
+| Field | Value |
+|---|---|
+| File | `db/migrations/V0016__add_delivery_notes.sql` |
+| SHA-256 | `983adc35c64a324573d48cbaa925eb36187d672320d8eea3e092d8c66b4439b0` |
+| Description | The optional column `Orders.DeliveryNotes` (up to 300 characters): the customer's instructions for whoever delivers the order. |
+| Objects created | Column `Orders.DeliveryNotes NVARCHAR(300) NULL` |
+| Key rules | The notes are trimmed and an empty text is stored as NULL. They apply to a delivery only: a pickup order refuses them (50400) |
+| Depends on | V0015 |
+| Data migration | None: every existing order has no notes |
+| Online impact | Adding a nullable column is a metadata change |
+| Compatibility | `SP_Orders_CreateOrder` takes a new optional parameter and `SP_Orders_GetDetail` returns one more column; existing calls keep working |
+| Rollback | Compensating migration: drop the column (the notes are lost) |
+| Tests | `Test_PickupOrders` (the trimmed notes of a delivery and the refusal on a pickup) |
+| Author, date | Eder Yafeth Garcia Quiroa, 7 November 2026 |
+| Pull request | Pending |
+| Reviewer | Repository owner |
+
+### V0017: Payment methods maintenance
+
+| Field | Value |
+|---|---|
+| File | `db/migrations/V0017__payment_methods_maintenance.sql` |
+| SHA-256 | `4f5f7ff3dd1d3d903e6bec1fc290f25e61b039c14866f2ef2b7301b0674de5b4` |
+| Description | The payment methods become data an administrator maintains: each one has a kind (`Card`, `Deposit` or `Cash`), the title and description the customer reads, an active flag and whether it is offered for a delivery, a pickup or both. The bank account of a deposit becomes optional: the accounts are shown as information and the deposit does not record which one was used. |
+| Objects created | Columns `PaymentMethods.Kind`, `Title`, `Description`, `AppliesToDelivery`, `AppliesToPickup`, `IsActive`, `UpdatedAt`; constraints `CK_PaymentMethods_Kind`, `CK_PaymentMethods_Applies`, `CK_PaymentMethods_CashPickupOnly`; `PaymentDeposits.IDBankAccount` allows NULL |
+| Key rules | Cash is collected in the branch, so it is offered for pickups only (`CK_PaymentMethods_CashPickupOnly`). A method is never deleted: "removing" it deactivates it, and the payments already made keep following their course. The reference of a current deposit stays unique because in a unique index the NULL accounts count as equal |
+| Depends on | V0007 |
+| Data migration | None in the migration: the seed `S0007` sets the kind and the texts of the two existing methods and adds the cash method |
+| Online impact | Adding columns with defaults and relaxing a column to NULL on small tables |
+| Compatibility | `SP_Orders_CreateOrder` reads the kind, the active flag and the places from `PaymentMethods` and no longer requires a bank account; the deposit procedures recognise a deposit by its kind and not by the identifier 2. Existing calls keep working |
+| Rollback | Compensating migration: only possible while no deposit without an account and no cash payment exists |
+| Tests | `Test_PaymentMethods` (maintenance, cash for pickups only, the cash order and its confirmation, a deposit with no account) and an HTTP flow |
+| Author, date | Eder Yafeth Garcia Quiroa, 7 November 2026 |
+| Pull request | Pending |
+| Reviewer | Repository owner |
 | Environments | Local Verified (applied, tSQLt and the HTTP flows passed); CI Pending; Production Not deployed |
 
 ### Reference seeds
@@ -344,6 +384,7 @@ Seeds are idempotent `MERGE` scripts applied after the migrations. They are regi
 | S0004 | `S0004__seed_inventory_movement_types.sql` | `c374071314d410942a1d22410f5985f8a722d6abe1bf9e656dd73a8ed197a7e4` | Entry (1), Exit (2), Adjustment (3), Return (4) | Names are corrected if they differ |
 | S0005 | `S0005__seed_configuration.sql` | `430c3a4b144d71ed846491d9dd4066f7b997d7e92fb57a505d91fc7980f805ff` | Ten business settings with their defaults (reservation minutes, deposit hours, shipping cost, VAT rate and others) | Inserts only missing keys and never overwrites a tuned value |
 | S0006 | `S0006__seed_retention_configuration.sql` | `4381bd06a18054df61f5f34f6054289dcb4370800b67e36e4a055cdace7c39df` | Five retention settings: refresh token families 30 days, webhooks 90, guest carts 30, released or expired reservations 90 and DDL history 365 | Inserts only missing keys and never overwrites a value an administrator changed |
+| S0007 | `S0007__seed_payment_methods.sql` | `ddfa86ed8c8dd9c2f659a3b8d535fdac7c8ceb20a798fb386c23df34be476440` | The kind and the texts of the card and the deposit, and the cash method for pickups | Only fills what is missing and never overwrites a text or a setting an administrator changed |
 
 Tests: `Test_Seeds` compares every table with the expected rows and checks that Cancelled and Returned orders have no way out, that a dispatched order cannot be cancelled and that a payment under review cannot expire.
 
@@ -411,3 +452,5 @@ Programmable objects and seeds: a change to an `R####` object needs only the ver
 | 6 November 2026 | V0013 added: guest accounts | Eder Yafeth Garcia Quiroa |
 | 6 November 2026 | V0014 added: normalised email key for the coupon limit | Eder Yafeth Garcia Quiroa |
 | 7 November 2026 | V0015 added: branches and pickup | Eder Yafeth Garcia Quiroa |
+| 7 November 2026 | V0016 added: delivery notes | Eder Yafeth Garcia Quiroa |
+| 7 November 2026 | V0017 and S0007 added: payment methods maintenance | Eder Yafeth Garcia Quiroa |

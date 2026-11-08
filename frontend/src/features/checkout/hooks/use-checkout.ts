@@ -7,6 +7,7 @@ import type { AddressValues } from '../model/schemas';
 
 export type Address = components['schemas']['Address'];
 export type PaymentMethodsView = components['schemas']['PaymentMethodsView'];
+export type MethodOffer = components['schemas']['MethodOffer'];
 
 /**
  * Una llave de idempotencia por intento: nace al abrir el paso y se reutiliza si el cliente reintenta, así repetir el envío
@@ -66,14 +67,20 @@ export function useCreateAddress() {
  * Lo que ofrece el pago: la fecha estimada de entrega o recogida (la define el servidor según los productos del carrito, el
  * cliente no la elige), si el depósito alcanza y qué cuentas hay. Se pide de nuevo al cambiar el carrito.
  */
-export function usePaymentMethods(cartSignature: string) {
+export function usePaymentMethods(cartSignature: string, fulfilment: 'Delivery' | 'Pickup') {
   const { user } = useSession();
   return useQuery({
-    queryKey: ['payment-methods', user?.idUser ?? null, cartSignature],
+    // Lo que se ofrece depende de cómo se recibe el pedido (el efectivo solo para recogidas)
+    queryKey: ['payment-methods', user?.idUser ?? null, cartSignature, fulfilment],
     enabled: user !== null,
     staleTime: 0,
     queryFn: async ({ signal }) =>
-      unwrap(await api.GET('/api/v1/checkout/payment-methods', { signal })),
+      unwrap(
+        await api.GET('/api/v1/checkout/payment-methods', {
+          params: { query: { fulfilment } },
+          signal,
+        }),
+      ),
   });
 }
 
@@ -95,11 +102,17 @@ export function useReserveCart() {
 
 /** Cómo se recibe el pedido: en una dirección del cliente o recogiéndolo en una sucursal. */
 export type Fulfilment =
-  { type: 'Delivery'; idAddress: number } | { type: 'Pickup'; idBranch: number };
+  { type: 'Delivery'; idAddress: number; notes?: string } | { type: 'Pickup'; idBranch: number };
+
+const deliveryNotesOf = (fulfilment: Fulfilment): string | null => {
+  if (fulfilment.type !== 'Delivery') return null;
+  const notes = fulfilment.notes?.trim() ?? '';
+  return notes === '' ? null : notes;
+};
 
 export interface ConfirmInput {
   idReservation: number;
-  idBankAccount: number;
+  idPaymentMethod: number;
   fulfilment: Fulfilment;
 }
 
@@ -115,11 +128,12 @@ export function useConfirmOrder() {
           // La fecha no se envía: la define el sistema
           body: {
             idReservation: input.idReservation,
-            idBankAccount: input.idBankAccount,
-            method: 'BANK_DEPOSIT',
+            idPaymentMethod: input.idPaymentMethod,
             fulfilmentType: input.fulfilment.type,
             idAddress: input.fulfilment.type === 'Delivery' ? input.fulfilment.idAddress : null,
             idBranch: input.fulfilment.type === 'Pickup' ? input.fulfilment.idBranch : null,
+            // Las notas son instrucciones para quien entrega: solo viajan con una entrega y solo si hay algo escrito
+            deliveryNotes: deliveryNotesOf(input.fulfilment),
           },
         }),
       );

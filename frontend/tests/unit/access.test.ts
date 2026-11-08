@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NAV_ITEMS, visibleNavItems } from '../../src/app/navigation';
+import { NAV_ITEMS, navLabelKey, visibleNavItems } from '../../src/app/navigation';
 import type { NavItem } from '../../src/app/navigation';
 import { routeAccess } from '../../src/app/route-access';
 import { redirectTarget } from '../../src/features/auth/model/sign-in-redirect';
@@ -82,5 +82,21 @@ describe('redirectTarget', () => {
     { from: '/register' },
   ])('falls back to the home page for %j', (state) => {
     expect(redirectTarget(state)).toBe('/');
+  });
+});
+
+describe('navLabelKey', () => {
+  const orders = NAV_ITEMS.find((item) => item.to === '/orders');
+
+  it('uses one label for the public and another inside an account for the orders entry', () => {
+    expect(orders).toBeDefined();
+    if (orders === undefined) return;
+    expect(navLabelKey(orders, false)).toBe('nav.orders');
+    expect(navLabelKey(orders, true)).toBe('nav.myOrders');
+  });
+
+  it('keeps the text of an entry that has no alternative', () => {
+    const catalogue = NAV_ITEMS.find((item) => item.to === '/catalogue');
+    expect(catalogue === undefined ? null : navLabelKey(catalogue, true)).toBe('nav.catalogue');
   });
 });

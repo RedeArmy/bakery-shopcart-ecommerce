@@ -1,7 +1,8 @@
 /* =====================================================================
    Objeto   : dbo.SP_Dashboard_Summary
-   Version  : 1.1.0
+   Version  : 1.2.0
    Cambio   : Los carritos abandonados se cuentan con un predicado sargable y sin calcular su valor; antes se valoraban todos solo para contarlos
+   Cambio 1.2.0: los depósitos se reconocen por la clase del método de pago y no por el identificador 2 (V0017).
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Mismas columnas que 1.0.0. Una sola fila. Las ventas siguen la definición de ADR-0009 (pagados y no cancelados, por fecha de pago, menos
               devoluciones); el ticket promedio es la venta neta entre los pedidos pagados, con redondeo half-even. Los tres
@@ -39,7 +40,7 @@ BEGIN
          Gross = g.Text, Returned = rt.Text, Net = n.Text,
          AverageTicket = a.Text,
          PendingPaymentOrders = (SELECT COUNT(*) FROM dbo.Orders WHERE IDOrderStatus = 1),
-         DepositsUnderReview  = (SELECT COUNT(*) FROM dbo.Payments WHERE IDPaymentMethod = 2 AND IDPaymentStatus = 2),
+         DepositsUnderReview  = (SELECT COUNT(*) FROM dbo.Payments WHERE IDPaymentMethod IN (SELECT IDPaymentMethod FROM dbo.PaymentMethods WHERE Kind = N'Deposit') AND IDPaymentStatus = 2),
          AbandonedCarts       = @Abandoned
   FROM (SELECT One = 1) AS x
   CROSS APPLY dbo.FU_Money_CentsToText(@GrossCents) AS g

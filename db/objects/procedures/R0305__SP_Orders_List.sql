@@ -1,8 +1,10 @@
 /* =====================================================================
    Objeto   : dbo.SP_Orders_List
-   Version  : 1.1.0
+   Version  : 1.2.0
    Cambio   : El total ya no se calcula con COUNT(*) OVER () (un Window Spool que escribía cada fila en tempdb); se cuenta aparte y solo
               se leen las filas de la página; un camino y un plan distintos para el cliente (sus pedidos) y para el personal (todos)
+   Cambio 1.2.0: agrega PaymentStatusName (el estado del pago más reciente) justo después de StatusName, para distinguir un pedido
+              pendiente de pago de uno con el comprobante ya enviado y por verificar.
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Mismas columnas y mismo orden que 1.0.0. Con 50 000 pedidos pasó de 135 000-483 000 lecturas lógicas a 212-498. Un cliente
               (@AsStaff = 0) solo ve los suyos: se filtra por @IDActor, que el backend toma del token, y no
@@ -109,6 +111,7 @@ BEGIN
 
   SELECT o.IDOrder, o.OrderNumber, o.IDUser, CustomerName = u.FullName, CustomerEmail = u.Email,
          o.IDOrderStatus, StatusName = s.Name,
+         PaymentStatusName = (SELECT ps.StatusName FROM dbo.FU_Orders_CurrentPaymentStatus(o.IDOrder) AS ps),
          Total = CAST(o.Total AS VARCHAR(25)),
          ItemCount = (SELECT SUM(l.Quantity) FROM dbo.OrderLines AS l WITH (INDEX(IX_OrderLines_Order)) WHERE l.IDOrder = o.IDOrder),
          o.CreatedAt, o.PaidAt, o.RequestedDeliveryDate,

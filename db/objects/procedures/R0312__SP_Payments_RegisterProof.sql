@@ -1,7 +1,9 @@
 /* =====================================================================
    Objeto   : dbo.SP_Payments_RegisterProof
-   Version  : 1.0.0
+   Version  : 1.1.0
    Cambio   : Primera versión: el cliente registra el comprobante de su depósito y el pago pasa a revisión
+   Cambio 1.1.0: la clase de depósito se reconoce por PaymentMethods.Kind y no por el identificador 2, para que valga también para los métodos que crea el administrador (V0017).
+              Con las cuentas solo informativas el depósito puede no tener cuenta: la referencia sigue siendo única entre los vigentes.
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Nueva. Errores: 50400 datos inválidos, 50404 pago inexistente o ajeno, 50409 referencia bancaria ya usada o
               llave de archivo repetida, 50422 pago que no admite comprobante, intentos agotados o archivo ya usado
@@ -49,7 +51,7 @@ BEGIN
 
   IF @IDOrder IS NULL
     THROW 50404, 'Payment not found.', 1;
-  IF @Method <> 2
+  IF NOT EXISTS (SELECT 1 FROM dbo.PaymentMethods WHERE IDPaymentMethod = @Method AND Kind = N'Deposit')
     THROW 50422, 'A proof applies to a bank deposit only.', 1;
   IF @PaymentStatus <> 1 OR @OrderStatus <> 1
     THROW 50422, 'A proof can only be registered for a pending deposit.', 1;
@@ -63,7 +65,8 @@ BEGIN
   -- La misma boleta no puede respaldar dos pagos vigentes del mismo banco
   DECLARE @IDBankAccount INT = (SELECT IDBankAccount FROM dbo.PaymentDeposits WHERE IDPayment = @IDPayment);
   IF EXISTS (SELECT 1 FROM dbo.PaymentDeposits
-             WHERE IDBankAccount = @IDBankAccount AND ReferenceNumber = @ReferenceNumber AND IsCurrent = 1 AND IDPayment <> @IDPayment)
+             WHERE ((IDBankAccount = @IDBankAccount) OR (IDBankAccount IS NULL AND @IDBankAccount IS NULL))
+               AND ReferenceNumber = @ReferenceNumber AND IsCurrent = 1 AND IDPayment <> @IDPayment)
     THROW 50409, 'REFERENCE_ALREADY_USED: The bank reference backs another payment.', 1;
 
   -- El mismo archivo no puede respaldar dos depósitos en revisión o aprobados. Uno rechazado sí se puede volver a subir.

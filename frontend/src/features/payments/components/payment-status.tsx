@@ -24,9 +24,14 @@ export function PaymentStatus({
   idOrder,
   payment,
 }: Readonly<{ idOrder: number; payment: Payment }>) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const attempt = useNewAttempt(idOrder);
   const status = payment.statusName;
+  // El efectivo se paga en la sucursal: sus estados hablan de pagar en efectivo y no de depósito ni de comprobante
+  const prefix =
+    payment.methodKind === 'Cash' && i18n.exists(`payment.status.cash.${status}.title`)
+      ? 'cash.'
+      : '';
   const known = ['Pending', 'UnderReview', 'Approved', 'Rejected', 'Expired'].includes(status);
   const attemptsLeft = Math.max(0, payment.maxAttempts - payment.attemptsRejected);
 
@@ -39,10 +44,12 @@ export function PaymentStatus({
         <h2 id="payment-status" className="text-2xl text-stone-900">
           {t('payment.status.title')}
         </h2>
-        <Badge tone={toneOf(status)}>{known ? t(`payment.status.${status}.title`) : status}</Badge>
+        <Badge tone={toneOf(status)}>
+          {known ? t(`payment.status.${prefix}${status}.title`) : status}
+        </Badge>
       </div>
       {known ? (
-        <p className="text-sm text-stone-700">{t(`payment.status.${status}.text`)}</p>
+        <p className="text-sm text-stone-700">{t(`payment.status.${prefix}${status}.text`)}</p>
       ) : null}
       {status === 'Rejected' ? (
         <>

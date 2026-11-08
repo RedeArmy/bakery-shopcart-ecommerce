@@ -36,6 +36,16 @@ export function createSqlOrdersRepository(execute: ProcedureExecutor): OrdersRep
       return camelRow(row, ['Lines', 'History']);
     },
 
+    async track(orderNumber: string, email: string): Promise<Row> {
+      const result = await execute<Row>('dbo.SP_Orders_Track', [
+        { name: 'OrderNumber', type: sql.NVarChar(20), value: orderNumber },
+        { name: 'Email', type: sql.NVarChar(254), value: email },
+      ]);
+      const row = result.rows[0];
+      if (row === undefined) throw new TypeError('SP_Orders_Track returned no row');
+      return camelRow(row, ['History']);
+    },
+
     async cancel(actor: number, idOrder: number, reason: string): Promise<void> {
       await execute('dbo.SP_Orders_Cancel', [
         { name: 'IDActor', type: sql.Int, value: actor },

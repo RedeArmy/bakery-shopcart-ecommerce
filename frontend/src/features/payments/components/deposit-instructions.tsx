@@ -2,7 +2,9 @@ import { useTranslation } from 'react-i18next';
 import { formatDateTime } from '../../../shared/lib/date';
 import { Countdown } from '../../../shared/ui/countdown';
 import { Price } from '../../../shared/ui/price';
+import { useBankAccounts } from '../hooks/use-payment';
 import type { Payment } from '../hooks/use-payment';
+import { BankAccountsInfo } from './bank-accounts-info';
 
 /**
  * Lo que el cliente necesita para depositar: la cuenta, el monto exacto, la referencia (el número del pedido) y el plazo.
@@ -14,11 +16,7 @@ export function DepositInstructions({
   running,
 }: Readonly<{ payment: Payment; orderNumber: string; running: boolean }>) {
   const { t } = useTranslation();
-  // El tipo de cuenta se traduce aparte para no anidar plantillas
-  const typeLabel = payment.accountType
-    ? t(`checkout.payment.accountType.${payment.accountType}`)
-    : null;
-  const accountType = typeLabel === null ? '' : `${typeLabel} · `;
+  const accounts = useBankAccounts();
   return (
     <section
       aria-labelledby="deposit-instructions"
@@ -39,21 +37,6 @@ export function DepositInstructions({
           <dd className="select-all font-mono text-lg text-stone-900">{orderNumber}</dd>
         </div>
         <div>
-          <dt className="text-stone-500">{t('payment.instructions.bank')}</dt>
-          <dd className="text-stone-900">{payment.bankName}</dd>
-        </div>
-        <div>
-          <dt className="text-stone-500">{t('payment.instructions.account')}</dt>
-          <dd className="select-all text-stone-900">
-            {accountType}
-            {payment.accountNumber}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-stone-500">{t('payment.instructions.holder')}</dt>
-          <dd className="text-stone-900">{payment.holderName}</dd>
-        </div>
-        <div>
           <dt className="text-stone-500">{t('payment.instructions.deadline')}</dt>
           <dd className="text-stone-900">
             {payment.expiresAt === undefined ? null : (
@@ -70,9 +53,7 @@ export function DepositInstructions({
           </dd>
         </div>
       </dl>
-      {payment.instructions ? (
-        <p className="text-sm text-stone-600">{payment.instructions}</p>
-      ) : null}
+      {accounts.isError ? null : <BankAccountsInfo accounts={accounts.data ?? []} />}
       <p className="text-sm text-stone-600">{t('payment.instructions.note')}</p>
     </section>
   );

@@ -1,16 +1,48 @@
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { ApiError } from '../../../shared/api';
-import { isGuestSession, useSession } from '../../../shared/auth';
 import { formatDateOnly } from '../../../shared/lib/date';
 import { ButtonLink } from '../../../shared/ui/button';
 import { Price } from '../../../shared/ui/price';
 import { EmptyState, ErrorState, LoadingSkeleton } from '../../../shared/ui/states';
-import { RecoveryCodePanel } from '../../checkout/components/recovery-code-panel';
+import { CheckoutStepper } from '../../checkout/components/checkout-stepper';
+import { CashInstructions } from '../components/cash-instructions';
 import { DepositInstructions } from '../components/deposit-instructions';
 import { PaymentStatus } from '../components/payment-status';
 import { ProofForm } from '../components/proof-form';
-import { useOrder, useOrderPayments } from '../hooks/use-payment';
+import { useOrder, useOrderPayments, type Payment } from '../hooks/use-payment';
+
+/** Lo que el cliente debe hacer mientras el pago espera: pagar en la sucursal si es efectivo, o depositar y subir el comprobante. */
+function PaymentInstructions({
+  idOrder,
+  payment,
+  orderNumber,
+  branchName,
+  branchAddress,
+}: Readonly<{
+  idOrder: number;
+  payment: Payment;
+  orderNumber: string;
+  branchName: string | null | undefined;
+  branchAddress: string | null | undefined;
+}>) {
+  if (payment.methodKind === 'Cash') {
+    return (
+      <CashInstructions
+        payment={payment}
+        orderNumber={orderNumber}
+        branchName={branchName}
+        branchAddress={branchAddress}
+      />
+    );
+  }
+  return (
+    <>
+      <DepositInstructions payment={payment} orderNumber={orderNumber} running />
+      <ProofForm idOrder={idOrder} amount={payment.amount} />
+    </>
+  );
+}
 
 /**
  * Pantalla del pedido recién creado y de su pago por depósito: las instrucciones, el comprobante y el estado. Se vuelve a
@@ -19,7 +51,6 @@ import { useOrder, useOrderPayments } from '../hooks/use-payment';
  */
 export function PaymentPage() {
   const { t } = useTranslation();
-  const session = useSession();
   const params = useParams();
   const idOrder = /^\d{1,9}$/.test(params['id'] ?? '') ? Number(params['id']) : null;
   const order = useOrder(idOrder ?? 0);
@@ -48,6 +79,7 @@ export function PaymentPage() {
 
   return (
     <div className="space-y-8">
+      <CheckoutStepper current={3} />
       <header className="space-y-1">
         <p className="text-xs font-medium uppercase tracking-widest text-accent">
           {t('payment.eyebrow')}
@@ -71,14 +103,16 @@ export function PaymentPage() {
           <div className="space-y-6">
             <PaymentStatus idOrder={idOrder} payment={current} />
             {waiting ? (
-              <>
-                <DepositInstructions payment={current} orderNumber={data.orderNumber} running />
-                <ProofForm idOrder={idOrder} amount={current.amount} />
-              </>
+              <PaymentInstructions
+                idOrder={idOrder}
+                payment={current}
+                orderNumber={data.orderNumber}
+                branchName={data.pickupBranchName}
+                branchAddress={data.pickupBranchAddress}
+              />
             ) : null}
           </div>
           <aside className="space-y-4">
-            {isGuestSession(session) ? <RecoveryCodePanel /> : null}
             <Link
               to={`/orders/${String(idOrder)}`}
               className="block text-sm text-accent hover:underline"

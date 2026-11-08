@@ -120,6 +120,18 @@ export function createSqlPaymentsRepository(execute: ProcedureExecutor): Payment
       return result.output['Outcome'] as string;
     },
 
+    async confirmCash(actor: number, idPayment: number): Promise<string> {
+      const result = await execute(
+        'dbo.SP_Payments_ConfirmCash',
+        [
+          { name: 'IDActor', type: sql.Int, value: actor },
+          { name: 'IDPayment', type: sql.Int, value: idPayment },
+        ],
+        [{ name: 'Outcome', type: sql.VarChar(30) }],
+      );
+      return result.output['Outcome'] as string;
+    },
+
     /** Rejected, RejectedOrderCancelled (se agotaron los intentos) o AlreadyRejected. */
     async reject(actor: number, idPayment: number, reason: string): Promise<string> {
       const result = await execute(

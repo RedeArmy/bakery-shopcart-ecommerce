@@ -39,8 +39,8 @@ BEGIN
 
     IF NOT EXISTS (SELECT 1 FROM dbo.OrderStatuses WHERE IDOrderStatus = 1) INSERT INTO dbo.OrderStatuses VALUES (1, N'PendingPayment');
     IF NOT EXISTS (SELECT 1 FROM dbo.PaymentStatuses WHERE IDPaymentStatus = 1) INSERT INTO dbo.PaymentStatuses VALUES (1, N'Pending');
-    IF NOT EXISTS (SELECT 1 FROM dbo.PaymentMethods WHERE IDPaymentMethod = 1) INSERT INTO dbo.PaymentMethods VALUES (1, N'CARD', N'Card');
-    IF NOT EXISTS (SELECT 1 FROM dbo.PaymentMethods WHERE IDPaymentMethod = 2) INSERT INTO dbo.PaymentMethods VALUES (2, N'BANK_DEPOSIT', N'BankDeposit');
+    IF NOT EXISTS (SELECT 1 FROM dbo.PaymentMethods WHERE IDPaymentMethod = 1) INSERT INTO dbo.PaymentMethods (IDPaymentMethod, Code, Name, Kind) VALUES (1, N'CARD', N'Card', N'Card');
+    IF NOT EXISTS (SELECT 1 FROM dbo.PaymentMethods WHERE IDPaymentMethod = 2) INSERT INTO dbo.PaymentMethods (IDPaymentMethod, Code, Name) VALUES (2, N'BANK_DEPOSIT', N'BankDeposit');
     IF NOT EXISTS (SELECT 1 FROM dbo.Configuration WHERE SettingKey = N'DepositReservationHours') INSERT INTO dbo.Configuration VALUES (N'DepositReservationHours', N'24');
     IF NOT EXISTS (SELECT 1 FROM dbo.Configuration WHERE SettingKey = N'MinDepositHours') INSERT INTO dbo.Configuration VALUES (N'MinDepositHours', N'2');
 
@@ -480,21 +480,9 @@ AS
 BEGIN
     DECLARE @Ana INT = Test_Shop.UserId(N'ana@shopcart.test'), @Address INT = Test_Orders.AddressId(N'ana@shopcart.test');
     DECLARE @IDReservation INT, @IDOrder INT, @IDPayment INT, @Number NVARCHAR(20), @Expires DATETIME2(3);
-    EXEC tSQLt.ExpectException @ExpectedMessagePattern = N'%IDPaymentMethod must be%', @ExpectedErrorNumber = 50400;
+    EXEC tSQLt.ExpectException @ExpectedMessagePattern = N'%IDPaymentMethod does not exist%', @ExpectedErrorNumber = 50400;
     EXEC dbo.SP_Orders_CreateOrder @IDUser = @Ana, @IDReservation = 1, @IDAddress = @Address, @RequestedDeliveryDate = '2030-06-10',
-         @IDPaymentMethod = 3, @IdempotencyKey = N'key-1', @Now = '2030-06-01T12:05:00',
-         @IDOrder = @IDOrder OUTPUT, @IDPayment = @IDPayment OUTPUT, @OrderNumber = @Number OUTPUT, @PaymentExpiresAt = @Expires OUTPUT;
-END;
-GO
-
-CREATE PROCEDURE Test_Orders.[test a deposit without a bank account is rejected]
-AS
-BEGIN
-    DECLARE @Ana INT = Test_Shop.UserId(N'ana@shopcart.test'), @Address INT = Test_Orders.AddressId(N'ana@shopcart.test');
-    DECLARE @IDOrder INT, @IDPayment INT, @Number NVARCHAR(20), @Expires DATETIME2(3);
-    EXEC tSQLt.ExpectException @ExpectedMessagePattern = N'%bank account is required%', @ExpectedErrorNumber = 50400;
-    EXEC dbo.SP_Orders_CreateOrder @IDUser = @Ana, @IDReservation = 1, @IDAddress = @Address, @RequestedDeliveryDate = '2030-06-10',
-         @IDPaymentMethod = 2, @IdempotencyKey = N'key-1', @Now = '2030-06-01T12:05:00',
+         @IDPaymentMethod = 99, @IdempotencyKey = N'key-1', @Now = '2030-06-01T12:05:00',
          @IDOrder = @IDOrder OUTPUT, @IDPayment = @IDPayment OUTPUT, @OrderNumber = @Number OUTPUT, @PaymentExpiresAt = @Expires OUTPUT;
 END;
 GO
@@ -504,7 +492,7 @@ AS
 BEGIN
     DECLARE @Ana INT = Test_Shop.UserId(N'ana@shopcart.test'), @Address INT = Test_Orders.AddressId(N'ana@shopcart.test'), @Bank INT = Test_Orders.BankId(N'Test Bank');
     DECLARE @IDOrder INT, @IDPayment INT, @Number NVARCHAR(20), @Expires DATETIME2(3);
-    EXEC tSQLt.ExpectException @ExpectedMessagePattern = N'%takes no bank account%', @ExpectedErrorNumber = 50400;
+    EXEC tSQLt.ExpectException @ExpectedMessagePattern = N'%Only a deposit takes a bank account%', @ExpectedErrorNumber = 50400;
     EXEC dbo.SP_Orders_CreateOrder @IDUser = @Ana, @IDReservation = 1, @IDAddress = @Address, @RequestedDeliveryDate = '2030-06-10',
          @IDPaymentMethod = 1, @IdempotencyKey = N'key-1', @IDBankAccount = @Bank, @Now = '2030-06-01T12:05:00',
          @IDOrder = @IDOrder OUTPUT, @IDPayment = @IDPayment OUTPUT, @OrderNumber = @Number OUTPUT, @PaymentExpiresAt = @Expires OUTPUT;

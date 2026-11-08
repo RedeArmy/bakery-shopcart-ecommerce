@@ -17,3 +17,7 @@
 | 13 | The design (D11) says the checkout requires login and there are no anonymous payments; the owner asked that guests can buy without an account, and that coupons, personalisation and made-to-order products stay behind a registered account | Resolved | Decided on 2026-11-06: guest accounts ([ADR-0027](../adr/0027-guest-accounts-for-checkout-without-registering.md)). Coupons for guests were built first and removed the same day for the risk of abuse |
 | 14 | Guest accounts accumulate and nothing removes the ones without orders | Open | A retention rule is needed: delete guests with no order after a number of days, keeping the ones that own orders. The authentication rate limit bounds how fast they can be created |
 | 15 | A person with several unrelated mailboxes can still open accounts and reuse a coupon of one use per customer | Open | The email key stops aliases of one mailbox. A stronger rule would also count the delivery phone and address of the order, and in production a verified email or phone and device signals. Not built before the delivery |
+
+## Guest recovery code after the order tracking (7 November 2026)
+
+The checkout no longer issues the recovery code, so `/recover` (and `POST /auth/guest/recovery-code`, `POST /auth/guest/recover`, `SP_Users_SetRecoveryCode`, `SP_Users_FindGuestsByEmail`) are no longer reachable by a person. Should they be removed (a page that asks for a code nobody can get is a dead end) or kept for a later use? Pending the owner's decision; nothing was removed.

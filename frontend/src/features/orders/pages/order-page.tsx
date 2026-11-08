@@ -9,7 +9,9 @@ import { EmptyState, ErrorState, LoadingSkeleton } from '../../../shared/ui/stat
 import { useOrder } from '../../payments/hooks/use-payment';
 import { CancelOrder } from '../components/cancel-order';
 import { OrderStatusBadge } from '../components/order-status-badge';
-import { canCancel, isOrderStatus } from '../model/order-status';
+import { PaymentNotice } from '../components/payment-notice';
+import { OrderTimeline } from '../components/order-timeline';
+import { canCancel, displayStatus } from '../model/order-status';
 
 /** Un importe del resumen: se muestra tal como llega, nunca se calcula con él. */
 function Row({ label, amount }: Readonly<{ label: string; amount: string | undefined }>) {
@@ -61,6 +63,11 @@ function Fulfilment({ order }: Readonly<{ order: OrderDetail }>) {
         <br />
         {order.deliveryMunicipality}, {order.deliveryDepartment}
       </p>
+      {order.deliveryNotes ? (
+        <p className="text-sm text-stone-600">
+          {t('orders.deliveryNotes')}: {order.deliveryNotes}
+        </p>
+      ) : null}
     </section>
   );
 }
@@ -99,7 +106,7 @@ export function OrderPage() {
           <h1 className="text-4xl text-stone-900">
             {t('orders.detailTitle', { number: data.orderNumber })}
           </h1>
-          <OrderStatusBadge status={data.statusName} />
+          <OrderStatusBadge status={displayStatus(data.statusName, data.paymentStatusName)} />
         </div>
         <p className="text-stone-600">
           {data.createdAt === undefined ? null : formatDateTime(data.createdAt)}
@@ -144,26 +151,7 @@ export function OrderPage() {
 
           <Fulfilment order={data} />
 
-          <section aria-labelledby="order-history" className="space-y-3">
-            <h2 id="order-history" className="text-2xl text-stone-900">
-              {t('orders.history')}
-            </h2>
-            <ol className="space-y-3 border-l border-stone-300 pl-4">
-              {data.history.map((entry) => (
-                <li key={`${entry.createdAt ?? ''}-${String(entry.idNewStatus ?? '')}`}>
-                  <p className="text-stone-900">
-                    {entry.newStatusName !== undefined && isOrderStatus(entry.newStatusName)
-                      ? t(`orders.status.${entry.newStatusName}`)
-                      : entry.newStatusName}
-                  </p>
-                  <p className="text-sm text-stone-600">
-                    {/* El comentario del servidor es texto técnico en inglés: el cliente ve el estado y la fecha */}
-                    {entry.createdAt === undefined ? null : formatDateTime(entry.createdAt)}
-                  </p>
-                </li>
-              ))}
-            </ol>
-          </section>
+          <OrderTimeline history={data.history} />
         </div>
 
         <aside className="space-y-4">
@@ -191,6 +179,9 @@ export function OrderPage() {
               <Row label={t('orders.vat')} amount={data.vat} />
             </dl>
           </section>
+          {waiting ? (
+            <PaymentNotice idOrder={idOrder} paymentStatusName={data.paymentStatusName} />
+          ) : null}
           {waiting ? (
             <ButtonLink to={`/orders/${String(idOrder)}/payment`} className="w-full">
               {t('orders.pay')}

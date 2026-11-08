@@ -1,8 +1,9 @@
 /* =====================================================================
    Objeto   : dbo.SP_Payments_ListPendingDeposits
-   Version  : 1.1.0
+   Version  : 1.2.0
    Cambio   : El total ya no se calcula con COUNT(*) OVER () (un Window Spool que escribía cada fila en tempdb); se cuenta aparte y solo se leen
               las filas de la página; sin RECOMPILE: la cola en revisión (la consulta frecuente de los operadores) pasaba de 25 a 70 ms por compilar 8 tablas
+   Cambio 1.2.0: los depósitos se reconocen por la clase del método y la cuenta es opcional (V0017): sin cuenta, sus columnas salen NULL.
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Mismas columnas y mismo orden que 1.0.0. Por defecto lista los depósitos en revisión (estado 2), los más antiguos primero con su antigüedad en horas;
               con otro estado sirve de historial. Errores: 50400 paginación o rango inválidos.
@@ -29,7 +30,7 @@ BEGIN
   ;WITH f AS (
     SELECT p.IDPayment
     FROM dbo.Payments AS p
-    WHERE p.IDPaymentMethod = 2 AND p.IDPaymentStatus = @IDPaymentStatus
+    WHERE p.IDPaymentMethod IN (SELECT IDPaymentMethod FROM dbo.PaymentMethods WHERE Kind = N'Deposit') AND p.IDPaymentStatus = @IDPaymentStatus
       AND (@From IS NULL OR p.CreatedAt >= @From)
       AND (@To IS NULL OR p.CreatedAt < @To)
   ), pg AS (
@@ -50,7 +51,7 @@ BEGIN
   JOIN dbo.Users AS u ON u.IDUser = o.IDUser
   JOIN dbo.PaymentStatuses AS s ON s.IDPaymentStatus = p.IDPaymentStatus
   JOIN dbo.PaymentDeposits AS d ON d.IDPayment = p.IDPayment
-  JOIN dbo.BankAccounts AS b ON b.IDBankAccount = d.IDBankAccount
+  LEFT JOIN dbo.BankAccounts AS b ON b.IDBankAccount = d.IDBankAccount
   OUTER APPLY (SELECT TOP (1) pr.IDPaymentProof, pr.UploadedAt FROM dbo.PaymentProofs AS pr
                WHERE pr.IDPayment = p.IDPayment ORDER BY pr.IDPaymentProof DESC) AS proof
   ORDER BY CASE WHEN @IDPaymentStatus = 2 THEN p.IDPayment END ASC,

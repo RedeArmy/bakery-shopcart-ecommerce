@@ -12,7 +12,6 @@ import { GuestContactForm } from '../components/guest-contact-form';
 import { IdentityStep } from '../components/identity-step';
 import { LinePersonalisation } from '../components/line-personalisation';
 import { PurchaseSteps } from '../components/purchase-steps';
-import { RecoveryCodePanel } from '../components/recovery-code-panel';
 
 /**
  * Personalización de cada producto, en una sección desplegable. Con cuenta se escribe el mensaje (abierta, porque es lo que
@@ -68,9 +67,6 @@ export function CheckoutPage() {
             <div className="space-y-10">
               {user === null ? <IdentityStep /> : null}
               {user !== null && isGuestSession(session) ? <GuestContactForm user={user} /> : null}
-              {user !== null && isGuestSession(session) && hasContact(user) ? (
-                <RecoveryCodePanel />
-              ) : null}
               <PersonalisationSection cart={data} allowed={hasAccount(session)} />
               {user !== null && (!isGuestSession(session) || hasContact(user)) ? (
                 <PurchaseSteps cart={data} />

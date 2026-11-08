@@ -12,10 +12,11 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 | Cart (RF-04) | **Built:** `SP_Cart_Get`, `SP_Cart_SetItemQuantity`, `SP_Cart_RemoveItem`, `SP_Cart_MergeGuest`, `SP_Cart_ApplyCoupon`, `SP_Cart_RemoveCoupon` |
 | Coupons (RF-05) | **Built:** `SP_Coupons_Create/Update/Deactivate/List`, `SP_Coupons_Validate` |
 | Branches (pickup) | **Built:** `SP_Branches_List`, `SP_Branches_Create`, `SP_Branches_Update`, `SP_Branches_Deactivate` (V0015; "removing" a branch deactivates it) |
+| Payment methods (maintenance) | **Built:** `SP_PaymentMethods_List`, `SP_PaymentMethods_Create`, `SP_PaymentMethods_Update`, `SP_PaymentMethods_Deactivate` (V0017; "removing" a method deactivates it) and `SP_Payments_ConfirmCash` (a cash payment collected in the branch) |
 | Checkout (RF-06) | **Built:** `SP_Idempotency_Begin/Complete/Fail/PurgeExpired`, **`SP_Orders_CreateOrder`** (built) |
 | Payments | **Built (readers):** `SP_BankAccounts_List/Save` (the draft called the first one `ListActive`), `SP_Payments_GetMethodsAndWindow`, `SP_Payments_GetByOrder`, `SP_Payments_GetProof`, `SP_Payments_ListPendingDeposits`. Core: **`SP_Payments_ConfirmPayment`**, **`SP_Payments_RegisterProof`**, **`SP_Payments_ApproveDeposit`**, **`SP_Payments_RejectDeposit`**, **`SP_Payments_ExpirePending`**, `SP_Payments_RegisterOrphanPayment`, **Built:** `SP_Refunds_Mark`, `SP_Refunds_List` (refunds are opened by cancellations, returns and late payments, so there is no separate register procedure) |
 | Payments, card (Phase 2) | `SP_Payments_RegisterExternalCheckout`, `SP_Payments_RegisterCreationFailure`, `SP_Payments_RegisterWebhookEvent`, `SP_Payments_ListPendingCardsToReconcile`, `SP_Webhooks_Purge` |
-| Orders (RF-07) | **Built:** **`SP_Orders_ChangeStatus`**, **`SP_Orders_Cancel`**, **`SP_Returns_Register`**, `SP_Orders_List`, `SP_Orders_GetDetail` |
+| Orders (RF-07) | **Built:** **`SP_Orders_ChangeStatus`**, **`SP_Orders_Cancel`**, **`SP_Returns_Register`**, `SP_Orders_List`, `SP_Orders_GetDetail`, `SP_Orders_Track` (public status of an order, with its number and email) |
 | Dashboard (RF-08) | **Built:** `SP_Dashboard_Summary`, `SP_Dashboard_SalesByPeriod`, `SP_Dashboard_SalesByCategory`, `SP_Dashboard_TopProducts` (the draft called it `TopTenProducts`; it takes a limit), `SP_Dashboard_AbandonedCarts` |
 | Audit (RF-09) | `SP_Audit_Record` (built, internal use), `SP_Audit_Query` (built) |
 | Jobs | **Built:** `SP_Jobs_ExpirePayments`, `SP_Jobs_PurgeExpired`, `SP_Jobs_ReconcileAmounts`, `SP_Reconciliation_List` |
@@ -320,6 +321,17 @@ Properties defended: a repeated webhook or approval is a no-op; a concurrent con
 | Database failure after saving the file | The service deletes the file (compensation); a job removes orphan files |
 | File with a misleading extension | Validated by magic bytes, not by name or client content type |
 | Deposit close to the delivery date | `FU_Payments_DepositWindow` caps it or does not offer it |
+
+### The payment a customer sees in the order (built)
+
+- **The order status and the payment status stay apart** (ADR-0015), but the customer needs to know that a proof is waiting. `FU_Orders_CurrentPaymentStatus` gives the status of the latest payment and `FU_Orders_PaymentEvents` gives the moments of the payment (a proof under review, a rejected deposit). `SP_Orders_List`, `SP_Orders_GetDetail` and `SP_Orders_Track` return `PaymentStatusName` right after `StatusName`, and the history of the detail and of the tracking mixes in those moments (`PaymentUnderReview`, `PaymentRejected`, with no status identifier). The screens show "pending verification of the payment" when the order is `PendingPayment` and the payment is `UnderReview`.
+
+### Payment methods (built)
+
+- **A method has a kind and a place.** `PaymentMethods.Kind` (`Card`, `Deposit`, `Cash`) decides how the payment is processed; `AppliesToDelivery` and `AppliesToPickup` decide for which way of receiving the order it is offered. `SP_PaymentMethods_Create` and `SP_PaymentMethods_Update` store the cash for pickups only whatever is sent (`CK_PaymentMethods_CashPickupOnly` backs it), answer `50409 PAYMENT_METHOD_TITLE_IN_USE` and `50422` to anyone who is not an active administrator, and write the audit log (module `PaymentMethods`). The card is not managed here (`50422 PAYMENT_METHOD_NOT_MANAGED`).
+- **`SP_Orders_CreateOrder` 1.4.0** reads the kind, the active flag and the places of the method: a method that is inactive or not offered for the way of receiving is `50422 PAYMENT_METHOD_UNAVAILABLE`. A deposit needs no bank account any more; a cash payment has no deposit row and expires at the end of the estimated day (local time).
+- **`SP_Payments_ConfirmCash`** lets an operator or an administrator confirm a pending cash payment: it reuses `SP_Payments_ConfirmPayment` (the order becomes paid and the stock leaves). Confirming twice answers `AlreadyApproved`; a payment that is not cash is `50404`.
+- The deposit procedures (`SP_Payments_RegisterProof`, `ApproveDeposit`, `RejectDeposit`, `CreateDepositAttempt`, `ListPendingDeposits`, `SP_Dashboard_Summary`) recognise a deposit by its kind and not by the identifier 2, and `SP_Payments_GetByOrder` returns `MethodKind`.
 
 ### Branches and pickup (built)
 

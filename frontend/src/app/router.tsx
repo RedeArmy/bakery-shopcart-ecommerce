@@ -60,15 +60,16 @@ export const routes: RouteObject[] = [
         }),
       },
       {
-        // Los pedidos y su pago son del cliente (incluido el invitado, que también es Customer)
+        // Consultar un pedido con su número y su correo es para cualquiera: la lista propia solo se ve con sesión de cliente
+        path: 'orders',
+        lazy: async () => ({
+          Component: (await import('../features/orders/pages/orders-page')).OrdersPage,
+        }),
+      },
+      {
+        // El detalle de un pedido y su pago son del cliente (incluido el invitado, que también es Customer)
         element: <ProtectedRoute roles={['Customer']} />,
         children: [
-          {
-            path: 'orders',
-            lazy: async () => ({
-              Component: (await import('../features/orders/pages/orders-page')).OrdersPage,
-            }),
-          },
           {
             path: 'orders/:id',
             lazy: async () => ({
@@ -91,6 +92,13 @@ export const routes: RouteObject[] = [
             path: 'admin/branches',
             lazy: async () => ({
               Component: (await import('../features/branches/pages/branches-page')).BranchesPage,
+            }),
+          },
+          {
+            path: 'admin/payment-methods',
+            lazy: async () => ({
+              Component: (await import('../features/payment-methods/pages/payment-methods-page'))
+                .PaymentMethodsPage,
             }),
           },
         ],

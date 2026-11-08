@@ -44,7 +44,7 @@ BEGIN
     EXEC Test_Lifecycle.Place @Email = N'luis@shopcart.test', @SKU = N'B-COOKIE', @Quantity = 1, @Key = N'key-2', @Method = 2, @IDOrder = @LuisOrder OUTPUT, @IDPayment = @LuisPayment OUTPUT;
 
     CREATE TABLE #Result (IDOrder INT, OrderNumber NVARCHAR(20), IDUser INT, CustomerName NVARCHAR(120), CustomerEmail NVARCHAR(256), IDOrderStatus TINYINT,
-                          StatusName NVARCHAR(30), Total VARCHAR(25), ItemCount INT, CreatedAt DATETIME2(3), PaidAt DATETIME2(3), RequestedDeliveryDate DATE, TotalCount INT);
+                          StatusName NVARCHAR(30), PaymentStatusName NVARCHAR(30), Total VARCHAR(25), ItemCount INT, CreatedAt DATETIME2(3), PaidAt DATETIME2(3), RequestedDeliveryDate DATE, TotalCount INT);
     INSERT INTO #Result EXEC dbo.SP_Orders_List @IDActor = @Ana;
 
     DECLARE @Rows INT = (SELECT COUNT(*) FROM #Result), @Only INT = (SELECT MIN(IDOrder) FROM #Result), @Total VARCHAR(25) = (SELECT Total FROM #Result);
@@ -63,7 +63,7 @@ BEGIN
     DECLARE @LuisNumber NVARCHAR(20) = (SELECT OrderNumber FROM dbo.Orders WHERE IDOrder = @LuisOrder);
 
     CREATE TABLE #Result (IDOrder INT, OrderNumber NVARCHAR(20), IDUser INT, CustomerName NVARCHAR(120), CustomerEmail NVARCHAR(256), IDOrderStatus TINYINT,
-                          StatusName NVARCHAR(30), Total VARCHAR(25), ItemCount INT, CreatedAt DATETIME2(3), PaidAt DATETIME2(3), RequestedDeliveryDate DATE, TotalCount INT);
+                          StatusName NVARCHAR(30), PaymentStatusName NVARCHAR(30), Total VARCHAR(25), ItemCount INT, CreatedAt DATETIME2(3), PaidAt DATETIME2(3), RequestedDeliveryDate DATE, TotalCount INT);
     -- La búsqueda por número es del personal: un cliente que la pide no recibe nada, ni siquiera el pedido ajeno
     INSERT INTO #Result EXEC dbo.SP_Orders_List @IDActor = @Ana, @Search = @LuisNumber;
 
@@ -81,7 +81,7 @@ BEGIN
     DECLARE @LuisNumber NVARCHAR(20) = (SELECT OrderNumber FROM dbo.Orders WHERE IDOrder = @LuisOrder);
 
     CREATE TABLE #All (IDOrder INT, OrderNumber NVARCHAR(20), IDUser INT, CustomerName NVARCHAR(120), CustomerEmail NVARCHAR(256), IDOrderStatus TINYINT,
-                       StatusName NVARCHAR(30), Total VARCHAR(25), ItemCount INT, CreatedAt DATETIME2(3), PaidAt DATETIME2(3), RequestedDeliveryDate DATE, TotalCount INT);
+                       StatusName NVARCHAR(30), PaymentStatusName NVARCHAR(30), Total VARCHAR(25), ItemCount INT, CreatedAt DATETIME2(3), PaidAt DATETIME2(3), RequestedDeliveryDate DATE, TotalCount INT);
     SELECT * INTO #Paid FROM #All; SELECT * INTO #ByNumber FROM #All; SELECT * INTO #ByEmail FROM #All;
     INSERT INTO #All EXEC dbo.SP_Orders_List @IDActor = @Admin, @AsStaff = 1;
     INSERT INTO #Paid EXEC dbo.SP_Orders_List @IDActor = @Admin, @AsStaff = 1, @IDOrderStatus = 2;
@@ -107,7 +107,7 @@ BEGIN
     EXEC Test_Lifecycle.Place @Email = N'luis@shopcart.test', @SKU = N'B-COOKIE', @Quantity = 1, @Key = N'key-2', @Method = 2, @IDOrder = @Second OUTPUT, @IDPayment = @SecondPayment OUTPUT;
 
     CREATE TABLE #Result (IDOrder INT, OrderNumber NVARCHAR(20), IDUser INT, CustomerName NVARCHAR(120), CustomerEmail NVARCHAR(256), IDOrderStatus TINYINT,
-                          StatusName NVARCHAR(30), Total VARCHAR(25), ItemCount INT, CreatedAt DATETIME2(3), PaidAt DATETIME2(3), RequestedDeliveryDate DATE, TotalCount INT);
+                          StatusName NVARCHAR(30), PaymentStatusName NVARCHAR(30), Total VARCHAR(25), ItemCount INT, CreatedAt DATETIME2(3), PaidAt DATETIME2(3), RequestedDeliveryDate DATE, TotalCount INT);
     INSERT INTO #Result EXEC dbo.SP_Orders_List @IDActor = @Admin, @AsStaff = 1, @PageNumber = 2, @PageSize = 1;
 
     DECLARE @Rows INT = (SELECT COUNT(*) FROM #Result), @Id INT = (SELECT IDOrder FROM #Result), @Total INT = (SELECT TotalCount FROM #Result);
@@ -135,8 +135,8 @@ BEGIN
     EXEC Test_Lifecycle.Make @Email = N'ana@shopcart.test', @SKU = N'C-CUPCAKE', @Quantity = 3, @Key = N'key-1', @To = 3, @IDOrder = @IDOrder OUTPUT, @IDPayment = @IDPayment OUTPUT;
 
     CREATE TABLE #Result (IDOrder INT, OrderNumber NVARCHAR(20), IDUser INT, CustomerName NVARCHAR(120), CustomerEmail NVARCHAR(256), IDOrderStatus TINYINT,
-                          StatusName NVARCHAR(30), CouponCode NVARCHAR(30), DeliveryRecipient NVARCHAR(120), DeliveryPhone NVARCHAR(20), DeliveryLine1 NVARCHAR(200),
-                          DeliveryMunicipality NVARCHAR(80), DeliveryDepartment NVARCHAR(80), RequestedDeliveryDate DATE, FulfilmentType NVARCHAR(10), IDBranch INT, PickupBranchName NVARCHAR(80), PickupBranchAddress NVARCHAR(300), Subtotal VARCHAR(25), Discount VARCHAR(25),
+                          StatusName NVARCHAR(30), PaymentStatusName NVARCHAR(30), CouponCode NVARCHAR(30), DeliveryRecipient NVARCHAR(120), DeliveryPhone NVARCHAR(20), DeliveryLine1 NVARCHAR(200),
+                          DeliveryMunicipality NVARCHAR(80), DeliveryDepartment NVARCHAR(80), RequestedDeliveryDate DATE, FulfilmentType NVARCHAR(10), IDBranch INT, PickupBranchName NVARCHAR(80), PickupBranchAddress NVARCHAR(300), DeliveryNotes NVARCHAR(300), Subtotal VARCHAR(25), Discount VARCHAR(25),
                           Shipping VARCHAR(25), Total VARCHAR(25), TaxableBase VARCHAR(25), Vat VARCHAR(25), CreatedAt DATETIME2(3), PaidAt DATETIME2(3),
                           Lines NVARCHAR(MAX), History NVARCHAR(MAX));
     INSERT INTO #Result EXEC dbo.SP_Orders_GetDetail @IDActor = @Ana, @IDOrder = @IDOrder;
@@ -172,8 +172,8 @@ BEGIN
     EXEC Test_Lifecycle.Place @Email = N'ana@shopcart.test', @SKU = N'A-CAKE', @Quantity = 1, @Key = N'key-1', @Method = 2, @IDOrder = @IDOrder OUTPUT, @IDPayment = @IDPayment OUTPUT;
 
     CREATE TABLE #Result (IDOrder INT, OrderNumber NVARCHAR(20), IDUser INT, CustomerName NVARCHAR(120), CustomerEmail NVARCHAR(256), IDOrderStatus TINYINT,
-                          StatusName NVARCHAR(30), CouponCode NVARCHAR(30), DeliveryRecipient NVARCHAR(120), DeliveryPhone NVARCHAR(20), DeliveryLine1 NVARCHAR(200),
-                          DeliveryMunicipality NVARCHAR(80), DeliveryDepartment NVARCHAR(80), RequestedDeliveryDate DATE, FulfilmentType NVARCHAR(10), IDBranch INT, PickupBranchName NVARCHAR(80), PickupBranchAddress NVARCHAR(300), Subtotal VARCHAR(25), Discount VARCHAR(25),
+                          StatusName NVARCHAR(30), PaymentStatusName NVARCHAR(30), CouponCode NVARCHAR(30), DeliveryRecipient NVARCHAR(120), DeliveryPhone NVARCHAR(20), DeliveryLine1 NVARCHAR(200),
+                          DeliveryMunicipality NVARCHAR(80), DeliveryDepartment NVARCHAR(80), RequestedDeliveryDate DATE, FulfilmentType NVARCHAR(10), IDBranch INT, PickupBranchName NVARCHAR(80), PickupBranchAddress NVARCHAR(300), DeliveryNotes NVARCHAR(300), Subtotal VARCHAR(25), Discount VARCHAR(25),
                           Shipping VARCHAR(25), Total VARCHAR(25), TaxableBase VARCHAR(25), Vat VARCHAR(25), CreatedAt DATETIME2(3), PaidAt DATETIME2(3),
                           Lines NVARCHAR(MAX), History NVARCHAR(MAX));
     INSERT INTO #Result EXEC dbo.SP_Orders_GetDetail @IDActor = @Admin, @AsStaff = 1, @IDOrder = @IDOrder;
@@ -199,7 +199,7 @@ BEGIN
     DECLARE @IDOrder INT, @IDPayment INT, @Ana INT = Test_Shop.UserId(N'ana@shopcart.test');
     EXEC Test_Readers.UnderReview @Email = N'ana@shopcart.test', @Key = N'key-1', @Hash = '0000000000000000000000000000000000000000000000000000000000000001', @Reference = N'REF-1', @IDOrder = @IDOrder OUTPUT, @IDPayment = @IDPayment OUTPUT;
 
-    CREATE TABLE #Result (IDPayment INT, IDPaymentMethod TINYINT, MethodCode NVARCHAR(30), IDPaymentStatus TINYINT, StatusName NVARCHAR(30), Amount VARCHAR(25),
+    CREATE TABLE #Result (IDPayment INT, IDPaymentMethod TINYINT, MethodCode NVARCHAR(30), MethodKind NVARCHAR(10), IDPaymentStatus TINYINT, StatusName NVARCHAR(30), Amount VARCHAR(25),
                           ExpiresAt DATETIME2(3), CreatedAt DATETIME2(3), ResolvedAt DATETIME2(3), IDBankAccount INT, BankName NVARCHAR(80), AccountType NVARCHAR(12),
                           AccountNumber NVARCHAR(30), HolderName NVARCHAR(120), Instructions NVARCHAR(300), ReferenceNumber NVARCHAR(40), DepositDate DATE,
                           DepositedAmount VARCHAR(25), IsCurrent BIT, RejectionReason NVARCHAR(250), ReviewedAt DATETIME2(3), AttemptsRejected INT, MaxAttempts INT,
@@ -224,7 +224,7 @@ BEGIN
     EXEC Test_Readers.UnderReview @Email = N'ana@shopcart.test', @Key = N'key-1', @Hash = '0000000000000000000000000000000000000000000000000000000000000001', @Reference = N'REF-1', @IDOrder = @IDOrder OUTPUT, @IDPayment = @IDPayment OUTPUT;
     EXEC dbo.SP_Payments_RejectDeposit @IDActor = @Operator, @IDPayment = @IDPayment, @Reason = N'Blurry photo', @Now = '2030-06-01T14:00:00', @Outcome = @Outcome OUTPUT;
 
-    CREATE TABLE #Result (IDPayment INT, IDPaymentMethod TINYINT, MethodCode NVARCHAR(30), IDPaymentStatus TINYINT, StatusName NVARCHAR(30), Amount VARCHAR(25),
+    CREATE TABLE #Result (IDPayment INT, IDPaymentMethod TINYINT, MethodCode NVARCHAR(30), MethodKind NVARCHAR(10), IDPaymentStatus TINYINT, StatusName NVARCHAR(30), Amount VARCHAR(25),
                           ExpiresAt DATETIME2(3), CreatedAt DATETIME2(3), ResolvedAt DATETIME2(3), IDBankAccount INT, BankName NVARCHAR(80), AccountType NVARCHAR(12),
                           AccountNumber NVARCHAR(30), HolderName NVARCHAR(120), Instructions NVARCHAR(300), ReferenceNumber NVARCHAR(40), DepositDate DATE,
                           DepositedAmount VARCHAR(25), IsCurrent BIT, RejectionReason NVARCHAR(250), ReviewedAt DATETIME2(3), AttemptsRejected INT, MaxAttempts INT,

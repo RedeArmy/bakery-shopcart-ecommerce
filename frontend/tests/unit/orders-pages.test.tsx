@@ -3,9 +3,13 @@ import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '../../src/shared/i18n';
-import { parseOrdersQuery, canCancel } from '../../src/features/orders/model/order-status';
+import {
+  parseOrdersQuery,
+  canCancel,
+  displayStatus,
+} from '../../src/features/orders/model/order-status';
 import { apiError, installFakeApi, json } from './support/fake-api';
-import { renderApp, resetSession, signInAs } from './support/render';
+import { renderApp, resetSession, signInAs, signInAsGuest } from './support/render';
 
 beforeEach(async () => {
   await resetSession();
@@ -92,7 +96,7 @@ describe('the order list', () => {
     });
   });
 
-  it('explains an empty list and offers the catalogue', async () => {
+  it('explains an empty list inside an account and offers the catalogue', async () => {
     await signInAs('Customer');
     installFakeApi({ 'GET /api/v1/orders': json(page([])) });
     renderApp('/orders');
@@ -101,19 +105,51 @@ describe('the order list', () => {
     expect(screen.getByRole('link', { name: 'Ver el catálogo' }).getAttribute('href')).toBe(
       '/catalogue',
     );
+    // Dentro de la cuenta la página es «Mis pedidos» y no pide número ni correo
+    expect(screen.getByRole('heading', { level: 1, name: 'Mis pedidos' })).toBeDefined();
+    expect(screen.queryByRole('heading', { name: 'Consulte su pedido' })).toBeNull();
   });
 
-  it('shows the menu entry to customers only', async () => {
+  it('shows all the orders of an account under the title Mis pedidos', async () => {
+    await signInAs('Customer');
+    installFakeApi({ 'GET /api/v1/orders': json(page([summary()])) });
+    renderApp('/orders');
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Mis pedidos' })).toBeDefined();
+    expect(await screen.findByText('PED-2026-000007')).toBeDefined();
+    expect(screen.queryByRole('heading', { name: 'Consulte su pedido' })).toBeNull();
+  });
+
+  it('calls the menu entry Mis pedidos inside an account', async () => {
     await signInAs('Customer');
     installFakeApi({ 'GET /api/v1/orders': json(page([])) });
     renderApp('/orders');
     expect((await screen.findAllByRole('link', { name: 'Mis pedidos' })).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('link', { name: 'Pedidos' })).toBeNull();
   });
 
-  it('does not open to a visitor: it goes to sign in', async () => {
-    installFakeApi({});
+  it('gives a guest the lookup and, below it, only the orders of the session when there are any', async () => {
+    await signInAsGuest();
+    installFakeApi({ 'GET /api/v1/orders': json(page([summary()])) });
     renderApp('/orders');
-    expect(await screen.findByRole('heading', { name: /iniciar sesión/i })).toBeDefined();
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Pedidos' })).toBeDefined();
+    expect(screen.getByRole('heading', { name: 'Consulte su pedido' })).toBeDefined();
+    expect(await screen.findByRole('heading', { name: 'Sus pedidos' })).toBeDefined();
+    // El invitado no está en una cuenta: el enlace es el público
+    expect(screen.queryByRole('link', { name: 'Mis pedidos' })).toBeNull();
+  });
+
+  it('opens to a visitor with the lookup only, and the public entry is called Pedidos', async () => {
+    const { calls } = installFakeApi({});
+    renderApp('/orders');
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Pedidos' })).toBeDefined();
+    expect(screen.getByRole('heading', { name: 'Consulte su pedido' })).toBeDefined();
+    expect((await screen.findAllByRole('link', { name: 'Pedidos' })).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('link', { name: 'Mis pedidos' })).toBeNull();
+    // Sin sesión no se pide ninguna lista
+    expect(calls.some((call) => call.path === '/api/v1/orders')).toBe(false);
   });
 });
 
@@ -178,6 +214,30 @@ describe('the order detail', () => {
   });
 });
 
+describe('the order as the customer follows it', () => {
+  it('shows the delivery notes, the deposit review notice and every state of the timeline', async () => {
+    await signInAs('Customer');
+    installFakeApi({
+      'GET /api/v1/orders/7': json(
+        detail({
+          deliveryNotes: 'Tocar el timbre dos veces',
+          history: [
+            { idNewStatus: 1, newStatusName: 'PendingPayment', createdAt: '2026-11-06T15:00:00Z' },
+            { idNewStatus: 2, newStatusName: 'Paid', createdAt: '2026-11-07T10:00:00Z' },
+          ],
+        }),
+      ),
+    });
+    renderApp('/orders/7');
+
+    expect(await screen.findByText(/Tocar el timbre dos veces/)).toBeDefined();
+    // El aviso espera a saber con qué se paga: llega después del encabezado
+    expect(await screen.findByText(/una persona lo revisará con el banco/)).toBeDefined();
+    expect(screen.getAllByText('Pagado').length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: /Repetir/ })).toBeNull();
+  });
+});
+
 describe('a pickup order', () => {
   it('shows the branch instead of a delivery address', async () => {
     await signInAs('Customer');
@@ -222,5 +282,90 @@ describe('the order list query', () => {
   it('lets the customer cancel until the order is dispatched', () => {
     expect(['PendingPayment', 'Paid', 'InPreparation'].every(canCancel)).toBe(true);
     expect(['Dispatched', 'Delivered', 'Cancelled', 'Returned'].some(canCancel)).toBe(false);
+  });
+});
+
+describe('the status the customer sees when a proof is waiting to be checked', () => {
+  it('says the payment is pending verification once the proof arrived, and only then', () => {
+    expect(displayStatus('PendingPayment', 'UnderReview')).toBe('PaymentUnderReview');
+    // Sin comprobante, con un depósito rechazado o en efectivo sigue siendo pendiente de pago
+    expect(displayStatus('PendingPayment', 'Pending')).toBe('PendingPayment');
+    expect(displayStatus('PendingPayment', 'Rejected')).toBe('PendingPayment');
+    expect(displayStatus('PendingPayment', null)).toBe('PendingPayment');
+    // Los demás estados no cambian
+    expect(displayStatus('Paid', 'Approved')).toBe('Paid');
+    expect(displayStatus('Cancelled', 'UnderReview')).toBe('Cancelled');
+  });
+
+  it('shows it in the list, the detail and the timeline', async () => {
+    await signInAs('Customer');
+    const verifying = {
+      paymentStatusName: 'UnderReview',
+      history: [
+        { idNewStatus: 1, newStatusName: 'PendingPayment', createdAt: '2026-11-06T15:00:00Z' },
+        { newStatusName: 'PaymentUnderReview', createdAt: '2026-11-06T16:00:00Z' },
+      ],
+    };
+    installFakeApi({
+      'GET /api/v1/orders': json(page([summary({ paymentStatusName: 'UnderReview' })])),
+      'GET /api/v1/orders/7': json(detail(verifying)),
+    });
+    renderApp('/orders');
+    const card = await screen.findByRole('link', { name: /PED-2026-000007/ });
+    expect(within(card).getByText('Pendiente de verificación de pago')).toBeDefined();
+    expect(within(card).queryByText('Pendiente de pago')).toBeNull();
+    cleanup();
+
+    renderApp('/orders/7');
+    expect(await screen.findByRole('heading', { name: 'Pedido PED-2026-000007' })).toBeDefined();
+    // La insignia y el último momento de la línea de tiempo lo dicen; el aviso explica qué sigue
+    expect(screen.getAllByText('Pendiente de verificación de pago').length).toBeGreaterThanOrEqual(
+      2,
+    );
+    expect(await screen.findByText(/Una persona lo está verificando con el banco/)).toBeDefined();
+  });
+});
+
+describe('what the order detail says about paying', () => {
+  const payment = (extra = {}) => ({
+    idPayment: 1,
+    isCurrent: true,
+    statusName: 'Pending',
+    amount: '145.00',
+    ...extra,
+  });
+
+  it('talks about paying in cash in the branch when the payment is in cash', async () => {
+    await signInAs('Customer');
+    installFakeApi({
+      'GET /api/v1/orders/7': json(detail({ paymentStatusName: 'Pending' })),
+      'GET /api/v1/orders/7/payment': json([payment({ methodKind: 'Cash' })]),
+    });
+    renderApp('/orders/7');
+
+    expect(
+      await screen.findByText(/reservado hasta que llegue a la sucursal y pague en efectivo/),
+    ).toBeDefined();
+    expect(screen.queryByText(/Cuando suba su comprobante/)).toBeNull();
+  });
+
+  it('keeps the deposit notice for a deposit and the verification notice once the proof arrived', async () => {
+    await signInAs('Customer');
+    installFakeApi({
+      'GET /api/v1/orders/7': json(detail({ paymentStatusName: 'Pending' })),
+      'GET /api/v1/orders/7/payment': json([payment({ methodKind: 'Deposit' })]),
+    });
+    renderApp('/orders/7');
+    expect(await screen.findByText(/Cuando suba su comprobante/)).toBeDefined();
+    cleanup();
+
+    installFakeApi({
+      'GET /api/v1/orders/7': json(detail({ paymentStatusName: 'UnderReview' })),
+      'GET /api/v1/orders/7/payment': json([
+        payment({ methodKind: 'Deposit', statusName: 'UnderReview' }),
+      ]),
+    });
+    renderApp('/orders/7');
+    expect(await screen.findByText(/Una persona lo está verificando con el banco/)).toBeDefined();
   });
 });

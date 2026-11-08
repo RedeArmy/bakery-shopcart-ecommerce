@@ -71,7 +71,7 @@ CREATE PROCEDURE Test_Seeds.[test the payment methods carry the codes of the API
 AS
 BEGIN
     CREATE TABLE #Expected (IDPaymentMethod TINYINT, Code NVARCHAR(30) COLLATE DATABASE_DEFAULT, Name NVARCHAR(60) COLLATE DATABASE_DEFAULT);
-    INSERT INTO #Expected VALUES (1, N'CARD', N'Card'), (2, N'BANK_DEPOSIT', N'BankDeposit');
+    INSERT INTO #Expected VALUES (1, N'CARD', N'Card'), (2, N'BANK_DEPOSIT', N'BankDeposit'), (3, N'CASH_ON_PICKUP', N'CashOnPickup');
 
     SELECT IDPaymentMethod, Code, Name INTO #Actual FROM dbo.PaymentMethods;
 

@@ -3,6 +3,7 @@ import { createAuditModule } from './modules/audit/index.js';
 import { createAuthModule } from './modules/auth/index.js';
 import { createCartModule } from './modules/cart/index.js';
 import { createBranchesModule } from './modules/branches/index.js';
+import { createPaymentMethodsModule } from './modules/payment-methods/index.js';
 import { createCatalogueModule } from './modules/catalogue/index.js';
 import { createCheckoutModule } from './modules/checkout/index.js';
 import { createCouponsModule } from './modules/coupons/index.js';
@@ -128,6 +129,7 @@ export function buildContainer(env: Env, options: ContainerOptions = {}): Contai
     auth.router,
     createCatalogueModule(kit).router,
     createBranchesModule(kit).router,
+    createPaymentMethodsModule(kit).router,
     createCartModule(kit).router,
     createUsersModule(kit).router,
     // Fase 1: sin pasarela de tarjeta; la Fase 2 la activa con las credenciales de Recurrente

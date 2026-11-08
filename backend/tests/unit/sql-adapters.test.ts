@@ -4,6 +4,7 @@ import { createSqlAuditRepository } from '../../src/modules/audit/infrastructure
 import { createSqlCartRepository } from '../../src/modules/cart/infrastructure/sql-cart-repository.js';
 import { createSqlCatalogueRepository } from '../../src/modules/catalogue/infrastructure/sql-catalogue-repository.js';
 import { createSqlBranchesRepository } from '../../src/modules/branches/infrastructure/sql-branches-repository.js';
+import { createSqlPaymentMethodsRepository } from '../../src/modules/payment-methods/infrastructure/sql-payment-methods-repository.js';
 import { createSqlCheckoutRepository } from '../../src/modules/checkout/infrastructure/sql-checkout-repository.js';
 import { createSqlDashboardRepository } from '../../src/modules/dashboard/infrastructure/sql-dashboard-repository.js';
 import { createSqlCouponsRepository } from '../../src/modules/coupons/infrastructure/sql-coupons-repository.js';
@@ -453,6 +454,12 @@ const cases: Case[] = [
     ['IDActor', 'AsStaff', 'IDOrderStatus', 'Search', 'From', 'To', 'PageNumber', 'PageSize'],
   ],
   [
+    'orders track',
+    (e) => createSqlOrdersRepository(e).track('PED-2030-000001', 'ana@shopcart.test'),
+    'dbo.SP_Orders_Track',
+    ['OrderNumber', 'Email'],
+  ],
+  [
     'orders detail',
     (e) => createSqlOrdersRepository(e).detail(1, false, 2),
     'dbo.SP_Orders_GetDetail',
@@ -665,6 +672,64 @@ const cases: Case[] = [
     ['IDActor', 'IDBranch'],
   ],
   [
+    'payment methods list',
+    (e) => createSqlPaymentMethodsRepository(e).list(),
+    'dbo.SP_PaymentMethods_List',
+    ['IncludeInactive', 'ManagedOnly'],
+  ],
+  [
+    'payment methods create',
+    (e) =>
+      createSqlPaymentMethodsRepository(e).create(1, 'Cash', {
+        title: 'Cash',
+        description: null,
+        appliesToDelivery: false,
+        appliesToPickup: true,
+      }),
+    'dbo.SP_PaymentMethods_Create',
+    ['IDActor', 'Kind', 'Title', 'Description', 'AppliesToDelivery', 'AppliesToPickup'],
+    ['IDPaymentMethod'],
+  ],
+  [
+    'payment methods update',
+    (e) =>
+      createSqlPaymentMethodsRepository(e).update(
+        1,
+        4,
+        { title: 'Deposit', description: 'x', appliesToDelivery: true, appliesToPickup: true },
+        false,
+      ),
+    'dbo.SP_PaymentMethods_Update',
+    [
+      'IDActor',
+      'IDPaymentMethod',
+      'Title',
+      'Description',
+      'AppliesToDelivery',
+      'AppliesToPickup',
+      'IsActive',
+    ],
+  ],
+  [
+    'payment methods deactivate',
+    (e) => createSqlPaymentMethodsRepository(e).deactivate(1, 4),
+    'dbo.SP_PaymentMethods_Deactivate',
+    ['IDActor', 'IDPaymentMethod'],
+  ],
+  [
+    'checkout payment methods',
+    (e) => createSqlCheckoutRepository(e).paymentMethods('Pickup'),
+    'dbo.SP_PaymentMethods_List',
+    ['Fulfilment'],
+  ],
+  [
+    'confirmCash',
+    (e) => createSqlPaymentsRepository(e).confirmCash(1, 2),
+    'dbo.SP_Payments_ConfirmCash',
+    ['IDActor', 'IDPayment'],
+    ['Outcome'],
+  ],
+  [
     'bankAccounts',
     (e) => createSqlCheckoutRepository(e).bankAccounts(),
     'dbo.SP_BankAccounts_List',
@@ -680,6 +745,7 @@ const cases: Case[] = [
         idAddress: 3,
         idBranch: null,
         deliveryDate: '2030-06-20',
+        deliveryNotes: 'Ring twice',
         idPaymentMethod: 2,
         storedKey: 'k',
         idBankAccount: 1,
@@ -692,6 +758,7 @@ const cases: Case[] = [
       'RequestedDeliveryDate',
       'FulfilmentType',
       'IDBranch',
+      'DeliveryNotes',
       'IDPaymentMethod',
       'IdempotencyKey',
       'IDBankAccount',
