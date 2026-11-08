@@ -2,7 +2,20 @@ import { createHash } from 'node:crypto';
 import { AppError, err, ok } from '../../../shared-kernel/index.js';
 import type { Result } from '../../../shared-kernel/index.js';
 
-export type PaymentMethodCode = 'CARD' | 'BANK_DEPOSIT';
+/** La clase de un método de pago decide cómo se procesa: tarjeta (pasarela), depósito (comprobante) o efectivo (en sucursal). */
+export type PaymentMethodKind = 'Card' | 'Deposit' | 'Cash';
+
+/** Un método de pago tal como lo deja el mantenimiento: su texto y para qué forma de recibir el pedido se ofrece. */
+export interface PaymentMethodRow {
+  idPaymentMethod: number;
+  code: string;
+  kind: PaymentMethodKind;
+  title: string;
+  description: string | null;
+  appliesToDelivery: boolean;
+  appliesToPickup: boolean;
+  isActive: boolean;
+}
 
 /** Cómo recibe el cliente el pedido: en su dirección o recogiéndolo en una sucursal. */
 export type FulfilmentType = 'Delivery' | 'Pickup';
@@ -55,7 +68,10 @@ export interface ConfirmCommand {
   idBranch: number | null;
   /** Ya no la elige el cliente: sin fecha la define el sistema (una fecha enviada se sigue validando) */
   deliveryDate: string | null;
-  method: PaymentMethodCode;
+  /** Instrucciones para quien entrega; solo con entrega a domicilio */
+  deliveryNotes: string | null;
+  idPaymentMethod: number;
+  /** Solo por compatibilidad con llamadas anteriores: las cuentas ya no se eligen, se muestran */
   idBankAccount: number | null;
 }
 
@@ -65,6 +81,8 @@ export interface CheckoutRepositoryPort {
   reserve(userId: number, idCart: number): Promise<{ idReservation: number; expiresAt: string }>;
   depositWindow(userId: number, deliveryDate: string | null): Promise<DepositWindow>;
   bankAccounts(): Promise<BankAccount[]>;
+  /** Los métodos activos que se ofrecen para esta forma de recibir el pedido */
+  paymentMethods(fulfilment: FulfilmentType): Promise<PaymentMethodRow[]>;
   createOrder(input: {
     userId: number;
     idReservation: number;
@@ -72,6 +90,7 @@ export interface CheckoutRepositoryPort {
     idAddress: number | null;
     idBranch: number | null;
     deliveryDate: string | null;
+    deliveryNotes: string | null;
     idPaymentMethod: number;
     storedKey: string;
     idBankAccount: number | null;
@@ -79,7 +98,11 @@ export interface CheckoutRepositoryPort {
 }
 
 export interface MethodOffer {
-  method: PaymentMethodCode;
+  idPaymentMethod: number;
+  code: string;
+  kind: PaymentMethodKind;
+  title: string;
+  description: string | null;
   available: boolean;
   /** Código estable de por qué no está disponible; el panel lo traduce */
   reason: string | null;
@@ -96,8 +119,6 @@ export interface PaymentMethodsView {
   bankAccounts: BankAccount[];
 }
 
-const METHOD_ID: Record<PaymentMethodCode, number> = { CARD: 1, BANK_DEPOSIT: 2 };
-
 /**
  * Casos de uso del checkout. El backend decide qué métodos ofrece (la tarjeta depende de las credenciales del proveedor),
  * pero no calcula ningún importe: el total, el descuento y el IVA salen de la base de datos en SP_Orders_CreateOrder.
@@ -109,31 +130,53 @@ export class CheckoutService {
     private readonly cardAvailable: boolean,
   ) {}
 
-  async paymentMethods(userId: number, deliveryDate: string | null): Promise<PaymentMethodsView> {
-    const window = await this.repository.depositWindow(userId, deliveryDate);
+  /**
+   * Lo que se le ofrece al cliente según cómo recibe el pedido: los métodos activos que el mantenimiento marcó para esa forma
+   * (el efectivo solo para recogidas). El depósito depende del plazo que deja la fecha estimada; la tarjeta, de la pasarela.
+   * Las cuentas bancarias se muestran como información: no se eligen.
+   */
+  async paymentMethods(
+    userId: number,
+    fulfilment: FulfilmentType,
+    deliveryDate: string | null,
+  ): Promise<PaymentMethodsView> {
+    const [window, rows] = await Promise.all([
+      this.repository.depositWindow(userId, deliveryDate),
+      this.repository.paymentMethods(fulfilment),
+    ]);
     let depositReason: string | null = null;
     if (!window.deliveryDateAllowed) depositReason = 'DELIVERY_DATE_TOO_SOON';
     else if (!window.depositAvailable) depositReason = 'DEPOSIT_UNAVAILABLE_FOR_DATE';
+
+    const methods = rows
+      .filter((row) => row.kind !== 'Card' || this.cardAvailable)
+      .map((row): MethodOffer => {
+        const base = {
+          idPaymentMethod: row.idPaymentMethod,
+          code: row.code,
+          kind: row.kind,
+          title: row.title,
+          description: row.description,
+        };
+        if (row.kind === 'Deposit') {
+          return {
+            ...base,
+            available: depositReason === null,
+            reason: depositReason,
+            deadlineAt: depositReason === null ? window.depositDeadlineAt : null,
+          };
+        }
+        return { ...base, available: true, reason: null, deadlineAt: null };
+      });
+    const showsAccounts = methods.some((method) => method.kind === 'Deposit' && method.available);
+
     return {
       deliveryDate: window.deliveryDate,
       estimatedDeliveryDate: window.estimatedDeliveryDate,
       earliestDeliveryDate: window.earliestDeliveryDate,
       deliveryDateAllowed: window.deliveryDateAllowed,
-      methods: [
-        {
-          method: 'BANK_DEPOSIT',
-          available: depositReason === null,
-          reason: depositReason,
-          deadlineAt: depositReason === null ? window.depositDeadlineAt : null,
-        },
-        {
-          method: 'CARD',
-          available: this.cardAvailable,
-          reason: this.cardAvailable ? null : 'PAYMENT_METHOD_UNAVAILABLE',
-          deadlineAt: null,
-        },
-      ],
-      bankAccounts: depositReason === null ? await this.repository.bankAccounts() : [],
+      methods,
+      bankAccounts: showsAccounts ? await this.repository.bankAccounts() : [],
     };
   }
 
@@ -159,10 +202,17 @@ export class CheckoutService {
 
   /** Crea el pedido pendiente de pago. La base de datos valida reserva, dirección, fecha, cupón y montos en una transacción. */
   async confirm(command: ConfirmCommand): Promise<Result<CreatedOrder, AppError>> {
-    // Doble validación: el panel oculta lo no disponible, pero el backend también decide
-    if (command.method === 'CARD' && !this.cardAvailable) {
+    // Doble validación: el panel oculta lo no disponible, pero el backend también decide. El método debe estar activo y ofrecerse
+    // para esta forma de recibir el pedido (la base de datos lo vuelve a comprobar en SP_Orders_CreateOrder).
+    const offered = await this.repository.paymentMethods(command.fulfilmentType);
+    const method = offered.find((row) => row.idPaymentMethod === command.idPaymentMethod);
+    if (method === undefined || (method.kind === 'Card' && !this.cardAvailable)) {
       return err(
-        new AppError(422, 'PAYMENT_METHOD_UNAVAILABLE', 'The card payment is not available'),
+        new AppError(
+          422,
+          'PAYMENT_METHOD_UNAVAILABLE',
+          'The payment method is not offered for this order',
+        ),
       );
     }
     // Una entrega lleva dirección y ninguna sucursal; una recogida lleva sucursal y ninguna dirección
@@ -180,14 +230,8 @@ export class CheckoutService {
     ) {
       return err(new AppError(400, 'VALIDATION_ERROR', 'A pickup needs a branch and no address'));
     }
-    if (command.method === 'BANK_DEPOSIT' && command.idBankAccount === null) {
-      return err(
-        new AppError(
-          400,
-          'VALIDATION_ERROR',
-          'A bank deposit needs the bank account to deposit into',
-        ),
-      );
+    if (command.deliveryNotes !== null && command.fulfilmentType !== 'Delivery') {
+      return err(new AppError(400, 'VALIDATION_ERROR', 'Delivery notes apply to a delivery only'));
     }
     return ok(
       await this.repository.createOrder({
@@ -197,9 +241,10 @@ export class CheckoutService {
         idAddress: command.idAddress,
         idBranch: command.idBranch,
         deliveryDate: command.deliveryDate,
-        idPaymentMethod: METHOD_ID[command.method],
+        deliveryNotes: command.deliveryNotes,
+        idPaymentMethod: method.idPaymentMethod,
         storedKey: storedKeyOf(command.userId, command.idempotencyKey),
-        idBankAccount: command.method === 'BANK_DEPOSIT' ? command.idBankAccount : null,
+        idBankAccount: method.kind === 'Deposit' ? command.idBankAccount : null,
       }),
     );
   }

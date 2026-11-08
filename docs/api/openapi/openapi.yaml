@@ -18,6 +18,8 @@ tags:
     description: Public catalogue and its administration
   - name: Branches
     description: Branches where an order can be picked up; the active ones are public, maintenance is for administrators
+  - name: PaymentMethods
+    description: Payment methods offered at the checkout (deposit or cash, and for which way of receiving the order); maintenance is for administrators
   - name: Cart
     description: Visitor (X-Cart-Token) or customer cart. Quantities are absolute, so repeating a request is harmless.
   - name: Addresses
@@ -733,6 +735,152 @@ paths:
           $ref: '#/components/responses/Unprocessable'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/payment-methods:
+    get:
+      tags:
+        - PaymentMethods
+      summary: The payment methods an administrator manages, including deactivated ones
+      description: The card is not listed here because it depends on the credentials of the provider.
+      operationId: adminListPaymentMethods
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PaymentMethod'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      tags:
+        - PaymentMethods
+      summary: Add a payment method
+      description: Cash is stored for pickups only whatever is sent, because it is collected in the branch.
+      operationId: adminCreatePaymentMethod
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentMethodCreateRequest'
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idPaymentMethod:
+                    type: integer
+                required:
+                  - idPaymentMethod
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/payment-methods/{id}:
+    put:
+      tags:
+        - PaymentMethods
+      summary: Edit a payment method or reactivate it
+      operationId: adminUpdatePaymentMethod
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentMethodUpdateRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idPaymentMethod:
+                    type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    delete:
+      tags:
+        - PaymentMethods
+      summary: Remove a payment method by deactivating it
+      description: Methods are never deleted because past payments cite them. Payments already made with the method follow their course; it just stops being offered.
+      operationId: adminDeactivatePaymentMethod
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idPaymentMethod:
+                    type: integer
+                  isActive:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /api/v1/admin/products:
     get:
       tags:
@@ -1362,6 +1510,15 @@ paths:
           schema:
             type: string
             format: date
+        - name: fulfilment
+          in: query
+          description: How the order will be received. Cash is only offered for a pickup.
+          schema:
+            type: string
+            enum:
+              - Delivery
+              - Pickup
+            default: Delivery
       responses:
         '200':
           description: Success
@@ -1491,6 +1648,40 @@ paths:
           $ref: '#/components/responses/Unauthorised'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/orders/track:
+    get:
+      tags:
+        - Orders
+      summary: Public status of an order
+      description: Needs no session. Whoever asks proves they know the order with its number and the email of the person who made it. It returns the status, the dates and the way of receiving it, and nothing personal. A wrong email answers like a number that does not exist.
+      operationId: trackOrder
+      parameters:
+        - name: orderNumber
+          in: query
+          required: true
+          schema:
+            type: string
+            maxLength: 20
+            example: PED-2026-000123
+        - name: email
+          in: query
+          required: true
+          schema:
+            type: string
+            maxLength: 254
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderTracking'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /api/v1/orders/{id}:
@@ -2030,6 +2221,65 @@ paths:
       summary: Approve a deposit under review
       description: A deposited amount different from the order total rejects the deposit instead (RejectedAmountMismatch).
       operationId: adminApproveDeposit
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewOutcome'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/bank-accounts:
+    get:
+      tags:
+        - Payments
+      summary: The active bank accounts, as information for whoever pays by deposit
+      description: They are shown, not chosen.
+      operationId: listBankAccounts
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BankAccount'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/payments/{id}/confirm-cash:
+    post:
+      tags:
+        - Payments
+      summary: Confirm that a cash payment was collected in the branch
+      description: The order becomes paid. Only a pending payment of a cash method can be confirmed; confirming twice changes nothing (AlreadyApproved).
+      operationId: adminConfirmCashPayment
       security:
         - bearerAuth: []
       parameters:
@@ -3828,14 +4078,89 @@ components:
         - accountType
         - accountNumber
         - holderName
+    PaymentMethod:
+      type: object
+      properties:
+        idPaymentMethod:
+          type: integer
+        code:
+          type: string
+        kind:
+          type: string
+          enum:
+            - Card
+            - Deposit
+            - Cash
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        appliesToDelivery:
+          type: boolean
+        appliesToPickup:
+          type: boolean
+        isActive:
+          type: boolean
+      required:
+        - idPaymentMethod
+        - code
+        - kind
+        - title
+        - appliesToDelivery
+        - appliesToPickup
+        - isActive
+    PaymentMethodUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 80
+        description:
+          type: string
+          maxLength: 300
+          nullable: true
+        appliesToDelivery:
+          type: boolean
+        appliesToPickup:
+          type: boolean
+        isActive:
+          type: boolean
+          description: Omit to keep the state; true reactivates a deactivated method
+      required:
+        - title
+        - appliesToDelivery
+        - appliesToPickup
+    PaymentMethodCreateRequest:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodUpdateRequest'
+        - type: object
+          properties:
+            kind:
+              type: string
+              enum:
+                - Deposit
+                - Cash
+          required:
+            - kind
     MethodOffer:
       type: object
       properties:
-        method:
+        idPaymentMethod:
+          type: integer
+        code:
+          type: string
+        kind:
           type: string
           enum:
-            - CARD
-            - BANK_DEPOSIT
+            - Card
+            - Deposit
+            - Cash
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
         available:
           type: boolean
         reason:
@@ -3847,7 +4172,10 @@ components:
           format: date-time
           nullable: true
       required:
-        - method
+        - idPaymentMethod
+        - code
+        - kind
+        - title
         - available
     PaymentMethodsView:
       type: object
@@ -3913,17 +4241,28 @@ components:
           format: date
           nullable: true
           description: Optional and no longer sent by the checkout; when absent the system uses its estimate
+        deliveryNotes:
+          type: string
+          maxLength: 300
+          nullable: true
+          description: Optional instructions for whoever delivers; accepted for a delivery only
+        idPaymentMethod:
+          type: integer
+          description: A method offered by GET /checkout/payment-methods for the same way of receiving the order
         method:
           type: string
+          deprecated: true
+          description: Legacy code (CARD or BANK_DEPOSIT); use idPaymentMethod
           enum:
             - CARD
             - BANK_DEPOSIT
         idBankAccount:
           type: integer
           nullable: true
+          deprecated: true
+          description: The accounts are no longer chosen; ignored unless the method is a deposit
       required:
         - idReservation
-        - method
     CreatedOrder:
       type: object
       properties:
@@ -3959,6 +4298,10 @@ components:
           type: integer
         statusName:
           type: string
+        paymentStatusName:
+          type: string
+          nullable: true
+          description: Status of the most recent payment (Pending, UnderReview, Approved, Rejected...). An order that is PendingPayment with a payment UnderReview has its proof waiting to be checked.
         total:
           $ref: '#/components/schemas/MoneyText'
         itemCount:
@@ -4025,6 +4368,48 @@ components:
         comment:
           type: string
           nullable: true
+    OrderTracking:
+      type: object
+      properties:
+        orderNumber:
+          type: string
+        statusName:
+          type: string
+        paymentStatusName:
+          type: string
+          nullable: true
+          description: Status of the most recent payment (Pending, UnderReview, Approved, Rejected...). An order that is PendingPayment with a payment UnderReview has its proof waiting to be checked.
+        createdAt:
+          type: string
+          format: date-time
+        requestedDeliveryDate:
+          type: string
+          format: date
+          description: The estimated date; it can move a few days
+        fulfilmentType:
+          type: string
+          enum:
+            - Delivery
+            - Pickup
+        pickupBranchName:
+          type: string
+          nullable: true
+        history:
+          type: array
+          items:
+            type: object
+            properties:
+              idNewStatus:
+                type: integer
+              newStatusName:
+                type: string
+              createdAt:
+                type: string
+                format: date-time
+      required:
+        - orderNumber
+        - statusName
+        - history
     OrderDetail:
       type: object
       properties:
@@ -4042,6 +4427,10 @@ components:
           type: integer
         statusName:
           type: string
+        paymentStatusName:
+          type: string
+          nullable: true
+          description: Status of the most recent payment (Pending, UnderReview, Approved, Rejected...). An order that is PendingPayment with a payment UnderReview has its proof waiting to be checked.
         couponCode:
           type: string
           nullable: true
@@ -4059,6 +4448,10 @@ components:
         pickupBranchAddress:
           type: string
           nullable: true
+        deliveryNotes:
+          type: string
+          nullable: true
+          description: The customer's instructions for the delivery, if any
         deliveryRecipient:
           type: string
           nullable: true
@@ -4191,6 +4584,13 @@ components:
           type: integer
         methodCode:
           type: string
+        methodKind:
+          type: string
+          enum:
+            - Card
+            - Deposit
+            - Cash
+          description: Deposit asks for a proof; Cash is collected in the branch
         idPaymentStatus:
           type: integer
         statusName:

@@ -5,6 +5,7 @@ import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { createAuditRouter } from '../../src/modules/audit/index.js';
 import { createBranchesRouter } from '../../src/modules/branches/index.js';
+import { createPaymentMethodsRouter } from '../../src/modules/payment-methods/index.js';
 import { createCartRouter } from '../../src/modules/cart/index.js';
 import { buildCategoryTree, createCatalogueRouter } from '../../src/modules/catalogue/index.js';
 import {
@@ -692,6 +693,39 @@ describe('checkout', () => {
     instructions: null,
   };
 
+  const methodRows = [
+    {
+      idPaymentMethod: 1,
+      code: 'CARD',
+      kind: 'Card' as const,
+      title: 'Card',
+      description: null,
+      appliesToDelivery: true,
+      appliesToPickup: true,
+      isActive: true,
+    },
+    {
+      idPaymentMethod: 2,
+      code: 'BANK_DEPOSIT',
+      kind: 'Deposit' as const,
+      title: 'Deposit',
+      description: 'Deposit text',
+      appliesToDelivery: true,
+      appliesToPickup: true,
+      isActive: true,
+    },
+    {
+      idPaymentMethod: 3,
+      code: 'CASH_ON_PICKUP',
+      kind: 'Cash' as const,
+      title: 'Cash',
+      description: null,
+      appliesToDelivery: false,
+      appliesToPickup: true,
+      isActive: true,
+    },
+  ];
+
   function repo(overrides: Partial<CheckoutRepositoryPort> = {}): {
     port: CheckoutRepositoryPort;
     created: unknown[];
@@ -702,6 +736,12 @@ describe('checkout', () => {
       reserve: () => Promise.resolve({ idReservation: 9, expiresAt: '2030-06-01T12:15:00.000Z' }),
       depositWindow: () => Promise.resolve(window),
       bankAccounts: () => Promise.resolve([bank]),
+      paymentMethods: (fulfilment) =>
+        Promise.resolve(
+          methodRows.filter((row) =>
+            fulfilment === 'Pickup' ? row.appliesToPickup : row.appliesToDelivery,
+          ),
+        ),
       createOrder: (input) => {
         created.push(input);
         return Promise.resolve({
@@ -716,18 +756,31 @@ describe('checkout', () => {
     return { port, created };
   }
 
-  it('offers the deposit with the bank accounts and never the card while there is no gateway', async () => {
-    const view = await new CheckoutService(repo().port, false).paymentMethods(7, '2030-06-20');
+  it('offers the deposit with the bank accounts and never the card or the cash for a delivery', async () => {
+    const view = await new CheckoutService(repo().port, false).paymentMethods(
+      7,
+      'Delivery',
+      '2030-06-20',
+    );
     expect(view.methods).toEqual([
       {
-        method: 'BANK_DEPOSIT',
+        idPaymentMethod: 2,
+        code: 'BANK_DEPOSIT',
+        kind: 'Deposit',
+        title: 'Deposit',
+        description: 'Deposit text',
         available: true,
         reason: null,
         deadlineAt: window.depositDeadlineAt,
       },
-      { method: 'CARD', available: false, reason: 'PAYMENT_METHOD_UNAVAILABLE', deadlineAt: null },
     ]);
     expect(view.bankAccounts).toHaveLength(1);
+  });
+
+  it('also offers the cash for a pickup', async () => {
+    const view = await new CheckoutService(repo().port, false).paymentMethods(7, 'Pickup', null);
+    expect(view.methods.map((method) => method.kind)).toEqual(['Deposit', 'Cash']);
+    expect(view.methods[1]).toMatchObject({ available: true, reason: null, deadlineAt: null });
   });
 
   it('explains why the deposit is not offered and hides the accounts', async () => {
@@ -735,7 +788,7 @@ describe('checkout', () => {
       repo({ depositWindow: () => Promise.resolve({ ...window, deliveryDateAllowed: false }) })
         .port,
       false,
-    ).paymentMethods(7, '2030-06-01');
+    ).paymentMethods(7, 'Delivery', '2030-06-01');
     expect(tooSoon.methods[0]).toMatchObject({
       available: false,
       reason: 'DELIVERY_DATE_TOO_SOON',
@@ -744,7 +797,7 @@ describe('checkout', () => {
     const noTime = await new CheckoutService(
       repo({ depositWindow: () => Promise.resolve({ ...window, depositAvailable: false }) }).port,
       false,
-    ).paymentMethods(7, '2030-06-02');
+    ).paymentMethods(7, 'Delivery', '2030-06-02');
     expect(noTime.methods[0]).toMatchObject({
       available: false,
       reason: 'DEPOSIT_UNAVAILABLE_FOR_DATE',
@@ -752,8 +805,64 @@ describe('checkout', () => {
   });
 
   it('turns the card on only when the gateway is configured', async () => {
-    const view = await new CheckoutService(repo().port, true).paymentMethods(7, '2030-06-20');
-    expect(view.methods[1]).toMatchObject({ method: 'CARD', available: true, reason: null });
+    const view = await new CheckoutService(repo().port, true).paymentMethods(
+      7,
+      'Delivery',
+      '2030-06-20',
+    );
+    expect(view.methods.find((method) => method.kind === 'Card')).toMatchObject({
+      available: true,
+      reason: null,
+    });
+  });
+
+  it('refuses a payment method that is not offered for the way of receiving the order', async () => {
+    const service = new CheckoutService(repo().port, false);
+    const base = {
+      userId: 7,
+      idempotencyKey: 'key-0001-abcd',
+      idReservation: 9,
+      deliveryDate: null,
+      deliveryNotes: null,
+      idBankAccount: null,
+    };
+    // El efectivo no existe para una entrega a domicilio
+    const cashForDelivery = await service.confirm({
+      ...base,
+      fulfilmentType: 'Delivery',
+      idAddress: 3,
+      idBranch: null,
+      idPaymentMethod: 3,
+    });
+    expect(!cashForDelivery.ok && cashForDelivery.error.code).toBe('PAYMENT_METHOD_UNAVAILABLE');
+    // Un método que no existe tampoco
+    const unknown = await service.confirm({
+      ...base,
+      fulfilmentType: 'Pickup',
+      idAddress: null,
+      idBranch: 2,
+      idPaymentMethod: 99,
+    });
+    expect(!unknown.ok && unknown.error.code).toBe('PAYMENT_METHOD_UNAVAILABLE');
+  });
+
+  it('creates a pickup order paid in cash with no bank account', async () => {
+    const { port, created } = repo();
+    const result = await new CheckoutService(port, false).confirm({
+      userId: 7,
+      idempotencyKey: 'key-0001-abcd',
+      idReservation: 9,
+      fulfilmentType: 'Pickup',
+      idAddress: null,
+      idBranch: 2,
+      deliveryDate: null,
+      deliveryNotes: null,
+      idPaymentMethod: 3,
+      idBankAccount: 5,
+    });
+    expect(result.ok).toBe(true);
+    // Una cuenta enviada con un método que no es depósito no llega a la base de datos
+    expect(created[0]).toMatchObject({ idPaymentMethod: 3, idBankAccount: null });
   });
 
   it('refuses to reserve an empty cart or one with an unavailable line', async () => {
@@ -776,7 +885,7 @@ describe('checkout', () => {
     expect(reserved.ok && reserved.value.idReservation).toBe(9);
   });
 
-  it('refuses the card without a gateway and a deposit without an account', async () => {
+  it('refuses the card without a gateway and takes a deposit with no bank account', async () => {
     const service = new CheckoutService(repo().port, false);
     const base = {
       userId: 7,
@@ -786,12 +895,14 @@ describe('checkout', () => {
       idAddress: 3,
       idBranch: null,
       deliveryDate: '2030-06-20',
+      deliveryNotes: null,
       idBankAccount: null,
     };
-    const card = await service.confirm({ ...base, method: 'CARD' });
+    const card = await service.confirm({ ...base, idPaymentMethod: 1 });
     expect(!card.ok && card.error.code).toBe('PAYMENT_METHOD_UNAVAILABLE');
-    const noBank = await service.confirm({ ...base, method: 'BANK_DEPOSIT' });
-    expect(!noBank.ok && noBank.error.httpStatus).toBe(400);
+    // Las cuentas ya no se eligen: el depósito se acepta sin ninguna
+    const noBank = await service.confirm({ ...base, idPaymentMethod: 2 });
+    expect(noBank.ok).toBe(true);
   });
 
   it('creates the order with a key that mixes the customer so two customers never collide', async () => {
@@ -804,7 +915,8 @@ describe('checkout', () => {
       idAddress: 3,
       idBranch: null,
       deliveryDate: '2030-06-20',
-      method: 'BANK_DEPOSIT',
+      deliveryNotes: null,
+      idPaymentMethod: 2,
       idBankAccount: 1,
     });
     expect(result.ok && result.value.orderNumber).toBe('PED-2030-000001');
@@ -818,7 +930,7 @@ describe('checkout', () => {
   });
 
   it('estimates the date when the customer sends none and says it is only an estimate', async () => {
-    const view = await new CheckoutService(repo().port, false).paymentMethods(7, null);
+    const view = await new CheckoutService(repo().port, false).paymentMethods(7, 'Delivery', null);
     expect(view.estimatedDeliveryDate).toBe(window.estimatedDeliveryDate);
     expect(view.deliveryDate).toBe(window.deliveryDate);
   });
@@ -831,8 +943,8 @@ describe('checkout', () => {
         return Promise.resolve(window);
       },
     });
-    await new CheckoutService(port, false).paymentMethods(7, null);
-    await new CheckoutService(port, false).paymentMethods(7, '2030-06-20');
+    await new CheckoutService(port, false).paymentMethods(7, 'Delivery', null);
+    await new CheckoutService(port, false).paymentMethods(7, 'Delivery', '2030-06-20');
     expect(asked).toEqual([null, '2030-06-20']);
   });
 
@@ -843,7 +955,8 @@ describe('checkout', () => {
       idempotencyKey: 'key-0001-abcd',
       idReservation: 9,
       deliveryDate: null,
-      method: 'BANK_DEPOSIT' as const,
+      deliveryNotes: null,
+      idPaymentMethod: 2,
       idBankAccount: 1,
     };
     const noAddress = await service.confirm({
@@ -885,7 +998,8 @@ describe('checkout', () => {
       idAddress: null,
       idBranch: 2,
       deliveryDate: null,
-      method: 'BANK_DEPOSIT',
+      deliveryNotes: null,
+      idPaymentMethod: 2,
       idBankAccount: 1,
     });
     expect(result.ok).toBe(true);
@@ -894,7 +1008,39 @@ describe('checkout', () => {
       idAddress: null,
       idBranch: 2,
       deliveryDate: null,
+      deliveryNotes: null,
     });
+  });
+
+  it('passes the delivery notes to the data port and refuses them on a pickup', async () => {
+    const { port, created } = repo();
+    const service = new CheckoutService(port, false);
+    const base = {
+      userId: 7,
+      idempotencyKey: 'key-0001-abcd',
+      idReservation: 9,
+      deliveryDate: null,
+      idPaymentMethod: 2,
+      idBankAccount: 1,
+    };
+    const delivery = await service.confirm({
+      ...base,
+      fulfilmentType: 'Delivery',
+      idAddress: 3,
+      idBranch: null,
+      deliveryNotes: 'Ring twice',
+    });
+    expect(delivery.ok).toBe(true);
+    expect(created[0]).toMatchObject({ deliveryNotes: 'Ring twice' });
+
+    const pickup = await service.confirm({
+      ...base,
+      fulfilmentType: 'Pickup',
+      idAddress: null,
+      idBranch: 2,
+      deliveryNotes: 'Ring twice',
+    });
+    expect(!pickup.ok && pickup.error.httpStatus).toBe(400);
   });
 
   it('accepts a pickup confirmation without an address or a date and a payment-methods query without a date', async () => {
@@ -1107,6 +1253,7 @@ describe('payments', () => {
     const { app, calls } = build({
       listDeposits: { items: [], page: 1, size: 20, total: 0 },
       approve: 'Approved',
+      confirmCash: 'Approved',
       reject: 'Rejected',
       listBankAccounts: [],
       saveBankAccount: 3,
@@ -1122,6 +1269,22 @@ describe('payments', () => {
     expect(
       (await request(app).post('/admin/payments/11/approve').set(as('2:Operator')).send({})).body,
     ).toEqual({ outcome: 'Approved' });
+    // El efectivo lo confirma quien atiende en la sucursal; un cliente no
+    expect(
+      (await request(app).post('/admin/payments/12/confirm-cash').set(as('7:Customer')).send({}))
+        .status,
+    ).toBe(403);
+    const cash = await request(app)
+      .post('/admin/payments/12/confirm-cash')
+      .set(as('2:Operator'))
+      .set('Idempotency-Key', 'key-0001-abcd')
+      .send({});
+    expect(cash.body).toEqual({ outcome: 'Approved' });
+    expect(calls.at(-1)?.args).toEqual([2, 12]);
+    // Las cuentas se muestran al cliente que paga; no se eligen
+    expect((await request(app).get('/bank-accounts').set(as('7:Customer'))).status).toBe(200);
+    expect(calls.at(-1)?.args).toEqual([false]);
+    expect((await request(app).get('/bank-accounts')).status).toBe(401);
     expect(
       (await request(app).post('/admin/payments/11/reject').set(as('2:Operator')).send({})).status,
     ).toBe(400);
@@ -1250,6 +1413,122 @@ describe('branches', () => {
     expect(missing.status).toBe(400);
     expect(
       (await request(app).put('/admin/branches/abc').set(as('1:Administrator')).send(body)).status,
+    ).toBe(400);
+  });
+});
+
+describe('payment methods', () => {
+  const body = {
+    title: 'Transfer',
+    description: 'With online banking',
+    appliesToDelivery: true,
+    appliesToPickup: true,
+  };
+
+  it('lets only an administrator list, add, edit or remove a payment method', async () => {
+    const { repository, calls } = fake({
+      list: [],
+      create: 4,
+      update: undefined,
+      deactivate: undefined,
+    });
+    const app = appWith(createPaymentMethodsRouter(kit, repository));
+    const key = { 'Idempotency-Key': 'key-0001-abcd' };
+
+    expect((await request(app).get('/admin/payment-methods')).status).toBe(401);
+    expect((await request(app).get('/admin/payment-methods').set(as('2:Operator'))).status).toBe(
+      403,
+    );
+    expect(
+      (await request(app).get('/admin/payment-methods').set(as('1:Administrator'))).status,
+    ).toBe(200);
+
+    const created = await request(app)
+      .post('/admin/payment-methods')
+      .set(as('1:Administrator'))
+      .set(key)
+      .send({ ...body, kind: 'Deposit' });
+    expect(created.status).toBe(201);
+    expect(created.body).toEqual({ idPaymentMethod: 4 });
+    expect(calls.at(-1)?.args[0]).toBe(1);
+    expect(calls.at(-1)?.args[1]).toBe('Deposit');
+
+    const updated = await request(app)
+      .put('/admin/payment-methods/4')
+      .set(as('1:Administrator'))
+      .send({ ...body, isActive: true });
+    expect(updated.body).toEqual({ idPaymentMethod: 4 });
+    expect(calls.at(-1)?.args[3]).toBe(true);
+    // Sin isActive el estado se deja como está
+    await request(app).put('/admin/payment-methods/4').set(as('1:Administrator')).send(body);
+    expect(calls.at(-1)?.args[3]).toBeNull();
+
+    const removed = await request(app)
+      .delete('/admin/payment-methods/4')
+      .set(as('1:Administrator'));
+    expect(removed.body).toEqual({ idPaymentMethod: 4, isActive: false });
+    expect(
+      (await request(app).delete('/admin/payment-methods/4').set(as('2:Operator'))).status,
+    ).toBe(403);
+  });
+
+  it('validates the kind, the title and the identifier', async () => {
+    const { repository } = fake({ create: 1 });
+    const app = appWith(createPaymentMethodsRouter(kit, repository));
+    const key = { 'Idempotency-Key': 'key-0001-abcd' };
+    for (const bad of [
+      { ...body, kind: 'Card' },
+      { ...body, kind: 'Deposit', title: '  ' },
+      { ...body, kind: 'Deposit', appliesToPickup: 'yes' },
+    ]) {
+      const response = await request(app)
+        .post('/admin/payment-methods')
+        .set(as('1:Administrator'))
+        .set(key)
+        .send(bad);
+      expect(response.status).toBe(400);
+    }
+    expect(
+      (await request(app).put('/admin/payment-methods/abc').set(as('1:Administrator')).send(body))
+        .status,
+    ).toBe(400);
+  });
+});
+
+describe('order tracking', () => {
+  const tracked = {
+    orderNumber: 'PED-2030-000001',
+    statusName: 'PendingPayment',
+    history: [],
+  };
+
+  it('answers without a session and takes the number and the email from the query', async () => {
+    const { repository, calls } = fake({ track: tracked });
+    const app = appWith(createOrdersRouter(kit, repository));
+
+    const response = await request(app)
+      .get('/orders/track')
+      .query({ orderNumber: 'PED-2030-000001', email: 'ana@shopcart.test' });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(tracked);
+    expect(calls.at(-1)?.args).toEqual(['PED-2030-000001', 'ana@shopcart.test']);
+  });
+
+  it('asks for both data and does not take the word track for an identifier', async () => {
+    const { repository } = fake({ track: tracked });
+    const app = appWith(createOrdersRouter(kit, repository));
+
+    expect((await request(app).get('/orders/track')).status).toBe(400);
+    expect(
+      (await request(app).get('/orders/track').query({ orderNumber: 'PED-2030-000001' })).status,
+    ).toBe(400);
+    expect(
+      (
+        await request(app)
+          .get('/orders/track')
+          .query({ orderNumber: 'x'.repeat(30), email: 'a@b.co' })
+      ).status,
     ).toBe(400);
   });
 });

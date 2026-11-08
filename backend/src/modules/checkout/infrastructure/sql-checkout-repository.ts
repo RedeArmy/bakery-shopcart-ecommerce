@@ -4,6 +4,7 @@ import { camelRow } from '../../../platform/http/serialise.js';
 import type { Row } from '../../../platform/http/serialise.js';
 import type {
   BankAccount,
+  PaymentMethodRow,
   CartSummary,
   CheckoutRepositoryPort,
   CreatedOrder,
@@ -58,6 +59,13 @@ export function createSqlCheckoutRepository(execute: ProcedureExecutor): Checkou
       return camelRow(row) as unknown as DepositWindow;
     },
 
+    async paymentMethods(fulfilment): Promise<PaymentMethodRow[]> {
+      const result = await execute<Row>('dbo.SP_PaymentMethods_List', [
+        { name: 'Fulfilment', type: sql.NVarChar(10), value: fulfilment },
+      ]);
+      return result.rows.map((row) => camelRow(row) as unknown as PaymentMethodRow);
+    },
+
     async bankAccounts(): Promise<BankAccount[]> {
       const result = await execute<Row>('dbo.SP_BankAccounts_List');
       return result.rows.map((row) => camelRow(row) as unknown as BankAccount);
@@ -73,6 +81,7 @@ export function createSqlCheckoutRepository(execute: ProcedureExecutor): Checkou
           { name: 'RequestedDeliveryDate', type: sql.Date, value: asDate(input.deliveryDate) },
           { name: 'FulfilmentType', type: sql.NVarChar(10), value: input.fulfilmentType },
           { name: 'IDBranch', type: sql.Int, value: input.idBranch },
+          { name: 'DeliveryNotes', type: sql.NVarChar(300), value: input.deliveryNotes },
           { name: 'IDPaymentMethod', type: sql.TinyInt, value: input.idPaymentMethod },
           { name: 'IdempotencyKey', type: sql.NVarChar(64), value: input.storedKey },
           { name: 'IDBankAccount', type: sql.Int, value: input.idBankAccount },

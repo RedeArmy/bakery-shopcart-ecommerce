@@ -29,6 +29,8 @@ export interface PaymentsRepository extends PaymentsRepositoryPort {
   listDeposits(search: DepositSearch): Promise<Page<Row>>;
   /** Resultados esperados en el texto devuelto (Approved, AlreadyApproved, Orphan, RejectedAmountMismatch); el 422 es para lo inválido. */
   approve(actor: number, idPayment: number): Promise<string>;
+  /** Un operador confirma el cobro en efectivo en sucursal: Approved, AlreadyApproved u Orphan. */
+  confirmCash(actor: number, idPayment: number): Promise<string>;
   /** Rejected, RejectedOrderCancelled (se agotaron los intentos) o AlreadyRejected. */
   reject(actor: number, idPayment: number, reason: string): Promise<string>;
   listBankAccounts(includeInactive: boolean): Promise<Row[]>;

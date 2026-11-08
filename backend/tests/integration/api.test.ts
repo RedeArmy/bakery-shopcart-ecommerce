@@ -356,14 +356,15 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
     );
     expect(methods.status).toBe(200);
     const offers = list(methods.body, 'methods');
-    expect(offers.find((offer) => offer['method'] === 'BANK_DEPOSIT')?.['available']).toBe(true);
-    expect(offers.find((offer) => offer['method'] === 'CARD')?.['available']).toBe(false);
+    expect(offers.find((offer) => offer['code'] === 'BANK_DEPOSIT')?.['available']).toBe(true);
+    // Sin pasarela la tarjeta no se ofrece
+    expect(offers.some((offer) => offer['kind'] === 'Card')).toBe(false);
     expect(JSON.stringify(list(methods.body, 'bankAccounts'))).toContain(`IT Bank ${runId}`);
 
     // Hoy mismo no hay tiempo para un depósito
     const tooSoon = await get(customerA.token, `/checkout/payment-methods?deliveryDate=${today}`);
     expect(
-      list(tooSoon.body, 'methods').find((offer) => offer['method'] === 'BANK_DEPOSIT')?.[
+      list(tooSoon.body, 'methods').find((offer) => offer['code'] === 'BANK_DEPOSIT')?.[
         'available'
       ],
     ).toBe(false);
@@ -925,7 +926,7 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
     expect(methods.status).toBe(200);
     expect(str(methods.body, 'estimatedDeliveryDate')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(
-      list(methods.body, 'methods').find((offer) => offer['method'] === 'BANK_DEPOSIT')?.[
+      list(methods.body, 'methods').find((offer) => offer['code'] === 'BANK_DEPOSIT')?.[
         'available'
       ],
     ).toBe(true);
@@ -984,6 +985,179 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
     );
     expect(edited.status).toBe(422);
     expect(str(edited.body, 'error.code')).toBe('BRANCH_INACTIVE');
+  });
+
+  it('lets the administrator manage the payment methods, keeps the cash for pickups and lets an operator confirm it', async () => {
+    const title = `Cash ${runId}`;
+    const method = {
+      kind: 'Cash',
+      title,
+      description: 'Pay at the branch',
+      appliesToDelivery: true,
+      appliesToPickup: true,
+    };
+    // Solo un administrador mantiene los métodos de pago
+    expect((await post(customerA.token, '/admin/payment-methods', method)).status).toBe(403);
+    expect((await get(operator, '/admin/payment-methods')).status).toBe(403);
+    expect(
+      (await post(administrator, '/admin/payment-methods', { ...method, kind: 'Card' })).status,
+    ).toBe(400);
+    const created = await post(administrator, '/admin/payment-methods', method);
+    expect(created.status).toBe(201);
+    const idCash = num(created.body, 'idPaymentMethod');
+    expect((await post(administrator, '/admin/payment-methods', method)).status).toBe(409);
+    // El efectivo se guarda solo para recogidas, aunque se haya pedido también para entregas
+    const managed = (await get(administrator, '/admin/payment-methods')).body as Json[];
+    const stored = managed.find((row) => row['idPaymentMethod'] === idCash);
+    expect(stored?.['appliesToDelivery']).toBe(false);
+    expect(stored?.['appliesToPickup']).toBe(true);
+    // La tarjeta no se administra aquí
+    expect(managed.some((row) => row['kind'] === 'Card')).toBe(false);
+
+    // Las cuentas se ven (no se eligen) para quien paga
+    expect((await get(customerA.token, '/bank-accounts')).status).toBe(200);
+    expect((await api().get('/api/v1/bank-accounts')).status).toBe(401);
+
+    // Un cliente con carrito: para una entrega no hay efectivo; para una recogida sí
+    const cart = await as(customerA.token, api().put(`/api/v1/cart/items/${idVariant}`)).send({
+      quantity: 1,
+    });
+    expect(cart.status).toBe(200);
+    const forDelivery = await get(customerA.token, '/checkout/payment-methods?fulfilment=Delivery');
+    expect(JSON.stringify(forDelivery.body)).not.toContain(title);
+    const forPickup = await get(customerA.token, '/checkout/payment-methods?fulfilment=Pickup');
+    expect(JSON.stringify(forPickup.body)).toContain(title);
+
+    const branch = await post(administrator, '/admin/branches', {
+      name: `Cash branch ${runId}`,
+      line1: '6th Avenue 10-20',
+      municipality: 'Guatemala',
+      department: 'Guatemala',
+    });
+    const idBranch = num(branch.body, 'idBranch');
+    const started = await post(customerA.token, '/checkout/start');
+    expect(started.status).toBe(201);
+    const idReservation = num(started.body, 'idReservation');
+
+    // El efectivo no se acepta para una entrega a domicilio
+    const delivery = await post(customerA.token, '/checkout/confirm', {
+      idReservation,
+      idAddress: customerA.idAddress,
+      idPaymentMethod: idCash,
+    });
+    expect(delivery.status).toBe(422);
+    expect(str(delivery.body, 'error.code')).toBe('PAYMENT_METHOD_UNAVAILABLE');
+
+    const confirmed = await post(customerA.token, '/checkout/confirm', {
+      idReservation,
+      fulfilmentType: 'Pickup',
+      idBranch,
+      idPaymentMethod: idCash,
+    });
+    expect(confirmed.status).toBe(201);
+    const idOrder = num(confirmed.body, 'idOrder');
+    const idPayment = num(confirmed.body, 'idPayment');
+
+    // El pago queda pendiente, es de efectivo y no admite comprobante
+    const payments = (await get(customerA.token, `/orders/${idOrder}/payment`)).body as Json[];
+    expect(payments[0]?.['methodKind']).toBe('Cash');
+    expect(payments[0]?.['statusName']).toBe('Pending');
+    const proof = await uploadProof(customerA.token, idOrder, `CASH-${runId}`, '1.00');
+    expect(proof.status).toBe(422);
+
+    // Lo confirma quien atiende, no el cliente; confirmar dos veces no cambia nada
+    expect(
+      (await post(customerA.token, `/admin/payments/${idPayment}/confirm-cash`, {})).status,
+    ).toBe(403);
+    const paid = await post(operator, `/admin/payments/${idPayment}/confirm-cash`, {});
+    expect(paid.status).toBe(200);
+    expect(str(paid.body, 'outcome')).toBe('Approved');
+    expect(str((await get(customerA.token, `/orders/${idOrder}`)).body, 'statusName')).toBe('Paid');
+    const again = await post(operator, `/admin/payments/${idPayment}/confirm-cash`, {});
+    expect(str(again.body, 'outcome')).toBe('AlreadyApproved');
+    // Un depósito no es un pago en efectivo
+    expect((await post(operator, `/admin/payments/999999/confirm-cash`, {})).status).toBe(404);
+
+    // Quitar el método deja de ofrecerlo; reactivarlo lo devuelve
+    const removed = await as(
+      administrator,
+      api().delete(`/api/v1/admin/payment-methods/${idCash}`),
+    );
+    expect(removed.status).toBe(200);
+    await as(customerB.token, api().put(`/api/v1/cart/items/${idVariant}`)).send({ quantity: 1 });
+    expect(
+      JSON.stringify(
+        (await get(customerB.token, '/checkout/payment-methods?fulfilment=Pickup')).body,
+      ),
+    ).not.toContain(title);
+    const reactivated = await as(
+      administrator,
+      api().put(`/api/v1/admin/payment-methods/${idCash}`),
+    ).send({
+      title,
+      description: 'Pay at the branch',
+      appliesToDelivery: false,
+      appliesToPickup: true,
+      isActive: true,
+    });
+    expect(reactivated.status).toBe(200);
+    expect(
+      JSON.stringify(
+        (await get(customerB.token, '/checkout/payment-methods?fulfilment=Pickup')).body,
+      ),
+    ).toContain(title);
+    await as(customerB.token, api().delete(`/api/v1/cart/items/${idVariant}`));
+  });
+
+  it('lets anyone follow an order with its number and email, and nobody else', async () => {
+    // Un pedido de verdad: el de depósito de siempre
+    const { idOrder } = await placeOrder(customerB, 1);
+    const detail = await get(customerB.token, `/orders/${idOrder}`);
+    const orderNumber = str(detail.body, 'orderNumber');
+    const email = str(detail.body, 'customerEmail');
+
+    // Sin sesión, con el número y el correo: solo el estado, las fechas y el historial
+    const tracked = await api().get('/api/v1/orders/track').query({ orderNumber, email });
+    expect(tracked.status).toBe(200);
+    expect(str(tracked.body, 'statusName')).toBe('PendingPayment');
+    // Sin comprobante el pago sigue pendiente; con uno enviado pasa a revisión y el historial lo cuenta
+    expect(str(tracked.body, 'paymentStatusName')).toBe('Pending');
+    expect(list(tracked.body, 'history')).toHaveLength(1);
+    expect(JSON.stringify(tracked.body)).not.toContain('deliveryLine1');
+    expect(JSON.stringify(tracked.body)).not.toContain(email);
+    // El número y el correo se aceptan sin importar mayúsculas
+    const loose = await api()
+      .get('/api/v1/orders/track')
+      .query({ orderNumber: orderNumber.toLowerCase(), email: email.toUpperCase() });
+    expect(loose.status).toBe(200);
+
+    // Con el comprobante enviado, el pedido sigue pendiente de pago pero el pago ya está por verificarse, y el historial lo cuenta
+    const proof = await uploadProof(
+      customerB.token,
+      idOrder,
+      `TRACK-${runId}`,
+      str(detail.body, 'total'),
+      png(77),
+    );
+    expect(proof.status).toBe(201);
+    const verifying = await api().get('/api/v1/orders/track').query({ orderNumber, email });
+    expect(str(verifying.body, 'statusName')).toBe('PendingPayment');
+    expect(str(verifying.body, 'paymentStatusName')).toBe('UnderReview');
+    expect(JSON.stringify(list(verifying.body, 'history'))).toContain('PaymentUnderReview');
+
+    // Otro correo o un número que no existe responden igual: no se puede adivinar cuáles hay
+    const wrong = await api()
+      .get('/api/v1/orders/track')
+      .query({ orderNumber, email: 'otra-persona@shopcart.test' });
+    const missing = await api()
+      .get('/api/v1/orders/track')
+      .query({ orderNumber: 'PED-2000-999999', email });
+    expect(wrong.status).toBe(404);
+    expect(missing.status).toBe(404);
+    // Cambia solo el identificador de la solicitud: el código y el mensaje son los mismos
+    expect(str(wrong.body, 'error.code')).toBe(str(missing.body, 'error.code'));
+    expect(str(wrong.body, 'error.message')).toBe(str(missing.body, 'error.message'));
+    expect((await api().get('/api/v1/orders/track').query({ orderNumber })).status).toBe(400);
   });
 
   it('keeps the money and the stock reconciled after all the flows', async () => {

@@ -83,6 +83,11 @@ export function createPaymentsRouter(
     res.json(await repository.paymentsOfOrder(requireUser(req).idUser, false, id));
   });
 
+  // Las cuentas donde depositar son información para quien paga: se ven en la pantalla de pago, sin elegir ninguna
+  router.get('/bank-accounts', ...customer, async (_req, res) => {
+    res.json(await repository.listBankAccounts(false));
+  });
+
   // Después de un rechazo el depósito es terminal: el cliente abre otro intento para el mismo pedido
   router.post('/orders/:id/payment/attempts', ...customer, write, required, async (req, res) => {
     const user = requireUser(req);
@@ -182,6 +187,18 @@ export function createPaymentsRouter(
     async (req, res) => {
       const { id } = idParam.parse(req.params);
       res.json({ outcome: await repository.approve(requireUser(req).idUser, id) });
+    },
+  );
+
+  // El efectivo se cobra en la sucursal: quien atiende confirma que se recibió y el pedido pasa a pagado
+  router.post(
+    '/admin/payments/:id/confirm-cash',
+    ...staff,
+    kit.rateLimit(POLICIES.review),
+    required,
+    async (req, res) => {
+      const { id } = idParam.parse(req.params);
+      res.json({ outcome: await repository.confirmCash(requireUser(req).idUser, id) });
     },
   );
 

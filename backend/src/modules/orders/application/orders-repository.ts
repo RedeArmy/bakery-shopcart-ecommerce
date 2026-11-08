@@ -21,6 +21,8 @@ export interface ReturnLineInput {
 export interface OrdersRepository {
   list(filter: OrderFilter): Promise<Page<Row>>;
   detail(actor: number, asStaff: boolean, idOrder: number): Promise<Row>;
+  /** Consulta pública: con el número y el correo del pedido, solo su estado y sus fechas. Otro correo responde como un pedido inexistente. */
+  track(orderNumber: string, email: string): Promise<Row>;
   cancel(actor: number, idOrder: number, reason: string): Promise<void>;
   changeStatus(
     actor: number,

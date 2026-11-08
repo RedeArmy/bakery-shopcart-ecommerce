@@ -61,6 +61,8 @@ export const POLICIES = {
   publicCatalogue: { name: 'catalogue', limit: 120, windowMs: 60_000, key: byIp },
   authenticatedWrite: { name: 'write', limit: 60, windowMs: 60_000 },
   checkoutConfirm: { name: 'checkout-confirm', limit: 5, windowMs: 60_000 },
+  // Consulta pública de un pedido: sin sesión, así que se limita por IP para que nadie pruebe correos y números
+  orderTracking: { name: 'order-tracking', limit: 10, windowMs: 60_000, key: byIp },
   proofUpload: { name: 'proof-upload', limit: 5, windowMs: 60_000 },
   review: { name: 'review', limit: 60, windowMs: 60_000 },
   dashboard: { name: 'dashboard', limit: 30, windowMs: 60_000 },

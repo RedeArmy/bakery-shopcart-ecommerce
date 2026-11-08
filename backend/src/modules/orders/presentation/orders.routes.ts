@@ -32,6 +32,11 @@ const returnBody = z.object({
     .min(1)
     .max(100),
 });
+// El número tiene el formato PED-AAAA-NNNNNN; el correo se compara tal cual lo escribió quien compró
+const trackQuery = z.object({
+  orderNumber: z.string().trim().min(1).max(20),
+  email: z.string().trim().min(3).max(254),
+});
 const cancelBody = z.object({ reason: z.string().trim().min(1).max(250).nullish() }).default({});
 
 export function createOrdersRouter(kit: RouteKit, repository: OrdersRepository): Router {
@@ -40,6 +45,14 @@ export function createOrdersRouter(kit: RouteKit, repository: OrdersRepository):
   const customer = [kit.authenticate, kit.role('Customer')];
   const staff = [kit.authenticate, kit.role('Operator', 'Administrator')];
   const required = kit.idempotent({ required: true });
+
+  // --- Público: el estado de un pedido, sin sesión, con el número y el correo del pedido ----------------
+
+  // Va antes de /orders/:id para que "track" no se tome por un identificador
+  router.get('/orders/track', kit.rateLimit(POLICIES.orderTracking), async (req, res) => {
+    const query = trackQuery.parse(req.query);
+    res.json(await repository.track(query.orderNumber, query.email));
+  });
 
   // --- Cliente: solo sus pedidos, el IDUser sale del token ---------------------------------
 
