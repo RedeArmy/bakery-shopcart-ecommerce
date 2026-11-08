@@ -1,4 +1,4 @@
-import { createHash, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import type { PasswordHasher } from '../../../platform/security/passwords.js';
 import type { RoleName, TokenService } from '../../../platform/security/tokens.js';
 import { AppError, err, ok } from '../../../shared-kernel/index.js';
@@ -55,8 +55,6 @@ export interface AuthRepositoryPort {
     fullName: string;
     phone: string | null;
   }): Promise<void>;
-  setRecoveryCode(idUser: number, codeHash: string): Promise<void>;
-  findGuestsByEmail(email: string): Promise<{ idUser: number; recoveryHash: string }[]>;
 }
 
 export interface Session {
@@ -73,16 +71,6 @@ export interface GuestContactCommand {
   phone: string | null;
 }
 
-// Sin I, L, O ni U (se confunden con 1, 0 y V al leerlos en voz alta o copiarlos a mano); 10 símbolos son 50 bits
-// cspell:disable-next-line
-const CODE_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
-const CODE_LENGTH = 10;
-
-/** El código se escribe con o sin guiones, espacios y minúsculas: solo cuentan sus símbolos. */
-const normaliseCode = (code: string): string => code.toUpperCase().replaceAll(/[^0-9A-Z]/g, '');
-const hashCode = (code: string): string =>
-  createHash('sha256').update(normaliseCode(code), 'utf8').digest('hex');
-
 export interface RegisterCommand {
   email: string;
   password: string;
@@ -92,8 +80,6 @@ export interface RegisterCommand {
 
 const INVALID_CREDENTIALS = () =>
   new AppError(401, 'INVALID_CREDENTIALS', 'The email or the password is incorrect');
-const RECOVERY_INVALID = () =>
-  new AppError(401, 'RECOVERY_INVALID', 'The email or the recovery code is incorrect');
 const REFRESH_INVALID = () =>
   new AppError(401, 'REFRESH_TOKEN_INVALID', 'The refresh token is invalid or expired');
 
@@ -220,44 +206,6 @@ export class AuthService {
   ): Promise<Result<UserRecord, AppError>> {
     await this.repository.setGuestContact({ idUser, ...contact });
     return this.profile(idUser);
-  }
-
-  /**
-   * Genera un código nuevo para recuperar los pedidos del invitado. Solo se devuelve aquí y en ningún otro lugar: se guarda
-   * su SHA-256 y cada código nuevo reemplaza al anterior.
-   */
-  async newRecoveryCode(idUser: number): Promise<string> {
-    const code = Array.from({ length: CODE_LENGTH }, () =>
-      CODE_ALPHABET.charAt(randomInt(CODE_ALPHABET.length)),
-    ).join('');
-    await this.repository.setRecoveryCode(idUser, hashCode(code));
-    return code;
-  }
-
-  /**
-   * Devuelve la sesión del invitado que presenta su correo y el código. Cualquier fallo responde lo mismo (correo
-   * desconocido, código distinto o ninguno guardado) para no revelar qué correos compraron como invitado.
-   */
-  async recoverGuest(email: string, code: string): Promise<Result<Session, AppError>> {
-    const presented = Buffer.from(hashCode(code), 'hex');
-    const candidates = await this.repository.findGuestsByEmail(email);
-    // Cada comparación es de tiempo constante; los candidatos son las cuentas del mismo correo, no un dato secreto
-    const match = candidates.find((candidate) => {
-      const stored = Buffer.from(candidate.recoveryHash, 'hex');
-      return stored.length === presented.length && timingSafeEqual(stored, presented);
-    });
-    if (match === undefined) return err(RECOVERY_INVALID());
-
-    const user = await this.repository.findById(match.idUser);
-    if (!user?.isActive) return err(RECOVERY_INVALID());
-    const refresh = this.tokens.newRefreshToken();
-    await this.repository.saveRefreshToken({
-      idUser: user.idUser,
-      idFamily: randomUUID(),
-      tokenHash: refresh.hash,
-      expiresAt: refresh.expiresAt,
-    });
-    return ok(await this.session(user, refresh.token));
   }
 
   async profile(idUser: number): Promise<Result<UserRecord, AppError>> {

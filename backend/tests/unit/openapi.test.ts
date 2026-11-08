@@ -108,10 +108,8 @@ describe('OpenAPI contract', () => {
       'POST /api/v1/auth/refresh',
       'POST /api/v1/auth/logout',
       'POST /api/v1/cart/merge',
-      // Devuelven un token o un código secreto: repetirlos desde un almacén de respuestas lo dejaría guardado en claro
+      // Devuelven un token: repetirlos desde un almacén de respuestas lo dejaría guardado en claro
       'POST /api/v1/auth/guest',
-      'POST /api/v1/auth/guest/recovery-code',
-      'POST /api/v1/auth/guest/recover',
     ]);
     const lacking: string[] = [];
     for (const [path, operations] of Object.entries(spec.paths)) {

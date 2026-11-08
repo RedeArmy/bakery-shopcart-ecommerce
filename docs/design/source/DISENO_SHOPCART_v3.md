@@ -127,7 +127,6 @@
 | Respuesta del evaluador sobre `PendientePago` | Se envía hoy la consulta (§12.9). Fallback: "pedido solo al pagar" con una solicitud de depósito aparte; la decisión se revisa antes de escribir `SP_Pedidos_CrearPedido` |
 | Detalles de la API de Recurrente por validar | Primer día de Fase 2 con llaves de prueba (§12.5) |
 | Regla de redondeo fiscal | Si algún día se emite factura electrónica, se contrasta con su especificación |
-| Flujo de Kemik | No encontré documentación pública; no se afirma nada. Se puede verificar con una compra de prueba hasta la pantalla de pago |
 
 ---
 
@@ -1755,7 +1754,6 @@ Pregunta revisada: *¿el pedido debe existir antes de que el depósito se confir
 | **Home Depot México** | Máximo de **6 horas** para pagar por transferencia |
 | **Navigo (Île-de-France Mobilités)** | **10 días naturales**; después se cancela |
 | **Amazon** | *Pending* hasta verificar el pago, con cancelación automática; los plazos que citan terceros van de días a 21 días (baja confianza) |
-| **Kemik** | **No hay documentación pública que pude encontrar; no se afirma nada.** Verificable con una compra de prueba hasta la pantalla de pago |
 
 **Conclusiones**
 1. El pedido existe antes del pago en toda plataforma que acepta pagos offline. **Se confirma D18.**

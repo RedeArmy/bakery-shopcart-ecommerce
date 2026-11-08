@@ -138,24 +138,6 @@ export function createSqlAuthRepository(execute: ProcedureExecutor): AuthReposit
       ]);
     },
 
-    async setRecoveryCode(idUser, codeHash) {
-      await execute('dbo.SP_Users_SetRecoveryCode', [
-        { name: 'IDUser', type: sql.Int, value: idUser },
-        { name: 'CodeHash', type: sql.Char(64), value: codeHash },
-      ]);
-    },
-
-    async findGuestsByEmail(email) {
-      const result = await execute<{ IDUser: number; GuestRecoveryHash: string }>(
-        'dbo.SP_Users_FindGuestsByEmail',
-        [{ name: 'Email', type: sql.NVarChar(256), value: email }],
-      );
-      return result.rows.map((row) => ({
-        idUser: row.IDUser,
-        recoveryHash: row.GuestRecoveryHash,
-      }));
-    },
-
     async revokeFamily(tokenHash) {
       await execute(
         'dbo.SP_Tokens_RevokeFamily',

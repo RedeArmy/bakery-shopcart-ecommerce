@@ -27,7 +27,6 @@ const guestContactBody = z.object({
   fullName: z.string().trim().min(1).max(120),
   phone,
 });
-const recoverBody = z.object({ email, code: z.string().trim().min(6).max(24) });
 const loginBody = z.object({ email, password: z.string().min(1).max(128) });
 const refreshToken = z.string().min(20).max(200);
 
@@ -104,20 +103,6 @@ export function createAuthRouter({
   router.put('/auth/guest/contact', authenticate, async (req, res) => {
     const body = guestContactBody.parse(req.body);
     res.json(unwrap(await service.setGuestContact(requireUser(req).idUser, body)));
-  });
-
-  router.post('/auth/guest/recovery-code', authenticate, async (req, res) => {
-    res.status(201).json({ code: await service.newRecoveryCode(requireUser(req).idUser) });
-  });
-
-  router.post('/auth/guest/recover', limitAuthentication, async (req, res) => {
-    const { email: address, code } = recoverBody.parse(req.body);
-    const session = unwrap(await service.recoverGuest(address, code));
-    res.cookie(REFRESH_COOKIE_NAME, session.refreshToken, {
-      ...cookieBase,
-      maxAge: refreshCookie.maxAgeMs,
-    });
-    res.json(session);
   });
 
   router.post('/auth/refresh', limitRefresh, async (req, res) => {

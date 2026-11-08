@@ -190,67 +190,18 @@ BEGIN
 END;
 GO
 
--- Recuperación -------------------------------------------------------------------------------
+-- Recuperación retirada -----------------------------------------------------------------------
 
-CREATE PROCEDURE Test_Guests.[test the recovery code needs a contact email]
+CREATE PROCEDURE Test_Guests.[test the guest recovery objects no longer exist]
 AS
 BEGIN
-    DECLARE @Guest INT;
-    EXEC dbo.SP_Users_CreateGuest @IDUser = @Guest OUTPUT;
-    EXEC tSQLt.ExpectException @ExpectedMessagePattern = N'%no contact email%', @ExpectedErrorNumber = 50422;
-    EXEC dbo.SP_Users_SetRecoveryCode @IDUser = @Guest, @CodeHash = '1111111111111111111111111111111111111111111111111111111111111111';
-END;
-GO
-
-CREATE PROCEDURE Test_Guests.[test a new recovery code replaces the old one]
-AS
-BEGIN
-    DECLARE @Guest INT;
-    EXEC dbo.SP_Users_CreateGuest @IDUser = @Guest OUTPUT;
-    EXEC dbo.SP_Users_SetGuestContact @IDUser = @Guest, @Email = N'recover@example.test', @FullName = N'Recover';
-    EXEC dbo.SP_Users_SetRecoveryCode @IDUser = @Guest, @CodeHash = '1111111111111111111111111111111111111111111111111111111111111111';
-    EXEC dbo.SP_Users_SetRecoveryCode @IDUser = @Guest, @CodeHash = '2222222222222222222222222222222222222222222222222222222222222222';
-
-    DECLARE @Stored CHAR(64) = (SELECT GuestRecoveryHash FROM dbo.Users WHERE IDUser = @Guest);
-    EXEC tSQLt.AssertEqualsString @Expected = '2222222222222222222222222222222222222222222222222222222222222222', @Actual = @Stored;
-END;
-GO
-
-CREATE PROCEDURE Test_Guests.[test a registered account has no recovery code]
-AS
-BEGIN
-    DECLARE @Ana INT = Test_Shop.UserId(N'ana@shopcart.test');
-    EXEC tSQLt.ExpectException @ExpectedMessagePattern = N'%guest account%', @ExpectedErrorNumber = 50422;
-    EXEC dbo.SP_Users_SetRecoveryCode @IDUser = @Ana, @CodeHash = '1111111111111111111111111111111111111111111111111111111111111111';
-END;
-GO
-
-CREATE PROCEDURE Test_Guests.[test the recovery lookup returns only active guests of that email that have a code]
-AS
-BEGIN
-    DECLARE @WithCode INT, @WithoutCode INT, @Inactive INT;
-    EXEC dbo.SP_Users_CreateGuest @IDUser = @WithCode OUTPUT;
-    EXEC dbo.SP_Users_CreateGuest @IDUser = @WithoutCode OUTPUT;
-    EXEC dbo.SP_Users_CreateGuest @IDUser = @Inactive OUTPUT;
-    EXEC dbo.SP_Users_SetGuestContact @IDUser = @WithCode, @Email = N'find@example.test', @FullName = N'A';
-    EXEC dbo.SP_Users_SetGuestContact @IDUser = @WithoutCode, @Email = N'find@example.test', @FullName = N'B';
-    EXEC dbo.SP_Users_SetGuestContact @IDUser = @Inactive, @Email = N'find@example.test', @FullName = N'C';
-    EXEC dbo.SP_Users_SetRecoveryCode @IDUser = @WithCode, @CodeHash = '3333333333333333333333333333333333333333333333333333333333333333';
-    EXEC dbo.SP_Users_SetRecoveryCode @IDUser = @Inactive, @CodeHash = '4444444444444444444444444444444444444444444444444444444444444444';
-    UPDATE dbo.Users SET IsActive = 0 WHERE IDUser = @Inactive;
-
-    CREATE TABLE #Found (IDUser INT, GuestRecoveryHash CHAR(64));
-    INSERT INTO #Found EXEC dbo.SP_Users_FindGuestsByEmail @Email = N' find@example.test ';
-    DECLARE @Rows INT = (SELECT COUNT(*) FROM #Found);
-    DECLARE @Only INT = (SELECT IDUser FROM #Found);
-    EXEC tSQLt.AssertEquals @Expected = 1, @Actual = @Rows;
-    EXEC tSQLt.AssertEquals @Expected = @WithCode, @Actual = @Only;
-
-    DECLARE @None INT;
-    CREATE TABLE #Unknown (IDUser INT, GuestRecoveryHash CHAR(64));
-    INSERT INTO #Unknown EXEC dbo.SP_Users_FindGuestsByEmail @Email = N'ana@shopcart.test';
-    SET @None = (SELECT COUNT(*) FROM #Unknown);
-    EXEC tSQLt.AssertEquals @Expected = 0, @Actual = @None;
+    DECLARE @Procedures INT = (
+        SELECT COUNT(*) FROM sys.procedures
+        WHERE name IN (N'SP_Users_SetRecoveryCode', N'SP_Users_FindGuestsByEmail'));
+    EXEC tSQLt.AssertEquals @Expected = 0, @Actual = @Procedures;
+    -- Sin código no hay hash que guardar
+    DECLARE @Columns INT = (SELECT COUNT(*) FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.Users') AND name = N'GuestRecoveryHash');
+    EXEC tSQLt.AssertEquals @Expected = 0, @Actual = @Columns;
 END;
 GO
 

@@ -194,55 +194,6 @@ paths:
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/Unprocessable'
-  /api/v1/auth/guest/recovery-code:
-    post:
-      tags:
-        - Authentication
-      summary: Issue the code that recovers the orders of the guest
-      description: Returns a new code once; only its hash is stored and each new code replaces the old one. The guest keeps it with the email to recover the orders on another browser. Needs a contact email (422 otherwise) and a guest account.
-      operationId: issueGuestRecoveryCode
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RecoveryCode'
-        '401':
-          $ref: '#/components/responses/Unauthorised'
-        '422':
-          $ref: '#/components/responses/Unprocessable'
-  /api/v1/auth/guest/recover:
-    post:
-      tags:
-        - Authentication
-      summary: Recover the session of a guest with the email and the recovery code
-      description: The same 401 `RECOVERY_INVALID` answers an unknown email and a wrong code. The refresh token is also set in the `refreshToken` cookie.
-      operationId: recoverGuestSession
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RecoverGuestRequest'
-      responses:
-        '200':
-          description: Success
-          headers:
-            Set-Cookie:
-              $ref: '#/components/headers/RefreshTokenCookie'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Session'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorised'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
   /api/v1/auth/refresh:
     post:
       tags:
@@ -3473,25 +3424,6 @@ components:
       required:
         - email
         - fullName
-    RecoveryCode:
-      type: object
-      properties:
-        code:
-          type: string
-          description: Ten characters (digits and letters without I, L, O and U); it is accepted with or without hyphens and in lower case
-      required:
-        - code
-    RecoverGuestRequest:
-      type: object
-      properties:
-        email:
-          type: string
-          format: email
-        code:
-          type: string
-      required:
-        - email
-        - code
     LoginRequest:
       type: object
       properties:

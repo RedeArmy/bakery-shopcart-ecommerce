@@ -41,7 +41,6 @@ HTTP codes: 400 validation or missing key, 401 missing or expired token, 403 ins
 | `EMAIL_BELONGS_TO_ACCOUNT` | 409 | A guest gave the email of a registered account; that shopper must sign in |
 | `ACCOUNT_REQUIRED` | 422 | A visitor or a guest asked for a coupon, a made-to-order product (`leadTimeDays` above 0) or a personalisation, which need a registered account |
 | `GUEST_CONTACT_REQUIRED` | 422 | A guest tried to create an order without giving a contact email |
-| `RECOVERY_INVALID` | 401 | The email or the recovery code of a guest is wrong (the same answer for an unknown email) |
 | `REFRESH_TOKEN_INVALID` | 401 | The refresh token is unknown, expired or its account is inactive |
 | `REFRESH_TOKEN_REUSED` | 401 | A rotated refresh token was presented again; its whole family is revoked |
 | `IDEMPOTENCY_KEY_INVALID` | 400 | The key does not have 8 to 64 letters, digits, hyphens or underscores |
@@ -92,7 +91,7 @@ Stored procedures raise `THROW` codes 50400, 50404, 50409 and 50422, which the e
 | `POST /orders/{id}/payment/verify` (Phase 2) | No key: idempotent by design |
 | `POST /webhooks/recurrente` (Phase 2) | `svix-id` with `UNIQUE (Provider, MessageID)` |
 | `/auth/login`, `/auth/refresh`, `/auth/logout` | Excluded: refresh uses rotation and reuse detection; login uses rate limiting and lockout |
-| `POST /auth/guest`, `POST /auth/guest/recovery-code`, `POST /auth/guest/recover` | Excluded: they return a token or a secret code, and replaying a stored response would keep it in clear in the idempotency store. `POST /auth/guest` and `/recover` are rate limited like sign in |
+| `POST /auth/guest` | Excluded: it returns a token, and replaying a stored response would keep it in clear in the idempotency store. `POST /auth/guest` is rate limited like sign in |
 
 How it works: the key scope is `(Scope, Method, Route, Key)`. Before the use case, `SP_Idempotency_Begin` inserts atomically against a unique key.
 
@@ -137,8 +136,6 @@ Responses answer **429** with the standard error, `Retry-After` and `RateLimit-L
 | `POST /auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout` | Public | 1 | Rate limited; refresh rotates |
 | `POST /auth/guest` | Public | 1 | Creates a guest account and signs it in (ADR-0027). Rate limited like sign in; sets the refresh cookie |
 | `PUT /auth/guest/contact` | Guest | 1 | Saves the name, email and phone; `EMAIL_BELONGS_TO_ACCOUNT` for a registered email |
-| `POST /auth/guest/recovery-code` | Guest | 1 | Issues a recovery code once (only its hash is kept); each new code replaces the old one |
-| `POST /auth/guest/recover` | Public | 1 | Email and code give back the session of that guest; one 401 for an unknown email and a wrong code. Rate limited like sign in |
 | `GET /categories`, `GET /products?q=&category=&min=&max=&available=&sort=&page=&size=`, `GET /products/{id}` | Public | 1 | Server-side pagination |
 | `POST/PUT/DELETE /admin/categories`, `/admin/products`, `/admin/variants` | Administrator | 1 | `DELETE` deactivates when sales exist |
 | `PATCH /admin/variants/{id}/price` | Administrator | 1 | Idempotency-Key; audited |

@@ -27,9 +27,8 @@ const AUTH_PATHS = new Set([
   '/api/v1/auth/register',
   '/api/v1/auth/refresh',
   '/api/v1/auth/logout',
-  // Abrir o recuperar la sesión de un invitado no tiene sesión previa: no llevan token ni disparan una renovación
+  // Abrir la sesión de un invitado no tiene sesión previa: no lleva token ni dispara una renovación
   '/api/v1/auth/guest',
-  '/api/v1/auth/guest/recover',
 ]);
 
 /**
@@ -148,13 +147,6 @@ export function createAuth(options: AuthOptions = {}) {
     /** Abre la sesión de un invitado: una cuenta sin contraseña para usar un cupón y pagar sin registrarse (ADR-0027). */
     async startGuest(): Promise<SessionUser> {
       return signIn(unwrap(await plain.POST('/api/v1/auth/guest')));
-    },
-
-    /** Devuelve la sesión del invitado que presenta su correo y el código de recuperación de sus pedidos. */
-    async recoverGuest(email: string, code: string): Promise<SessionUser> {
-      return signIn(
-        unwrap(await plain.POST('/api/v1/auth/guest/recover', { body: { email, code } })),
-      );
     },
 
     /** Actualiza los datos del usuario de la sesión (el contacto que dio el invitado) sin tocar los tokens. */

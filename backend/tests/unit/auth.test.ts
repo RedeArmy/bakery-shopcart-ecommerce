@@ -91,7 +91,6 @@ class FakeRepository implements AuthRepositoryPort {
     this.revoked.push(tokenHash);
     return Promise.resolve();
   }
-  readonly recoveryHashes = new Map<number, string>();
   createGuest() {
     const idUser = this.users.length + 1;
     this.users.push({
@@ -126,22 +125,6 @@ class FakeRepository implements AuthRepositoryPort {
     user.fullName = input.fullName;
     user.phone = input.phone;
     return Promise.resolve();
-  }
-  setRecoveryCode(idUser: number, codeHash: string) {
-    this.recoveryHashes.set(idUser, codeHash);
-    return Promise.resolve();
-  }
-  findGuestsByEmail(email: string) {
-    return Promise.resolve(
-      this.users
-        .filter(
-          (user) => user.isGuest && user.email === email && this.recoveryHashes.has(user.idUser),
-        )
-        .map((user) => ({
-          idUser: user.idUser,
-          recoveryHash: this.recoveryHashes.get(user.idUser) ?? '',
-        })),
-    );
   }
 }
 
@@ -513,93 +496,5 @@ describe('guest accounts', () => {
       .put('/auth/guest/contact')
       .send({ email: 'maria@example.test', fullName: 'Maria' });
     expect(anonymous.status).toBe(401);
-  });
-
-  it('gives a recovery code once, stores only its hash and lets the guest recover the session with it', async () => {
-    const app = build(repository);
-    const { token } = await startGuest(app);
-    await request(app)
-      .put('/auth/guest/contact')
-      .set('Authorization', `Bearer ${token}`)
-      .send({ email: 'maria@example.test', fullName: 'Maria' });
-
-    const issued = await request(app)
-      .post('/auth/guest/recovery-code')
-      .set('Authorization', `Bearer ${token}`);
-    expect(issued.status).toBe(201);
-    const { code } = issued.body as { code: string };
-    // cspell:disable-next-line
-    expect(code).toMatch(/^[0-9A-HJKMNP-TV-Z]{10}$/);
-    expect(repository.recoveryHashes.get(1)).toMatch(/^[0-9a-f]{64}$/);
-    expect(repository.recoveryHashes.get(1)).not.toContain(code);
-
-    // El código se acepta con minúsculas, espacios y guiones
-    const spaced = `${code.slice(0, 5)}-${code.slice(5)}`.toLowerCase();
-    const recovered = await request(app)
-      .post('/auth/guest/recover')
-      .send({ email: 'MARIA@example.test', code: spaced });
-    expect(recovered.status).toBe(200);
-    expect((recovered.body as { user: { idUser: number; isGuest: boolean } }).user).toMatchObject({
-      idUser: 1,
-      isGuest: true,
-    });
-    expect(recovered.headers['set-cookie']?.[0]).toContain('refreshToken=');
-    // La sesión recuperada tiene su propia familia de tokens
-    expect(repository.saved).toHaveLength(2);
-  });
-
-  it('answers the same 401 whether the email is unknown or the code is wrong', async () => {
-    const app = build(repository);
-    const { token } = await startGuest(app);
-    await request(app)
-      .put('/auth/guest/contact')
-      .set('Authorization', `Bearer ${token}`)
-      .send({ email: 'maria@example.test', fullName: 'Maria' });
-    await request(app).post('/auth/guest/recovery-code').set('Authorization', `Bearer ${token}`);
-
-    const wrongCode = await request(app)
-      .post('/auth/guest/recover')
-      .send({ email: 'maria@example.test', code: 'AAAAAAAAAA' });
-    const unknownEmail = await request(app)
-      .post('/auth/guest/recover')
-      .send({ email: 'nobody@example.test', code: 'AAAAAAAAAA' });
-    expect(wrongCode.status).toBe(401);
-    expect(unknownEmail.status).toBe(401);
-    expect(errorCodeOf(wrongCode)).toBe('RECOVERY_INVALID');
-    expect(errorCodeOf(unknownEmail)).toBe('RECOVERY_INVALID');
-  });
-
-  it('replaces the recovery code with each new one, so the old one stops working', async () => {
-    const app = build(repository);
-    const { token } = await startGuest(app);
-    await request(app)
-      .put('/auth/guest/contact')
-      .set('Authorization', `Bearer ${token}`)
-      .send({ email: 'maria@example.test', fullName: 'Maria' });
-    const first = await request(app)
-      .post('/auth/guest/recovery-code')
-      .set('Authorization', `Bearer ${token}`);
-    const second = await request(app)
-      .post('/auth/guest/recovery-code')
-      .set('Authorization', `Bearer ${token}`);
-    const oldCode = (first.body as { code: string }).code;
-    const newCode = (second.body as { code: string }).code;
-    expect(newCode).not.toBe(oldCode);
-
-    const old = await request(app)
-      .post('/auth/guest/recover')
-      .send({ email: 'maria@example.test', code: oldCode });
-    const fresh = await request(app)
-      .post('/auth/guest/recover')
-      .send({ email: 'maria@example.test', code: newCode });
-    expect(old.status).toBe(401);
-    expect(fresh.status).toBe(200);
-  });
-
-  it('rejects a malformed recovery request before looking anything up', async () => {
-    const response = await request(build(repository))
-      .post('/auth/guest/recover')
-      .send({ email: 'maria@example.test', code: 'x' });
-    expect(response.status).toBe(400);
   });
 });

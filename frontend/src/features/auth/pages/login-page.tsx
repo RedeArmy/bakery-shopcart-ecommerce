@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError, errorMessage } from '../../../shared/api';
 import { auth, hasAccount, useSession } from '../../../shared/auth';
 import { AuthLayout, FormAlert, SubmitButton, fieldError } from '../components/auth-layout';
@@ -85,11 +85,6 @@ export function LoginPage() {
         <FormAlert message={formError} />
         <SubmitButton submitting={isSubmitting} label={t('auth.signInSubmit')} />
       </form>
-      <p className="text-sm">
-        <Link to="/recover" className="text-accent hover:underline">
-          {t('auth.recover.link')}
-        </Link>
-      </p>
     </AuthLayout>
   );
 }
