@@ -1,8 +1,7 @@
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '../../../shared/ui/badge';
 import { Button } from '../../../shared/ui/button';
-import { RemoveConfirmation } from '../../../shared/ui/remove-confirmation';
+import { RemoveConfirmation, useCardMode } from '../../../shared/ui/remove-confirmation';
 import { useDeactivateBranch } from '../hooks/use-branches';
 import type { Branch } from '../hooks/use-branches';
 import { BranchForm } from './branch-form';
@@ -11,20 +10,12 @@ import { BranchForm } from './branch-form';
 export function BranchCard({ branch }: Readonly<{ branch: Branch }>) {
   const { t } = useTranslation();
   const deactivate = useDeactivateBranch(branch.idBranch);
-  const [mode, setMode] = useState<'view' | 'edit' | 'remove'>('view');
+  const { mode, edit, remove, close } = useCardMode();
 
   if (mode === 'edit') {
     return (
       <li>
-        <BranchForm
-          branch={branch}
-          onDone={() => {
-            setMode('view');
-          }}
-          onCancel={() => {
-            setMode('view');
-          }}
-        />
+        <BranchForm branch={branch} onDone={close} onCancel={close} />
       </li>
     );
   }
@@ -52,45 +43,17 @@ export function BranchCard({ branch }: Readonly<{ branch: Branch }>) {
 
       {branch.isActive && mode === 'view' ? (
         <div className="flex flex-wrap gap-3">
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setMode('edit');
-            }}
-          >
+          <Button variant="secondary" onClick={edit}>
             {t('branches.edit')}
           </Button>
-          <Button
-            variant="ghost"
-            onClick={() => {
-              setMode('remove');
-            }}
-          >
+          <Button variant="ghost" onClick={remove}>
             {t('branches.remove')}
           </Button>
         </div>
       ) : null}
 
       {mode === 'remove' ? (
-        <RemoveConfirmation
-          title={t('branches.removeTitle')}
-          text={t('branches.removeText')}
-          confirmLabel={t('branches.removeConfirm')}
-          keepLabel={t('branches.removeKeep')}
-          pending={deactivate.isPending}
-          error={deactivate.error}
-          onKeep={() => {
-            setMode('view');
-          }}
-          onConfirm={() => {
-            // Al lograrse, la sucursal pasa a desactivada y la confirmación se cierra
-            deactivate.mutate(undefined, {
-              onSuccess: () => {
-                setMode('view');
-              },
-            });
-          }}
-        />
+        <RemoveConfirmation prefix="branches" deactivation={deactivate} onClose={close} />
       ) : null}
     </li>
   );

@@ -1,9 +1,8 @@
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessage } from '../../../shared/api';
 import { Badge } from '../../../shared/ui/badge';
 import { Button } from '../../../shared/ui/button';
-import { RemoveConfirmation } from '../../../shared/ui/remove-confirmation';
+import { RemoveConfirmation, useCardMode } from '../../../shared/ui/remove-confirmation';
 import { useDeactivatePaymentMethod, useUpdatePaymentMethod } from '../hooks/use-payment-methods';
 import type { PaymentMethod } from '../hooks/use-payment-methods';
 import { PaymentMethodForm } from './payment-method-form';
@@ -19,20 +18,12 @@ export function PaymentMethodCard({ method }: Readonly<{ method: PaymentMethod }
   const { t } = useTranslation();
   const deactivate = useDeactivatePaymentMethod(method.idPaymentMethod);
   const reactivate = useUpdatePaymentMethod(method.idPaymentMethod);
-  const [mode, setMode] = useState<'view' | 'edit' | 'remove'>('view');
+  const { mode, edit, remove, close } = useCardMode();
 
   if (mode === 'edit') {
     return (
       <li>
-        <PaymentMethodForm
-          method={method}
-          onDone={() => {
-            setMode('view');
-          }}
-          onCancel={() => {
-            setMode('view');
-          }}
-        />
+        <PaymentMethodForm method={method} onDone={close} onCancel={close} />
       </li>
     );
   }
@@ -55,21 +46,11 @@ export function PaymentMethodCard({ method }: Readonly<{ method: PaymentMethod }
 
       {mode === 'view' ? (
         <div className="flex flex-wrap gap-3">
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setMode('edit');
-            }}
-          >
+          <Button variant="secondary" onClick={edit}>
             {t('paymentMethods.edit')}
           </Button>
           {method.isActive ? (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setMode('remove');
-              }}
-            >
+            <Button variant="ghost" onClick={remove}>
               {t('paymentMethods.remove')}
             </Button>
           ) : (
@@ -101,25 +82,7 @@ export function PaymentMethodCard({ method }: Readonly<{ method: PaymentMethod }
       ) : null}
 
       {mode === 'remove' ? (
-        <RemoveConfirmation
-          title={t('paymentMethods.removeTitle')}
-          text={t('paymentMethods.removeText')}
-          confirmLabel={t('paymentMethods.removeConfirm')}
-          keepLabel={t('paymentMethods.removeKeep')}
-          pending={deactivate.isPending}
-          error={deactivate.error}
-          onKeep={() => {
-            setMode('view');
-          }}
-          onConfirm={() => {
-            // Al lograrse, el método pasa a desactivado y la confirmación se cierra
-            deactivate.mutate(undefined, {
-              onSuccess: () => {
-                setMode('view');
-              },
-            });
-          }}
-        />
+        <RemoveConfirmation prefix="paymentMethods" deactivation={deactivate} onClose={close} />
       ) : null}
     </li>
   );
