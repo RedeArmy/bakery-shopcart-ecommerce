@@ -33,7 +33,16 @@ const withDeposit = (offer: Record<string, unknown>) => ({
   deliveryDate: '2030-06-10',
   earliestDeliveryDate: '2030-06-10',
   deliveryDateAllowed: true,
-  methods: [{ method: 'BANK_DEPOSIT', ...offer }],
+  methods: [
+    {
+      idPaymentMethod: 2,
+      code: 'BANK_DEPOSIT',
+      kind: 'Deposit',
+      title: 'Depósito o transferencia bancaria',
+      description: null,
+      ...offer,
+    },
+  ],
   bankAccounts: [],
 });
 
@@ -136,6 +145,7 @@ describe('the order list when something goes wrong or grows', () => {
     expect(await screen.findByRole('alert')).toBeDefined();
     failing = false;
     await user.click(screen.getByRole('button', { name: 'Reintentar' }));
+    // Sin pedidos, dentro de su cuenta, se le dice y se le ofrece el catálogo
     expect(await screen.findByText('Todavía no tiene pedidos')).toBeDefined();
   });
 

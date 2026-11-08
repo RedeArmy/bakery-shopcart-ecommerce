@@ -2,17 +2,23 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
 import { formatDateOnly, formatDateTime } from '../../../shared/lib/date';
+import { hasAccount, useSession } from '../../../shared/auth';
 import { ButtonLink } from '../../../shared/ui/button';
 import { SelectField } from '../../../shared/ui/fields';
 import { Pagination } from '../../../shared/ui/pagination';
 import { Price } from '../../../shared/ui/price';
 import { EmptyState, ErrorState, LoadingSkeleton } from '../../../shared/ui/states';
 import { OrderStatusBadge } from '../components/order-status-badge';
+import { TrackOrder } from '../components/track-order';
 import { useOrders } from '../hooks/use-orders';
-import { ORDER_STATUSES, PAGE_SIZE, parseOrdersQuery } from '../model/order-status';
+import { ORDER_STATUSES, PAGE_SIZE, displayStatus, parseOrdersQuery } from '../model/order-status';
 
-/** Los pedidos del cliente, en el orden que da el servidor, con filtro por estado y la página en la dirección. */
-export function OrdersPage() {
+/**
+ * Los pedidos del cliente, en el orden que da el servidor, con filtro por estado y la página en la dirección. Dentro de una cuenta
+ * es la página entera (con un mensaje si todavía no hay pedidos); a un invitado se le muestra debajo de la consulta y, sin pedidos,
+ * no se muestra nada.
+ */
+function MyOrders({ inAccount }: Readonly<{ inAccount: boolean }>) {
   const { t } = useTranslation();
   const [params, setParams] = useSearchParams();
   const { page, status } = parseOrdersQuery(params);
@@ -34,11 +40,7 @@ export function OrdersPage() {
     content = <ErrorState error={error} onRetry={() => void refetch()} />;
   } else if (data.items.length === 0) {
     content = (
-      <EmptyState
-        title={status === null ? t('orders.emptyTitle') : t('orders.emptyFilteredTitle')}
-        text={status === null ? t('orders.emptyText') : t('orders.emptyFilteredText')}
-        action={<ButtonLink to="/catalogue">{t('orders.browse')}</ButtonLink>}
-      />
+      <EmptyState title={t('orders.emptyFilteredTitle')} text={t('orders.emptyFilteredText')} />
     );
   } else {
     content = (
@@ -60,7 +62,9 @@ export function OrdersPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-4">
-                  <OrderStatusBadge status={order.statusName} />
+                  <OrderStatusBadge
+                    status={displayStatus(order.statusName, order.paymentStatusName)}
+                  />
                   <Price amount={order.total} className="text-lg text-stone-900" />
                 </div>
               </Link>
@@ -78,10 +82,27 @@ export function OrdersPage() {
     );
   }
 
+  const noOrdersYet = !isPending && !isError && data.items.length === 0 && status === null;
+  // Un invitado sin pedidos no tiene lista que ver: le basta la consulta
+  if (noOrdersYet && !inAccount) return null;
+  if (noOrdersYet) {
+    return (
+      <EmptyState
+        title={t('orders.emptyTitle')}
+        text={t('orders.emptyText')}
+        action={<ButtonLink to="/catalogue">{t('orders.browse')}</ButtonLink>}
+      />
+    );
+  }
+
   return (
-    <div className="space-y-6">
+    <section aria-labelledby={inAccount ? undefined : 'orders-yours'} className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-4xl text-stone-900">{t('orders.title')}</h1>
+        {inAccount ? null : (
+          <h2 id="orders-yours" className="text-3xl text-stone-900">
+            {t('orders.yours')}
+          </h2>
+        )}
         <div className="w-full sm:w-64">
           <SelectField
             label={t('orders.filter')}
@@ -100,6 +121,32 @@ export function OrdersPage() {
         </div>
       </header>
       {content}
+    </section>
+  );
+}
+
+/**
+ * Dentro de una cuenta es «Mis pedidos»: todos los pedidos realizados. Para cualquier otra persona (visitante o invitado) es
+ * «Pedidos»: se escribe el número del pedido y el correo con el que se hizo y se ve su estado; un invitado ve además los
+ * pedidos de su sesión.
+ */
+export function OrdersPage() {
+  const { t } = useTranslation();
+  const session = useSession();
+
+  if (hasAccount(session)) {
+    return (
+      <div className="space-y-8">
+        <h1 className="text-4xl text-stone-900">{t('orders.title')}</h1>
+        <MyOrders inAccount />
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-12">
+      <h1 className="text-4xl text-stone-900">{t('orders.publicTitle')}</h1>
+      <TrackOrder />
+      {session.user?.role === 'Customer' ? <MyOrders inAccount={false} /> : null}
     </div>
   );
 }

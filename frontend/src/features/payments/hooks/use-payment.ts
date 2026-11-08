@@ -6,6 +6,17 @@ import { useIdempotencyKey } from '../../checkout/hooks/use-checkout';
 
 export type Payment = components['schemas']['Payment'];
 
+/** Las cuentas donde depositar, como información para quien paga (no se eligen). */
+export function useBankAccounts() {
+  const { user } = useSession();
+  return useQuery({
+    queryKey: ['bank-accounts', user?.idUser ?? null],
+    enabled: user !== null,
+    staleTime: 60_000,
+    queryFn: async ({ signal }) => unwrap(await api.GET('/api/v1/bank-accounts', { signal })),
+  });
+}
+
 /** Estados del pago en los que ya no hay nada que esperar: dejan de consultarse cada pocos segundos. */
 const SETTLED = new Set(['Approved', 'Rejected', 'Expired', 'Cancelled', 'Refunded']);
 

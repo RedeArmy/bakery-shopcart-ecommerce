@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { ApiError } from '../../../shared/api';
+import { TextField } from '../../../shared/ui/fields';
 import { useBranches } from '../../branches/hooks/use-branches';
 import type { Cart } from '../../cart/model/cart-model';
 import { useConfirmOrder, usePaymentMethods, useReserveCart } from '../hooks/use-checkout';
 import type { Fulfilment } from '../hooks/use-checkout';
 import { AddressSection } from './address-section';
+import { CheckoutStepper } from './checkout-stepper';
 import { DELIVERY_CHOICE, FulfilmentSection } from './fulfilment-section';
 import { PaymentSection } from './payment-section';
 import { ReservationPanel } from './reservation-panel';
@@ -23,16 +26,18 @@ const signatureOf = (cart: Cart): string =>
  * lo que se decide (la fecha estimada, si el depósito alcanza, la cuenta) lo dice el servidor; aquí solo se elige y se muestra.
  */
 export function PurchaseSteps({ cart }: Readonly<{ cart: Cart }>) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
+  const [notes, setNotes] = useState('');
   const [choice, setChoice] = useState(DELIVERY_CHOICE);
   const [idAddress, setIdAddress] = useState<number | null>(null);
-  const [idBank, setIdBank] = useState<number | null>(null);
+  const [idMethod, setIdMethod] = useState<number | null>(null);
   const [reservation, setReservation] = useState<ActiveReservation | null>(null);
   const [expired, setExpired] = useState(false);
 
   const signature = signatureOf(cart);
   const branches = useBranches();
-  const methods = usePaymentMethods(signature);
+  const methods = usePaymentMethods(signature, choice === DELIVERY_CHOICE ? 'Delivery' : 'Pickup');
   const reserve = useReserveCart();
   const confirm = useConfirmOrder();
   const view = methods.data;
@@ -53,18 +58,18 @@ export function PurchaseSteps({ cart }: Readonly<{ cart: Cart }>) {
     setReservation(null);
   }, [signature]);
 
-  const deposit = view?.methods.find((method) => method.method === 'BANK_DEPOSIT');
+  const method = view?.methods.find((offer) => offer.idPaymentMethod === idMethod);
 
   let fulfilment: Fulfilment | null = null;
   if (choice !== DELIVERY_CHOICE) fulfilment = { type: 'Pickup', idBranch: Number(choice) };
-  else if (idAddress !== null) fulfilment = { type: 'Delivery', idAddress };
+  else if (idAddress !== null) fulfilment = { type: 'Delivery', idAddress, notes };
 
   const ready =
     fulfilment !== null &&
-    idBank !== null &&
+    idMethod !== null &&
     view !== undefined &&
     !methods.isFetching &&
-    deposit?.available === true;
+    method?.available === true;
 
   const error =
     confirm.error ??
@@ -73,6 +78,7 @@ export function PurchaseSteps({ cart }: Readonly<{ cart: Cart }>) {
 
   return (
     <>
+      <CheckoutStepper current={fulfilment === null ? 1 : 2} />
       <FulfilmentSection
         choice={choice}
         onChoice={setChoice}
@@ -84,9 +90,20 @@ export function PurchaseSteps({ cart }: Readonly<{ cart: Cart }>) {
         viewError={methods.error}
       />
       {choice === DELIVERY_CHOICE ? (
-        <AddressSection selected={idAddress} onSelect={setIdAddress} />
+        <>
+          <AddressSection selected={idAddress} onSelect={setIdAddress} />
+          <TextField
+            label={t('checkout.notes.label')}
+            hint={t('checkout.notes.hint')}
+            maxLength={300}
+            value={notes}
+            onChange={(event) => {
+              setNotes(event.target.value);
+            }}
+          />
+        </>
       ) : null}
-      <PaymentSection view={view} idBankAccount={idBank} onBank={setIdBank} />
+      <PaymentSection view={view} idMethod={idMethod} onMethod={setIdMethod} />
       <ReservationPanel
         ready={ready}
         reservation={reservation}
@@ -106,9 +123,9 @@ export function PurchaseSteps({ cart }: Readonly<{ cart: Cart }>) {
           });
         }}
         onConfirm={() => {
-          if (reservation === null || fulfilment === null || idBank === null) return;
+          if (reservation === null || fulfilment === null || idMethod === null) return;
           confirm.mutate(
-            { idReservation: reservation.idReservation, idBankAccount: idBank, fulfilment },
+            { idReservation: reservation.idReservation, idPaymentMethod: idMethod, fulfilment },
             {
               onSuccess: (order) => {
                 void navigate(`/orders/${String(order.idOrder)}/payment`, { replace: true });

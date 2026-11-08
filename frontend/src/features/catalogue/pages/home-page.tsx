@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ButtonLink } from '../../../shared/ui/button';
 import { CakeIcon } from '../../../shared/ui/icons';
 import { ErrorState, LoadingSkeleton } from '../../../shared/ui/states';
+import { TrackOrder } from '../../orders/components/track-order';
 import { ProductGrid } from '../components/product-grid';
 import { useCategories, useProducts } from '../hooks/use-catalogue-queries';
 import { DEFAULT_QUERY } from '../model/catalogue-query';
@@ -49,6 +50,8 @@ export function HomePage() {
           ))}
         </ul>
       </section>
+
+      <TrackOrder />
 
       {categories.data === undefined || categories.data.length === 0 ? null : (
         <section aria-labelledby="home-categories">

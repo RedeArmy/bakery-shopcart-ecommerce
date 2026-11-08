@@ -28,8 +28,39 @@ const TONES: Record<OrderStatusName, StatusTone> = {
 export const isOrderStatus = (value: string): value is OrderStatusName =>
   (ORDER_STATUSES as readonly string[]).includes(value);
 
-export const statusTone = (status: string): StatusTone =>
-  isOrderStatus(status) ? TONES[status] : 'neutral';
+/**
+ * Momentos del pago que el cliente ve junto a los estados del pedido, aunque no son estados del pedido (ADR-0015): el
+ * comprobante llegó y está por verificarse, o el depósito se rechazó. El pedido sigue pendiente de pago.
+ */
+export const PAYMENT_STAGES = ['PaymentUnderReview', 'PaymentRejected'] as const;
+
+export type PaymentStageName = (typeof PAYMENT_STAGES)[number];
+
+const STAGE_TONES: Record<PaymentStageName, StatusTone> = {
+  PaymentUnderReview: 'accent',
+  PaymentRejected: 'danger',
+};
+
+export const isPaymentStage = (value: string): value is PaymentStageName =>
+  (PAYMENT_STAGES as readonly string[]).includes(value);
+
+/** Un estado del pedido o un momento del pago: los dos tienen texto en español. */
+export const isKnownStatus = (value: string): value is OrderStatusName | PaymentStageName =>
+  isOrderStatus(value) || isPaymentStage(value);
+
+export const statusTone = (status: string): StatusTone => {
+  if (isOrderStatus(status)) return TONES[status];
+  return isPaymentStage(status) ? STAGE_TONES[status] : 'neutral';
+};
+
+/**
+ * Lo que se le dice al cliente como estado del pedido. Un pedido pendiente de pago cuyo comprobante ya llegó no está
+ * "pendiente de pago" a secas: está pendiente de que alguien verifique el pago.
+ */
+export const displayStatus = (statusName: string, paymentStatusName?: string | null): string =>
+  statusName === 'PendingPayment' && paymentStatusName === 'UnderReview'
+    ? 'PaymentUnderReview'
+    : statusName;
 
 /** Hasta que se despacha un pedido el cliente puede cancelarlo; el servidor tiene la última palabra. */
 export const canCancel = (status: string): boolean =>

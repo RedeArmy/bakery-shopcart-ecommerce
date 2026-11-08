@@ -82,7 +82,7 @@ describe('a visitor becomes a guest only when it chooses to', () => {
 });
 
 describe('the contact data of a guest', () => {
-  it('asks for it, saves it and then offers the recovery code', async () => {
+  it('asks for it and saves it, with no recovery code to issue any more', async () => {
     await signInAsGuest();
     const user = userEvent.setup();
     const { calls } = installFakeApi({
@@ -93,12 +93,11 @@ describe('the contact data of a guest', () => {
         fullName: 'María López',
         phone: '55551234',
       }),
-      'POST /api/v1/auth/guest/recovery-code': json({ code: 'ABCDE12345' }, { status: 201 }),
     });
     renderApp('/checkout');
 
     await screen.findByRole('heading', { name: 'Sus datos de contacto' });
-    // Sin correo real todavía no hay con qué recuperar el pedido
+    // El pedido se consulta con su número, así que no hay sección de recuperación
     expect(screen.queryByRole('heading', { name: 'Recupere su pedido después' })).toBeNull();
 
     await user.type(screen.getByLabelText('Nombre completo'), 'María López');
@@ -113,10 +112,8 @@ describe('the contact data of a guest', () => {
       phone: '55551234',
     });
     expect(auth.getState().user?.email).toBe('maria@example.test');
-
-    await user.click(await screen.findByRole('button', { name: 'Generar mi código' }));
-    expect(await screen.findByText('ABCDE-12345')).toBeDefined();
-    expect(screen.getByRole('button', { name: 'Generar un código nuevo' })).toBeDefined();
+    expect(screen.queryByRole('heading', { name: 'Recupere su pedido después' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Generar mi código' })).toBeNull();
   });
 
   it('explains each missing field in Spanish without calling the server', async () => {
@@ -309,5 +306,31 @@ describe('recovering the orders of a guest', () => {
       name: '¿Compró como invitado? Recupere su pedido',
     });
     expect(link.getAttribute('href')).toBe('/recover');
+  });
+});
+
+describe('the contact data at the checkout', () => {
+  it('is not asked from a customer with an account, whose data comes from the account', async () => {
+    await signInAs('Customer');
+    installFakeApi({ 'GET /api/v1/cart': json(oneLine) });
+    renderApp('/checkout');
+
+    // Con cuenta se sigue directo a cómo recibir el pedido, sin formulario de contacto
+    expect(await screen.findByRole('heading', { name: 'Cómo recibe su pedido' })).toBeDefined();
+    expect(screen.queryByRole('heading', { name: 'Sus datos de contacto' })).toBeNull();
+    expect(screen.queryByLabelText('Nombre completo')).toBeNull();
+  });
+
+  it('says that the name and the email are required for a guest, and that the phone is optional', async () => {
+    await signInAsGuest();
+    installFakeApi({ 'GET /api/v1/cart': json(oneLine) });
+    renderApp('/checkout');
+
+    await screen.findByRole('heading', { name: 'Sus datos de contacto' });
+    expect(
+      screen.getByText(/El nombre y el correo son obligatorios; el teléfono es opcional\./),
+    ).toBeDefined();
+    // Sin ellos no hay forma de recibir el pedido: los pasos siguientes no aparecen
+    expect(screen.queryByRole('heading', { name: 'Cómo recibe su pedido' })).toBeNull();
   });
 });

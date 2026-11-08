@@ -46,7 +46,18 @@ const methods = (extra = {}) => ({
   deliveryDate: '2030-06-10',
   earliestDeliveryDate: '2030-06-10',
   deliveryDateAllowed: true,
-  methods: [{ method: 'BANK_DEPOSIT', available: true, reason: null, deadlineAt: null }],
+  methods: [
+    {
+      idPaymentMethod: 2,
+      code: 'BANK_DEPOSIT',
+      kind: 'Deposit',
+      title: 'Depósito o transferencia bancaria',
+      description: null,
+      available: true,
+      reason: null,
+      deadlineAt: null,
+    },
+  ],
   bankAccounts: [bank],
   ...extra,
 });
@@ -151,7 +162,11 @@ describe('the deposit and the reservation', () => {
         methods({
           methods: [
             {
-              method: 'BANK_DEPOSIT',
+              idPaymentMethod: 2,
+              code: 'BANK_DEPOSIT',
+              kind: 'Deposit',
+              title: 'Depósito o transferencia bancaria',
+              description: null,
               available: true,
               reason: null,
               deadlineAt: '2099-01-01T12:00:00Z',
@@ -163,7 +178,9 @@ describe('the deposit and the reservation', () => {
     renderApp('/checkout');
 
     expect(await screen.findByText(/Tiene hasta el/)).toBeDefined();
-    expect(await screen.findByRole('radio', { name: /Banco Industrial/ })).toBeDefined();
+    // Las cuentas se muestran como texto: no se eligen
+    expect(await screen.findByText('Banco Industrial')).toBeDefined();
+    expect(screen.queryByRole('radio', { name: /Banco Industrial/ })).toBeNull();
   });
 
   it('drops the reservation and explains it when the confirmation says it expired', async () => {

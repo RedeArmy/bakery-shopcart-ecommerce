@@ -361,6 +361,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/payment-methods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The payment methods an administrator manages, including deactivated ones
+         * @description The card is not listed here because it depends on the credentials of the provider.
+         */
+        get: operations["adminListPaymentMethods"];
+        put?: never;
+        /**
+         * Add a payment method
+         * @description Cash is stored for pickups only whatever is sent, because it is collected in the branch.
+         */
+        post: operations["adminCreatePaymentMethod"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/payment-methods/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Edit a payment method or reactivate it */
+        put: operations["adminUpdatePaymentMethod"];
+        post?: never;
+        /**
+         * Remove a payment method by deactivating it
+         * @description Methods are never deleted because past payments cite them. Payments already made with the method follow their course; it just stops being offered.
+         */
+        delete: operations["adminDeactivatePaymentMethod"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/products": {
         parameters: {
             query?: never;
@@ -640,6 +685,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orders/track": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Public status of an order
+         * @description Needs no session. Whoever asks proves they know the order with its number and the email of the person who made it. It returns the status, the dates and the way of receiving it, and nothing personal. A wrong email answers like a number that does not exist.
+         */
+        get: operations["trackOrder"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orders/{id}": {
         parameters: {
             query?: never;
@@ -884,6 +949,46 @@ export interface paths {
          * @description A deposited amount different from the order total rejects the deposit instead (RejectedAmountMismatch).
          */
         post: operations["adminApproveDeposit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bank-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The active bank accounts, as information for whoever pays by deposit
+         * @description They are shown, not chosen.
+         */
+        get: operations["listBankAccounts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/payments/{id}/confirm-cash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm that a cash payment was collected in the branch
+         * @description The order becomes paid. Only a pending payment of a cash method can be confirmed; confirming twice changes nothing (AlreadyApproved).
+         */
+        post: operations["adminConfirmCashPayment"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1551,9 +1656,36 @@ export interface components {
             instructions?: string | null;
             isActive?: boolean;
         };
-        MethodOffer: {
+        PaymentMethod: {
+            idPaymentMethod: number;
+            code: string;
             /** @enum {string} */
-            method: "CARD" | "BANK_DEPOSIT";
+            kind: "Card" | "Deposit" | "Cash";
+            title: string;
+            description?: string | null;
+            appliesToDelivery: boolean;
+            appliesToPickup: boolean;
+            isActive: boolean;
+        };
+        PaymentMethodUpdateRequest: {
+            title: string;
+            description?: string | null;
+            appliesToDelivery: boolean;
+            appliesToPickup: boolean;
+            /** @description Omit to keep the state; true reactivates a deactivated method */
+            isActive?: boolean;
+        };
+        PaymentMethodCreateRequest: components["schemas"]["PaymentMethodUpdateRequest"] & {
+            /** @enum {string} */
+            kind: "Deposit" | "Cash";
+        };
+        MethodOffer: {
+            idPaymentMethod: number;
+            code: string;
+            /** @enum {string} */
+            kind: "Card" | "Deposit" | "Cash";
+            title: string;
+            description?: string | null;
             available: boolean;
             /** @description Stable code the panel translates */
             reason?: string | null;
@@ -1598,8 +1730,20 @@ export interface components {
              * @description Optional and no longer sent by the checkout; when absent the system uses its estimate
              */
             deliveryDate?: string | null;
-            /** @enum {string} */
-            method: "CARD" | "BANK_DEPOSIT";
+            /** @description Optional instructions for whoever delivers; accepted for a delivery only */
+            deliveryNotes?: string | null;
+            /** @description A method offered by GET /checkout/payment-methods for the same way of receiving the order */
+            idPaymentMethod?: number;
+            /**
+             * @deprecated
+             * @description Legacy code (CARD or BANK_DEPOSIT); use idPaymentMethod
+             * @enum {string}
+             */
+            method?: "CARD" | "BANK_DEPOSIT";
+            /**
+             * @deprecated
+             * @description The accounts are no longer chosen; ignored unless the method is a deposit
+             */
             idBankAccount?: number | null;
         };
         CreatedOrder: {
@@ -1618,6 +1762,8 @@ export interface components {
             customerEmail?: string;
             idOrderStatus?: number;
             statusName: string;
+            /** @description Status of the most recent payment (Pending, UnderReview, Approved, Rejected...). An order that is PendingPayment with a payment UnderReview has its proof waiting to be checked. */
+            paymentStatusName?: string | null;
             total: components["schemas"]["MoneyText"];
             itemCount?: number;
             /** Format: date-time */
@@ -1648,6 +1794,28 @@ export interface components {
             createdAt?: string;
             comment?: string | null;
         };
+        OrderTracking: {
+            orderNumber: string;
+            statusName: string;
+            /** @description Status of the most recent payment (Pending, UnderReview, Approved, Rejected...). An order that is PendingPayment with a payment UnderReview has its proof waiting to be checked. */
+            paymentStatusName?: string | null;
+            /** Format: date-time */
+            createdAt?: string;
+            /**
+             * Format: date
+             * @description The estimated date; it can move a few days
+             */
+            requestedDeliveryDate?: string;
+            /** @enum {string} */
+            fulfilmentType?: "Delivery" | "Pickup";
+            pickupBranchName?: string | null;
+            history: {
+                idNewStatus?: number;
+                newStatusName?: string;
+                /** Format: date-time */
+                createdAt?: string;
+            }[];
+        };
         OrderDetail: {
             idOrder: components["schemas"]["Id"];
             orderNumber: string;
@@ -1656,12 +1824,16 @@ export interface components {
             customerEmail?: string;
             idOrderStatus?: number;
             statusName: string;
+            /** @description Status of the most recent payment (Pending, UnderReview, Approved, Rejected...). An order that is PendingPayment with a payment UnderReview has its proof waiting to be checked. */
+            paymentStatusName?: string | null;
             couponCode?: string | null;
             /** @enum {string} */
             fulfilmentType?: "Delivery" | "Pickup";
             idBranch?: number | null;
             pickupBranchName?: string | null;
             pickupBranchAddress?: string | null;
+            /** @description The customer's instructions for the delivery, if any */
+            deliveryNotes?: string | null;
             deliveryRecipient?: string | null;
             deliveryPhone?: string | null;
             deliveryLine1?: string | null;
@@ -1714,6 +1886,11 @@ export interface components {
             idPayment: components["schemas"]["Id"];
             idPaymentMethod?: number;
             methodCode?: string;
+            /**
+             * @description Deposit asks for a proof; Cash is collected in the branch
+             * @enum {string}
+             */
+            methodKind?: "Card" | "Deposit" | "Cash";
             idPaymentStatus: number;
             statusName: string;
             amount: components["schemas"]["MoneyText"];
@@ -2771,6 +2948,135 @@ export interface operations {
             429: components["responses"]["TooManyRequests"];
         };
     };
+    adminListPaymentMethods: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentMethod"][];
+                };
+            };
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminCreatePaymentMethod: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentMethodCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idPaymentMethod: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminUpdatePaymentMethod: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKeyOptional"];
+            };
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentMethodUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idPaymentMethod?: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminDeactivatePaymentMethod: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKeyOptional"];
+            };
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idPaymentMethod?: number;
+                        isActive?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
     adminSearchProducts: {
         parameters: {
             query?: {
@@ -3320,6 +3626,8 @@ export interface operations {
             query?: {
                 /** @description Optional. Kept for compatibility; the checkout no longer sends it. */
                 deliveryDate?: string;
+                /** @description How the order will be received. Cash is only offered for a pickup. */
+                fulfilment?: "Delivery" | "Pickup";
             };
             header?: never;
             path?: never;
@@ -3434,6 +3742,32 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorised"];
             403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    trackOrder: {
+        parameters: {
+            query: {
+                orderNumber: string;
+                email: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderTracking"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
             429: components["responses"]["TooManyRequests"];
         };
     };
@@ -3846,6 +4180,60 @@ export interface operations {
         };
     };
     adminApproveDeposit: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewOutcome"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    listBankAccounts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankAccount"][];
+                };
+            };
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminConfirmCashPayment: {
         parameters: {
             query?: never;
             header: {

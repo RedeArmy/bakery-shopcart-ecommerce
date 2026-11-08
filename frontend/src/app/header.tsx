@@ -5,7 +5,7 @@ import { CartLink } from '../features/cart/components/cart-link';
 import { auth, hasAccount, isGuestSession, useSession } from '../shared/auth';
 import { Button, ButtonLink } from '../shared/ui/button';
 import { CloseIcon, MenuIcon, UserIcon } from '../shared/ui/icons';
-import { visibleNavItems } from './navigation';
+import { navLabelKey, visibleNavItems } from './navigation';
 
 const LINK =
   'text-xs font-medium uppercase tracking-widest text-stone-700 hover:text-accent aria-[current=page]:text-accent';
@@ -17,6 +17,7 @@ export function Header() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const items = visibleNavItems(session.user?.role ?? null);
+  const inAccount = hasAccount(session);
 
   // Al cambiar de página el menú del teléfono se cierra solo
   useEffect(() => {
@@ -62,7 +63,7 @@ export function Header() {
         <nav className="hidden gap-6 md:flex" aria-label={t('common.mainNavigation')}>
           {items.map((item) => (
             <NavLink key={item.to} to={item.to} className={LINK}>
-              {t(item.labelKey)}
+              {t(navLabelKey(item, inAccount))}
             </NavLink>
           ))}
         </nav>
@@ -101,7 +102,7 @@ export function Header() {
           {items.map((item) => (
             <li key={item.to}>
               <NavLink to={item.to} className={`${LINK} flex min-h-11 items-center`}>
-                {t(item.labelKey)}
+                {t(navLabelKey(item, inAccount))}
               </NavLink>
             </li>
           ))}

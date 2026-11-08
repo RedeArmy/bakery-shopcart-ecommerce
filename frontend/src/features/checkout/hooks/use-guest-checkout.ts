@@ -21,10 +21,3 @@ export function useSaveGuestContact() {
     },
   });
 }
-
-/** Pide un código nuevo de recuperación de los pedidos del invitado; el servidor solo lo entrega esta vez. */
-export function useIssueRecoveryCode() {
-  return useMutation({
-    mutationFn: async () => unwrap(await api.POST('/api/v1/auth/guest/recovery-code')).code,
-  });
-}
