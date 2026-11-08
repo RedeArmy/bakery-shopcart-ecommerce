@@ -33,7 +33,6 @@ The question reviewed was whether an order should exist before a deposit is conf
 | Home Depot Mexico | Six hours to pay by transfer |
 | Navigo (Île-de-France Mobilités) | Ten calendar days, then cancelled |
 | Amazon | Pending until the payment is verified, with automatic cancellation; third-party sources quote days up to 21 days (low confidence) |
-| Kemik | No public documentation was found; nothing is claimed |
 
 Conclusions: the order exists before payment wherever offline payments are accepted; automatic expiry is mandatory (the `expirePayments` job does it); typical windows range from six hours to ten days, and a bakery uses a short window capped by the delivery date; the proof upload and review queue fill the gap that third-party apps cover elsewhere.
 

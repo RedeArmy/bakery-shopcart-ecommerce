@@ -62,6 +62,8 @@ erDiagram
 | `V0009` | Triggers (immutability, valid transitions, frozen amounts, DDL capture) and permissions |
 | `V0011` | `UX_Reservations_OneActivePerCart`: a cart holds at most one active reservation without an order |
 | `V0015` | `Branches`; `Orders.FulfilmentType`, `IDBranch`, `PickupBranchName`, `PickupBranchAddress` and `CK_Orders_Fulfilment` (a delivery has an address, a pickup has a branch); the delivery address columns become nullable |
+| `V0016` | `Orders.DeliveryNotes`: the customer's optional instructions for the delivery |
+| `V0017` | `PaymentMethods.Kind`, `Title`, `Description`, `AppliesToDelivery`, `AppliesToPickup`, `IsActive`: the methods an administrator maintains; `PaymentDeposits.IDBankAccount` allows NULL (the accounts are shown, not chosen) |
 | `R*` | Functions, views and procedures with a version header |
 | `S*` | Idempotent seeds |
 
