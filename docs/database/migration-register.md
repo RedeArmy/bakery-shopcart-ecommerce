@@ -61,6 +61,7 @@ Environment states used in the register: **Verified** (run and checked), **Pendi
 | V0015 | `V0015__add_branches_and_pickup.sql` | Branches and pickup | Schema, additive | Medium | Draft |
 | V0016 | `V0016__add_delivery_notes.sql` | Delivery notes | Schema, additive | Low | Draft |
 | V0017 | `V0017__payment_methods_maintenance.sql` | Payment methods maintenance | Schema, additive | Medium | Draft |
+| V0018 | `V0018__remove_guest_recovery.sql` | Remove the guest recovery | Schema, contract | Low | Draft |
 
 Risk is the impact of a defect in the migration, not of running it: all nine run on an empty database, take no meaningful locks and move no data. **High** marks the migrations that protect money (V0007) or that can block legitimate writes if wrong (V0009).
 
@@ -372,6 +373,25 @@ Each entry uses the template in section 7. Common fields for V0001 to V0009 (V00
 | Reviewer | Repository owner |
 | Environments | Local Verified (applied, tSQLt and the HTTP flows passed); CI Pending; Production Not deployed |
 
+### V0018: Remove the guest recovery
+
+| Field | Value |
+|---|---|
+| File | `db/migrations/V0018__remove_guest_recovery.sql` |
+| SHA-256 | `5535d8b5ca1f87bc480c70d1b29198d5c9e489b34cc66d87f6dfdc0fa6014ea3` |
+| Description | Retires the recovery of a guest's orders with an email and a code. The checkout no longer issues the code and anyone, with or without an account, follows an order with its number and email (`SP_Orders_Track`), so nobody is left to use it. |
+| Objects removed | Procedures `SP_Users_SetRecoveryCode` and `SP_Users_FindGuestsByEmail`; column `Users.GuestRecoveryHash` |
+| Key rules | Orders, guest accounts and their emails do not change. The dropped hashes were of codes nobody can present any more |
+| Depends on | V0013 |
+| Data migration | None: the column only held hashes of recovery codes |
+| Online impact | Dropping a nullable column of `Users` and two procedures; no application code reads them after this change |
+| Compatibility | `POST /auth/guest/recovery-code` and `POST /auth/guest/recover` are removed from the contract in the same pull request, which is the only caller |
+| Rollback | Compensating migration that adds the column and the procedures again; the dropped hashes cannot be recovered, and the codes they came from were shown once and never stored |
+| Tests | `Test_Guests` checks that the procedures and the column no longer exist; the HTTP flow of the guest no longer issues a code |
+| Author, date | Eder Yafeth Garcia Quiroa, 8 November 2026 |
+| Pull request | Pending |
+| Reviewer | Repository owner |
+
 ### Reference seeds
 
 Seeds are idempotent `MERGE` scripts applied after the migrations. They are registered because the code, the API and the tests assume exactly these values. The common fields are the same as above, except the pull request, which is the one that adds them (see the revision history), and the rollback, which is to correct the seed and let the runner apply the new version.
@@ -454,3 +474,4 @@ Programmable objects and seeds: a change to an `R####` object needs only the ver
 | 7 November 2026 | V0015 added: branches and pickup | Eder Yafeth Garcia Quiroa |
 | 7 November 2026 | V0016 added: delivery notes | Eder Yafeth Garcia Quiroa |
 | 7 November 2026 | V0017 and S0007 added: payment methods maintenance | Eder Yafeth Garcia Quiroa |
+| 8 November 2026 | V0018 added: the guest recovery is removed | Eder Yafeth Garcia Quiroa |

@@ -257,58 +257,6 @@ describe('signing in from a guest session', () => {
   });
 });
 
-describe('recovering the orders of a guest', () => {
-  it('gives the session back with the email and the code', async () => {
-    const user = userEvent.setup();
-    const { calls } = installFakeApi({
-      'POST /api/v1/auth/guest/recover': json(guestSession(9, 'maria@example.test')),
-      'GET /api/v1/cart': json(emptyCart),
-    });
-    renderApp('/recover');
-    await user.type(await screen.findByLabelText('Correo electrónico'), 'maria@example.test');
-    await user.type(screen.getByLabelText('Código de recuperación'), 'abcde-12345');
-    await user.click(screen.getByRole('button', { name: 'Recuperar' }));
-
-    await waitFor(() => {
-      expect(auth.getState().user?.email).toBe('maria@example.test');
-    });
-    expect(callsTo(calls, 'POST', '/api/v1/auth/guest/recover')[0]?.body).toEqual({
-      email: 'maria@example.test',
-      code: 'abcde-12345',
-    });
-    expect(auth.getState().user?.isGuest).toBe(true);
-  });
-
-  it('answers the same message whether the email or the code is wrong', async () => {
-    const user = userEvent.setup();
-    installFakeApi({ 'POST /api/v1/auth/guest/recover': apiError(401, 'RECOVERY_INVALID') });
-    renderApp('/recover');
-    await user.type(await screen.findByLabelText('Correo electrónico'), 'nobody@example.test');
-    await user.type(screen.getByLabelText('Código de recuperación'), 'AAAAAAAAAA');
-    await user.click(screen.getByRole('button', { name: 'Recuperar' }));
-    expect(await screen.findByText('El correo o el código no son correctos.')).toBeDefined();
-  });
-
-  it('asks for both fields before calling the server', async () => {
-    const user = userEvent.setup();
-    const { calls } = installFakeApi({});
-    renderApp('/recover');
-    await user.click(await screen.findByRole('button', { name: 'Recuperar' }));
-    expect(await screen.findByText('Escriba su correo electrónico.')).toBeDefined();
-    expect(screen.getByText('Escriba el código que guardó.')).toBeDefined();
-    expect(callsTo(calls, 'POST', '/api/v1/auth/guest/recover')).toHaveLength(0);
-  });
-
-  it('is reachable from the sign in page', async () => {
-    installFakeApi({});
-    renderApp('/login');
-    const link = await screen.findByRole('link', {
-      name: '¿Compró como invitado? Recupere su pedido',
-    });
-    expect(link.getAttribute('href')).toBe('/recover');
-  });
-});
-
 describe('the contact data at the checkout', () => {
   it('is not asked from a customer with an account, whose data comes from the account', async () => {
     await signInAs('Customer');

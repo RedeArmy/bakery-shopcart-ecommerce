@@ -39,13 +39,6 @@ export const registerSchema = z.object({
 /** Datos de contacto del invitado: lo que pide el checkout antes de crear el pedido. */
 export const guestContactSchema = z.object({ fullName, email, phone });
 
-/** Recuperar el pedido de un invitado con su correo y el código que guardó. */
-export const recoverSchema = z.object({
-  email,
-  code: z.string().trim().min(1, { error: 'auth.validation.codeRequired' }),
-});
-
 export type LoginValues = z.infer<typeof loginSchema>;
 export type RegisterValues = z.infer<typeof registerSchema>;
 export type GuestContactValues = z.infer<typeof guestContactSchema>;
-export type RecoverValues = z.infer<typeof recoverSchema>;

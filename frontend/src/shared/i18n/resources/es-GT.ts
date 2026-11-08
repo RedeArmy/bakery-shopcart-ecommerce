@@ -248,14 +248,6 @@ export const esGT = {
     },
   },
   auth: {
-    recover: {
-      link: '¿Compró como invitado? Recupere su pedido',
-      title: 'Recuperar mi pedido',
-      subtitle:
-        'Si compró como invitado, escriba el correo y el código de recuperación que guardó.',
-      code: 'Código de recuperación',
-      submit: 'Recuperar',
-    },
     signInTitle: 'Iniciar sesión',
     signInSubtitle: 'Ingrese para ver sus pedidos y comprar más rápido.',
     registerTitle: 'Crear cuenta',
@@ -281,7 +273,6 @@ export const esGT = {
       nameRequired: 'Escriba su nombre.',
       nameLong: 'El nombre no puede pasar de 120 caracteres.',
       phoneInvalid: 'Use solo números, espacios, guiones o paréntesis (de 6 a 20 caracteres).',
-      codeRequired: 'Escriba el código que guardó.',
     },
   },
   catalogue: {
@@ -603,7 +594,6 @@ export const esGT = {
         'Los cupones, los productos por encargo y la personalización se piden con una cuenta. Inicie sesión o cree una.',
       GUEST_CONTACT_REQUIRED: 'Complete sus datos de contacto para continuar.',
       EMAIL_BELONGS_TO_ACCOUNT: 'Ese correo ya tiene una cuenta. Inicie sesión para continuar.',
-      RECOVERY_INVALID: 'El correo o el código no son correctos.',
       ACCOUNT_LOCKED: 'La cuenta está bloqueada por demasiados intentos. Intente más tarde.',
       ACCOUNT_DISABLED: 'Esta cuenta fue desactivada.',
       EMAIL_ALREADY_REGISTERED: 'Ya existe una cuenta con ese correo.',

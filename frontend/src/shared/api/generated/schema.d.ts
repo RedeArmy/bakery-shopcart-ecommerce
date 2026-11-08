@@ -121,46 +121,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/auth/guest/recovery-code": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Issue the code that recovers the orders of the guest
-         * @description Returns a new code once; only its hash is stored and each new code replaces the old one. The guest keeps it with the email to recover the orders on another browser. Needs a contact email (422 otherwise) and a guest account.
-         */
-        post: operations["issueGuestRecoveryCode"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/guest/recover": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Recover the session of a guest with the email and the recovery code
-         * @description The same 401 `RECOVERY_INVALID` answers an unknown email and a wrong code. The refresh token is also set in the `refreshToken` cookie.
-         */
-        post: operations["recoverGuestSession"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/auth/refresh": {
         parameters: {
             query?: never;
@@ -1427,15 +1387,6 @@ export interface components {
             /** @description Digits, spaces and + ( ) -, between 6 and 20 characters */
             phone?: string | null;
         };
-        RecoveryCode: {
-            /** @description Ten characters (digits and letters without I, L, O and U); it is accepted with or without hyphens and in lower case */
-            code: string;
-        };
-        RecoverGuestRequest: {
-            /** Format: email */
-            email: string;
-            code: string;
-        };
         LoginRequest: {
             /** Format: email */
             email: string;
@@ -2452,56 +2403,6 @@ export interface operations {
             401: components["responses"]["Unauthorised"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["Unprocessable"];
-        };
-    };
-    issueGuestRecoveryCode: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RecoveryCode"];
-                };
-            };
-            401: components["responses"]["Unauthorised"];
-            422: components["responses"]["Unprocessable"];
-        };
-    };
-    recoverGuestSession: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RecoverGuestRequest"];
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    "Set-Cookie": components["headers"]["RefreshTokenCookie"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Session"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorised"];
-            429: components["responses"]["TooManyRequests"];
         };
     };
     refreshSession: {

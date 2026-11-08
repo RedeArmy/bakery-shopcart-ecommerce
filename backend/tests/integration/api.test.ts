@@ -862,25 +862,6 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
     expect((await get(customerA.token, `/orders/${idOrder}`)).status).toBe(404);
     expect((await get(customerB.token, `/orders/${idOrder}/payment`)).status).toBe(404);
 
-    // El código de recuperación se muestra una vez y con él, desde otro navegador, vuelve la sesión del invitado
-    const issued = await post(guest.token, '/auth/guest/recovery-code');
-    expect(issued.status).toBe(201);
-    const code = str(issued.body, 'code');
-    // cspell:disable-next-line
-    expect(code).toMatch(/^[0-9A-HJKMNP-TV-Z]{10}$/);
-    const wrong = await api()
-      .post('/api/v1/auth/guest/recover')
-      .send({ email: guestEmail, code: 'AAAAAAAAAA' });
-    expect(wrong.status).toBe(401);
-    expect(str(wrong.body, 'error.code')).toBe('RECOVERY_INVALID');
-    const recovered = await api()
-      .post('/api/v1/auth/guest/recover')
-      .send({ email: guestEmail.toUpperCase(), code: code.toLowerCase() });
-    expect(recovered.status).toBe(200);
-    expect(num(recovered.body, 'user.idUser')).toBe(guest.idUser);
-    const orders = await get(str(recovered.body, 'accessToken'), '/orders');
-    expect(list(orders.body, 'items').map((row) => row['idOrder'])).toContain(idOrder);
-
     // Un invitado nunca inicia sesión por correo y contraseña; quien se registra después con ese correo no queda bloqueado
     const guestLogin = await api().post('/api/v1/auth/login').send({ email: guestEmail, password });
     expect(guestLogin.status).toBe(401);

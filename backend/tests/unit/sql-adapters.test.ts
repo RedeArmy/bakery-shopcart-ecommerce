@@ -303,18 +303,6 @@ const cases: Case[] = [
     'dbo.SP_Users_SetGuestContact',
     ['IDUser', 'Email', 'FullName', 'Phone'],
   ],
-  [
-    'setRecoveryCode',
-    (e) => createSqlAuthRepository(e).setRecoveryCode(1, 'a'.repeat(64)),
-    'dbo.SP_Users_SetRecoveryCode',
-    ['IDUser', 'CodeHash'],
-  ],
-  [
-    'findGuestsByEmail',
-    (e) => createSqlAuthRepository(e).findGuestsByEmail('a@b.test'),
-    'dbo.SP_Users_FindGuestsByEmail',
-    ['Email'],
-  ],
   // Cupones
   [
     'coupons list',

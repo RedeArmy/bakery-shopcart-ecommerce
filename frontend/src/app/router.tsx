@@ -42,12 +42,6 @@ export const routes: RouteObject[] = [
         }),
       },
       {
-        path: 'recover',
-        lazy: async () => ({
-          Component: (await import('../features/auth/pages/recover-page')).RecoverPage,
-        }),
-      },
-      {
         path: 'login',
         lazy: async () => ({
           Component: (await import('../features/auth/pages/login-page')).LoginPage,

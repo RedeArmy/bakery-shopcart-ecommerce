@@ -38,7 +38,7 @@ test('a visitor buys as a guest, with the coupon, the made-to-order products and
   await expect(summary.getByText('Los cupones se aplican con una cuenta')).toBeVisible();
   await expect(summary.getByLabel('Cupón de descuento')).toHaveCount(0);
 
-  // En el pago elige comprar como invitado, da su contacto y puede guardar un código para recuperar el pedido
+  // En el pago elige comprar como invitado, y da su contacto
   await summary.getByRole('link', { name: 'Continuar con el pago' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Finalizar compra' })).toBeVisible();
   await page.getByRole('button', { name: 'Continuar como invitado' }).click();
