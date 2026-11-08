@@ -1,7 +1,8 @@
 /* =====================================================================
    Objeto   : dbo.SP_Payments_RejectDeposit
-   Version  : 1.0.0
+   Version  : 1.1.0
    Cambio   : Primera versión: un operador rechaza un depósito en revisión, con motivo
+   Cambio 1.1.0: la clase de depósito se reconoce por PaymentMethods.Kind y no por el identificador 2, para que valga también para los métodos que crea el administrador (V0017).
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Nueva. Resultados en @Outcome: Rejected, RejectedOrderCancelled (se alcanzó el máximo de intentos) o
               AlreadyRejected. Errores: 50400, 50404, 50422 actor sin permiso o pago que no está en revisión.
@@ -32,10 +33,10 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM dbo.Users WHERE IDUser = @IDActor AND IDRole IN (2, 3) AND IsActive = 1)
     THROW 50422, 'Only an active operator or administrator can review deposits.', 1;
 
-  DECLARE @IDOrder INT, @PaymentStatus TINYINT;
-  SELECT @IDOrder = IDOrder, @PaymentStatus = IDPaymentStatus
-  FROM dbo.Payments WITH (UPDLOCK, ROWLOCK, INDEX(PK_Payments)) WHERE IDPayment = @IDPayment AND IDPaymentMethod = 2;
-  IF @IDOrder IS NULL
+  DECLARE @IDOrder INT, @PaymentStatus TINYINT, @IDMethod TINYINT;
+  SELECT @IDOrder = IDOrder, @PaymentStatus = IDPaymentStatus, @IDMethod = IDPaymentMethod
+  FROM dbo.Payments WITH (UPDLOCK, ROWLOCK, INDEX(PK_Payments)) WHERE IDPayment = @IDPayment;
+  IF @IDOrder IS NULL OR NOT EXISTS (SELECT 1 FROM dbo.PaymentMethods WHERE IDPaymentMethod = @IDMethod AND Kind = N'Deposit')
     THROW 50404, 'Payment not found.', 1;
 
   -- Dos operadores rechazando a la vez: el segundo encuentra el pago ya rechazado y no hace nada

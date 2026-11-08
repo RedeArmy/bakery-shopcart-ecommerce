@@ -347,3 +347,38 @@ BEGIN
     UPDATE dbo.Orders SET DeliveryLine1 = N'Una calle' WHERE IDOrder = @IDOrder;
 END;
 GO
+
+-- Notas de entrega ---------------------------------------------------------------------------
+
+CREATE PROCEDURE Test_PickupOrders.[test a delivery keeps the trimmed notes and an empty note is stored as null]
+AS
+BEGIN
+    DECLARE @User INT, @IDReservation INT, @Branch INT, @IDOrder INT, @IDPayment INT, @Number NVARCHAR(20), @Expires DATETIME2(3), @IDAddress INT;
+    EXEC Test_PickupOrders.NewReservation @IDUser = @User OUTPUT, @IDReservation = @IDReservation OUTPUT, @IDBranch = @Branch OUTPUT;
+    DECLARE @Bank INT = Test_Orders.BankId(N'Test Bank');
+    EXEC dbo.SP_Addresses_Save @IDUser = @User, @Label = N'Home', @Recipient = N'Ana', @Phone = N'55550000', @Line1 = N'5th Avenue 10-20',
+         @Municipality = N'Guatemala', @Department = N'Guatemala', @IDSavedAddress = @IDAddress OUTPUT;
+
+    EXEC dbo.SP_Orders_CreateOrder @IDUser = @User, @IDReservation = @IDReservation, @IDAddress = @IDAddress, @DeliveryNotes = N'  Ring twice  ',
+         @IDPaymentMethod = 2, @IDBankAccount = @Bank, @IdempotencyKey = N'key-notes-1', @Now = '2030-06-01T12:05:00',
+         @IDOrder = @IDOrder OUTPUT, @IDPayment = @IDPayment OUTPUT, @OrderNumber = @Number OUTPUT, @PaymentExpiresAt = @Expires OUTPUT;
+
+    DECLARE @Notes NVARCHAR(300) = (SELECT DeliveryNotes FROM dbo.Orders WHERE IDOrder = @IDOrder);
+    EXEC tSQLt.AssertEqualsString @Expected = N'Ring twice', @Actual = @Notes;
+END;
+GO
+
+CREATE PROCEDURE Test_PickupOrders.[test a pickup order refuses delivery notes]
+AS
+BEGIN
+    DECLARE @User INT, @IDReservation INT, @Branch INT, @IDOrder INT, @IDPayment INT, @Number NVARCHAR(20), @Expires DATETIME2(3);
+    EXEC Test_PickupOrders.NewReservation @IDUser = @User OUTPUT, @IDReservation = @IDReservation OUTPUT, @IDBranch = @Branch OUTPUT;
+    DECLARE @Bank INT = Test_Orders.BankId(N'Test Bank');
+
+    EXEC tSQLt.ExpectException @ExpectedErrorNumber = 50400;
+    EXEC dbo.SP_Orders_CreateOrder @IDUser = @User, @IDReservation = @IDReservation, @FulfilmentType = N'Pickup', @IDBranch = @Branch,
+         @DeliveryNotes = N'Ring twice', @IDPaymentMethod = 2, @IDBankAccount = @Bank, @IdempotencyKey = N'key-notes-2',
+         @Now = '2030-06-01T12:05:00', @IDOrder = @IDOrder OUTPUT, @IDPayment = @IDPayment OUTPUT, @OrderNumber = @Number OUTPUT,
+         @PaymentExpiresAt = @Expires OUTPUT;
+END;
+GO

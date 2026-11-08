@@ -1,7 +1,8 @@
 /* =====================================================================
    Objeto   : dbo.SP_Payments_GetByOrder
-   Version  : 1.0.0
+   Version  : 1.1.0
    Cambio   : Primera versión: intentos de pago de un pedido con su depósito, comprobantes y motivo de rechazo
+   Cambio 1.1.0: agrega MethodKind (Card, Deposit o Cash) justo después de MethodCode, para que la pantalla de pago sepa si pide comprobante o se cobra en sucursal.
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Nueva. Un renglón por intento, el más reciente primero; Proofs es un arreglo JSON. Si el pedido no es de quien
               pregunta responde igual que si no existiera. Errores: 50400, 50404.
@@ -24,7 +25,7 @@ BEGIN
   -- IX_Payments_Order fuerza buscar solo los pagos de este pedido (ver SP_Orders_CancelPending)
   DECLARE @Rejected INT = (SELECT COUNT(*) FROM dbo.Payments WITH (INDEX(IX_Payments_Order)) WHERE IDOrder = @IDOrder AND IDPaymentStatus = 4);
 
-  SELECT p.IDPayment, p.IDPaymentMethod, MethodCode = m.Code, p.IDPaymentStatus, StatusName = s.Name,
+  SELECT p.IDPayment, p.IDPaymentMethod, MethodCode = m.Code, MethodKind = m.Kind, p.IDPaymentStatus, StatusName = s.Name,
          Amount = CAST(p.Amount AS VARCHAR(25)), p.ExpiresAt, p.CreatedAt, p.ResolvedAt,
          d.IDBankAccount, b.BankName, b.AccountType, b.AccountNumber, b.HolderName, b.Instructions,
          d.ReferenceNumber, d.DepositDate, DepositedAmount = CAST(d.DepositedAmount AS VARCHAR(25)),

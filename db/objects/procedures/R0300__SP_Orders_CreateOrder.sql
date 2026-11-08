@@ -1,6 +1,6 @@
 /* =====================================================================
    Objeto   : dbo.SP_Orders_CreateOrder
-   Version  : 1.2.0
+   Version  : 1.4.0
    Cambio   : Un invitado necesita un correo de contacto real y no lleva cupón; el cupón se bloquea por persona (correo normalizado)
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Nueva. El backend NO envía importes: todo se recalcula aquí en centavos enteros. Es idempotente por llave: repetir
@@ -13,6 +13,9 @@
    Cambio 1.2.0: recogida en sucursal (@FulfilmentType = 'Pickup' con @IDBranch, sin dirección) además de la entrega a domicilio,
               y la fecha ya no la elige el cliente: sin @RequestedDeliveryDate el sistema usa la estimada. Las llamadas anteriores
               (con dirección y fecha) siguen siendo válidas.
+   Cambio 1.4.0: el método de pago sale de PaymentMethods (clase, activo y para qué forma de recibir se ofrece, V0017). Depósito: la cuenta ya
+              no es obligatoria. Efectivo o contra entrega: solo en recogida, sin comprobante, y el pago vence al terminar el día estimado.
+   Cambio 1.3.0: @DeliveryNotes opcional (hasta 300 caracteres, solo en una entrega a domicilio); se guarda recortado y vacío es NULL.
    ===================================================================== */
 CREATE OR ALTER PROCEDURE dbo.SP_Orders_CreateOrder
   @IDUser                INT,
@@ -27,6 +30,7 @@ CREATE OR ALTER PROCEDURE dbo.SP_Orders_CreateOrder
   @IDBankAccount         INT           = NULL,
   @FulfilmentType        NVARCHAR(10)  = N'Delivery',
   @IDBranch              INT           = NULL,
+  @DeliveryNotes         NVARCHAR(300) = NULL,
   @Now                   DATETIME2(3)  = NULL,
   @IDOrder               INT           = NULL OUTPUT,
   @IDPayment             INT           = NULL OUTPUT,
@@ -43,14 +47,23 @@ BEGIN
     THROW 50400, 'FulfilmentType must be Delivery or Pickup.', 1;
   IF @FulfilmentType = N'Delivery' AND (@IDAddress IS NULL OR @IDBranch IS NOT NULL)
     THROW 50400, 'A delivery needs an address and no branch.', 1;
+  SET @DeliveryNotes = NULLIF(LTRIM(RTRIM(@DeliveryNotes)), N'');
+  -- Las notas son instrucciones para quien entrega: una recogida no las tiene
+  IF @DeliveryNotes IS NOT NULL AND @FulfilmentType <> N'Delivery'
+    THROW 50400, 'DeliveryNotes apply to a delivery only.', 1;
   IF @FulfilmentType = N'Pickup' AND (@IDBranch IS NULL OR @IDAddress IS NOT NULL)
     THROW 50400, 'A pickup needs a branch and no address.', 1;
-  IF @IDPaymentMethod NOT IN (1, 2)
-    THROW 50400, 'IDPaymentMethod must be 1 (card) or 2 (bank deposit).', 1;
-  IF @IDPaymentMethod = 2 AND @IDBankAccount IS NULL
-    THROW 50400, 'A bank account is required for a deposit.', 1;
-  IF @IDPaymentMethod = 1 AND @IDBankAccount IS NOT NULL
-    THROW 50400, 'A card payment takes no bank account.', 1;
+  -- El método lo define el mantenimiento de métodos de pago: debe existir, estar activo y ofrecerse para esta forma de recibir el pedido
+  DECLARE @MethodKind NVARCHAR(10), @MethodActive BIT, @MethodApplies BIT;
+  SELECT @MethodKind = Kind, @MethodActive = IsActive,
+         @MethodApplies = CASE WHEN @FulfilmentType = N'Delivery' THEN AppliesToDelivery ELSE AppliesToPickup END
+  FROM dbo.PaymentMethods WHERE IDPaymentMethod = @IDPaymentMethod;
+  IF @MethodKind IS NULL
+    THROW 50400, 'IDPaymentMethod does not exist.', 1;
+  IF @MethodActive = 0 OR @MethodApplies = 0
+    THROW 50422, 'PAYMENT_METHOD_UNAVAILABLE: The payment method is not offered for this way of receiving the order.', 1;
+  IF @MethodKind <> N'Deposit' AND @IDBankAccount IS NOT NULL
+    THROW 50400, 'Only a deposit takes a bank account.', 1;
 
   SET @Now = ISNULL(@Now, SYSUTCDATETIME());
 
@@ -142,9 +155,10 @@ BEGIN
     THROW 50422, 'DELIVERY_DATE_TOO_SOON: The requested delivery date is earlier than the lead time of the products allows.', 1;
 
   -- 3. El plazo del pago. Con tarjeta, la ventana de la reserva; con depósito, la que deja la fecha de entrega (ADR-0016).
-  IF @IDPaymentMethod = 2
+  IF @MethodKind = N'Deposit'
   BEGIN
-    IF NOT EXISTS (SELECT 1 FROM dbo.BankAccounts WHERE IDBankAccount = @IDBankAccount AND IsActive = 1)
+    -- La cuenta es informativa: si llega una (llamadas anteriores) debe existir
+    IF @IDBankAccount IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.BankAccounts WHERE IDBankAccount = @IDBankAccount AND IsActive = 1)
       THROW 50404, 'Bank account not found.', 1;
 
     DECLARE @MinutesAvailable INT;
@@ -153,6 +167,9 @@ BEGIN
     IF @MinutesAvailable < ISNULL((SELECT TRY_CAST(SettingValue AS INT) FROM dbo.Configuration WHERE SettingKey = N'MinDepositHours'), 2) * 60
       THROW 50422, 'DEPOSIT_UNAVAILABLE_FOR_DATE: Too little time remains before the delivery date to pay by deposit.', 1;
   END
+  ELSE IF @MethodKind = N'Cash'
+    -- Se cobra en la sucursal: el pago vale hasta que termina el día estimado (hora local), y si no se cobra vence como cualquier otro
+    SET @PaymentExpiresAt = CAST((CAST(DATEADD(DAY, 1, @RequestedDeliveryDate) AS DATETIME2(3)) AT TIME ZONE 'Central America Standard Time') AT TIME ZONE 'UTC' AS DATETIME2(3));
   ELSE
     SET @PaymentExpiresAt = DATEADD(MINUTE, ISNULL((SELECT TRY_CAST(SettingValue AS INT) FROM dbo.Configuration WHERE SettingKey = N'ReservationMinutes'), 15), @Now);
 
@@ -221,11 +238,11 @@ BEGIN
   --    inserta con un valor provisional único y se completa enseguida. No hay envío: el enunciado no lo pide, así que se guarda cero.
   INSERT INTO dbo.Orders
     (OrderNumber, IDUser, IDOrderStatus, IDCoupon, CouponCode, DeliveryRecipient, DeliveryPhone, DeliveryLine1,
-     DeliveryMunicipality, DeliveryDepartment, FulfilmentType, IDBranch, PickupBranchName, PickupBranchAddress,
+     DeliveryMunicipality, DeliveryDepartment, FulfilmentType, IDBranch, PickupBranchName, PickupBranchAddress, DeliveryNotes,
      RequestedDeliveryDate, Subtotal, Discount, Shipping, Total, TaxableBase, Vat, CreatedAt)
   VALUES
     (CONCAT(N'TMP-', LEFT(REPLACE(CAST(NEWID() AS NVARCHAR(36)), N'-', N''), 16)), @IDUser, 1, @IDCoupon, @CouponCode, @Recipient, @Phone, @Line1,
-     @Municipality, @Department, @FulfilmentType, @IDBranch, @BranchName, @BranchAddress,
+     @Municipality, @Department, @FulfilmentType, @IDBranch, @BranchName, @BranchAddress, @DeliveryNotes,
      @RequestedDeliveryDate, @Subtotal, @Discount, 0, @Total, @TaxableBase, @Vat, @Now);
   SET @IDOrder = SCOPE_IDENTITY();
 
@@ -271,7 +288,7 @@ BEGIN
     THROW;
   END CATCH;
 
-  IF @IDPaymentMethod = 2
+  IF @MethodKind = N'Deposit'
     INSERT INTO dbo.PaymentDeposits (IDPayment, IDBankAccount) VALUES (@IDPayment, @IDBankAccount);
 
   INSERT INTO dbo.PaymentStatusHistory (IDPayment, IDPreviousStatus, IDNewStatus, IDUser, Source, CreatedAt, Comment)
