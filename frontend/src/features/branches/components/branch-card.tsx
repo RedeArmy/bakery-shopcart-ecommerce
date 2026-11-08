@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { errorMessage } from '../../../shared/api';
 import { Badge } from '../../../shared/ui/badge';
 import { Button } from '../../../shared/ui/button';
+import { RemoveConfirmation } from '../../../shared/ui/remove-confirmation';
 import { useDeactivateBranch } from '../hooks/use-branches';
 import type { Branch } from '../hooks/use-branches';
 import { BranchForm } from './branch-form';
@@ -72,42 +72,25 @@ export function BranchCard({ branch }: Readonly<{ branch: Branch }>) {
       ) : null}
 
       {mode === 'remove' ? (
-        <section
-          aria-label={t('branches.removeTitle')}
-          className="space-y-3 rounded-card border border-red-200 bg-red-50 p-4"
-        >
-          <h4 className="text-lg text-red-900">{t('branches.removeTitle')}</h4>
-          <p className="text-sm text-red-900">{t('branches.removeText')}</p>
-          {deactivate.isError ? (
-            <p role="alert" className="text-sm text-red-900">
-              {errorMessage(deactivate.error)}
-            </p>
-          ) : null}
-          <div className="flex flex-wrap gap-3">
-            <Button
-              loading={deactivate.isPending}
-              onClick={() => {
-                // Al lograrse, la sucursal pasa a desactivada y la confirmación se cierra
-                deactivate.mutate(undefined, {
-                  onSuccess: () => {
-                    setMode('view');
-                  },
-                });
-              }}
-            >
-              {t('branches.removeConfirm')}
-            </Button>
-            <Button
-              variant="secondary"
-              disabled={deactivate.isPending}
-              onClick={() => {
+        <RemoveConfirmation
+          title={t('branches.removeTitle')}
+          text={t('branches.removeText')}
+          confirmLabel={t('branches.removeConfirm')}
+          keepLabel={t('branches.removeKeep')}
+          pending={deactivate.isPending}
+          error={deactivate.error}
+          onKeep={() => {
+            setMode('view');
+          }}
+          onConfirm={() => {
+            // Al lograrse, la sucursal pasa a desactivada y la confirmación se cierra
+            deactivate.mutate(undefined, {
+              onSuccess: () => {
                 setMode('view');
-              }}
-            >
-              {t('branches.removeKeep')}
-            </Button>
-          </div>
-        </section>
+              },
+            });
+          }}
+        />
       ) : null}
     </li>
   );

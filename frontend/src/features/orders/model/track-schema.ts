@@ -8,11 +8,12 @@ export const trackSchema = z.object({
     .trim()
     .min(1, { error: 'track.validation.orderNumberRequired' })
     .regex(/^PED-\d{4}-\d{6,}$/i, { error: 'track.validation.orderNumberInvalid' }),
+  // Se valida con el validador de correo de zod, cuya expresión no retrocede de forma costosa
   email: z
     .string()
     .trim()
     .min(1, { error: 'track.validation.emailRequired' })
-    .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, { error: 'track.validation.emailInvalid' }),
+    .pipe(z.email({ error: 'track.validation.emailInvalid' })),
 });
 
 export type TrackValues = z.infer<typeof trackSchema>;

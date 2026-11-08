@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { errorMessage } from '../../../shared/api';
 import { Badge } from '../../../shared/ui/badge';
 import { Button } from '../../../shared/ui/button';
+import { RemoveConfirmation } from '../../../shared/ui/remove-confirmation';
 import { useDeactivatePaymentMethod, useUpdatePaymentMethod } from '../hooks/use-payment-methods';
 import type { PaymentMethod } from '../hooks/use-payment-methods';
 import { PaymentMethodForm } from './payment-method-form';
@@ -100,42 +101,25 @@ export function PaymentMethodCard({ method }: Readonly<{ method: PaymentMethod }
       ) : null}
 
       {mode === 'remove' ? (
-        <section
-          aria-label={t('paymentMethods.removeTitle')}
-          className="space-y-3 rounded-card border border-red-200 bg-red-50 p-4"
-        >
-          <h4 className="text-lg text-red-900">{t('paymentMethods.removeTitle')}</h4>
-          <p className="text-sm text-red-900">{t('paymentMethods.removeText')}</p>
-          {deactivate.isError ? (
-            <p role="alert" className="text-sm text-red-900">
-              {errorMessage(deactivate.error)}
-            </p>
-          ) : null}
-          <div className="flex flex-wrap gap-3">
-            <Button
-              loading={deactivate.isPending}
-              onClick={() => {
-                // Al lograrse, el método pasa a desactivado y la confirmación se cierra
-                deactivate.mutate(undefined, {
-                  onSuccess: () => {
-                    setMode('view');
-                  },
-                });
-              }}
-            >
-              {t('paymentMethods.removeConfirm')}
-            </Button>
-            <Button
-              variant="secondary"
-              disabled={deactivate.isPending}
-              onClick={() => {
+        <RemoveConfirmation
+          title={t('paymentMethods.removeTitle')}
+          text={t('paymentMethods.removeText')}
+          confirmLabel={t('paymentMethods.removeConfirm')}
+          keepLabel={t('paymentMethods.removeKeep')}
+          pending={deactivate.isPending}
+          error={deactivate.error}
+          onKeep={() => {
+            setMode('view');
+          }}
+          onConfirm={() => {
+            // Al lograrse, el método pasa a desactivado y la confirmación se cierra
+            deactivate.mutate(undefined, {
+              onSuccess: () => {
                 setMode('view');
-              }}
-            >
-              {t('paymentMethods.removeKeep')}
-            </Button>
-          </div>
-        </section>
+              },
+            });
+          }}
+        />
       ) : null}
     </li>
   );

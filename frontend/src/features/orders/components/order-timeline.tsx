@@ -3,9 +3,9 @@ import { formatDateTime } from '../../../shared/lib/date';
 import { isKnownStatus } from '../model/order-status';
 
 interface HistoryEntry {
-  idNewStatus?: number | undefined;
-  newStatusName?: string | undefined;
-  createdAt?: string | undefined;
+  idNewStatus?: number;
+  newStatusName?: string;
+  createdAt?: string;
 }
 
 /** La línea de tiempo del pedido: cada estado por el que pasó, con su fecha; el último es en el que está ahora. */

@@ -30,7 +30,7 @@ function ModeOption({
   onSelect: () => void;
 }>) {
   return (
-    <label className="relative flex-1">
+    <label className="relative flex-1" aria-label={title}>
       <input
         type="radio"
         name="checkout-mode"

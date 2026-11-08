@@ -6,7 +6,7 @@ export interface BankAccountInfo {
   accountType: string;
   accountNumber: string;
   holderName: string;
-  instructions?: string | null | undefined;
+  instructions?: string | null;
 }
 
 /**

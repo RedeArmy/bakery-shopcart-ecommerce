@@ -10,7 +10,39 @@ import { CashInstructions } from '../components/cash-instructions';
 import { DepositInstructions } from '../components/deposit-instructions';
 import { PaymentStatus } from '../components/payment-status';
 import { ProofForm } from '../components/proof-form';
-import { useOrder, useOrderPayments } from '../hooks/use-payment';
+import { useOrder, useOrderPayments, type Payment } from '../hooks/use-payment';
+
+/** Lo que el cliente debe hacer mientras el pago espera: pagar en la sucursal si es efectivo, o depositar y subir el comprobante. */
+function PaymentInstructions({
+  idOrder,
+  payment,
+  orderNumber,
+  branchName,
+  branchAddress,
+}: Readonly<{
+  idOrder: number;
+  payment: Payment;
+  orderNumber: string;
+  branchName: string | null | undefined;
+  branchAddress: string | null | undefined;
+}>) {
+  if (payment.methodKind === 'Cash') {
+    return (
+      <CashInstructions
+        payment={payment}
+        orderNumber={orderNumber}
+        branchName={branchName}
+        branchAddress={branchAddress}
+      />
+    );
+  }
+  return (
+    <>
+      <DepositInstructions payment={payment} orderNumber={orderNumber} running />
+      <ProofForm idOrder={idOrder} amount={payment.amount} />
+    </>
+  );
+}
 
 /**
  * Pantalla del pedido recién creado y de su pago por depósito: las instrucciones, el comprobante y el estado. Se vuelve a
@@ -70,19 +102,14 @@ export function PaymentPage() {
         <div className="grid gap-6 lg:grid-cols-[1fr_22rem] lg:items-start">
           <div className="space-y-6">
             <PaymentStatus idOrder={idOrder} payment={current} />
-            {waiting && current.methodKind === 'Cash' ? (
-              <CashInstructions
+            {waiting ? (
+              <PaymentInstructions
+                idOrder={idOrder}
                 payment={current}
                 orderNumber={data.orderNumber}
                 branchName={data.pickupBranchName}
                 branchAddress={data.pickupBranchAddress}
               />
-            ) : null}
-            {waiting && current.methodKind !== 'Cash' ? (
-              <>
-                <DepositInstructions payment={current} orderNumber={data.orderNumber} running />
-                <ProofForm idOrder={idOrder} amount={current.amount} />
-              </>
             ) : null}
           </div>
           <aside className="space-y-4">
