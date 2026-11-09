@@ -22,7 +22,7 @@ test('the administrator finds the accounts, filters them by role and cannot deac
   await page.getByLabel('Rol').selectOption('Administrador');
   await expect(page).toHaveURL(/role=3/);
   await expect(main.getByRole('listitem').first()).toBeVisible();
-  await expect(main.getByText('Cliente', { exact: true })).toHaveCount(0);
+  await expect(main.getByRole('listitem').getByText('Cliente', { exact: true })).toHaveCount(0);
 
   // Un texto que no coincide con nadie no trae nada y lo dice
   await page.getByLabel('Buscar usuario').fill('nadie-se-llama-asi');
