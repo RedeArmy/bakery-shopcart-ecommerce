@@ -110,7 +110,8 @@ Fixed on 5 November, with four days left before Delivery Phase 2. The order prot
 | 2 | Dashboard (done) | `/admin` for both staff roles, each with its own view. **Administrator:** period filter (7, 30 or 90 days, or two dates; day, week or month), headline figures, sales as bars (amount or orders) with a data table, sales by category, ten best sellers and the orders of the period. **Operator:** the five queues to attend now (to prepare, in preparation, dispatched, deposits, cash) and the lists of orders to prepare and to deliver | Administrator: `GET /admin/dashboard/summary`, `/sales`, `/sales-by-category`, `/top-products` and `GET /admin/orders` with `from` and `to`. Operator: `GET /admin/orders?status=`, `/admin/payments/deposits`, `/admin/payments/cash` |
 | 3 | Catalogue administration | Categories, products, variants and prices | `/admin/categories`, `/admin/products`, `/admin/variants` |
 | 3 | Inventory | Ledger, entries, adjustments with a mandatory reason | `GET /admin/inventory/ledger`; `POST /admin/inventory/entries`, `/adjustments` |
-| 3 | Coupons, users, audit log, refunds | One table each, with create and edit where the API allows | `/admin/coupons`, `/admin/users`, `/admin/audit-log`, `/admin/refunds` |
+| 3 | Audit log (done) | `/admin/audit`, administrator only (RF-09): the records newest first, filtered by module (the eleven that the database writes), by identifier and by days, paged on the server, each with what was done, on what, by whom, when and what changed field by field. It only reads: a record cannot be edited or deleted | `GET /admin/audit-log` |
+| 3 | Coupons, users, refunds | One table each, with create and edit where the API allows | `/admin/coupons`, `/admin/users`, `/admin/refunds` |
 
 Not built: the card selector and its result page, the gateway status screen and the switch of payment method. The system screens (`/admin/system/*`) and the health probes are not part of the interface.
 
