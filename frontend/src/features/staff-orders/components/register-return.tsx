@@ -8,8 +8,8 @@ import { REASON_MAX, buildReturn, pendingReturn } from '../model/staff-orders';
 import type { ReturnProblem, ReturnableLine } from '../model/staff-orders';
 
 interface Line extends ReturnableLine {
-  productName?: string | undefined;
-  sku?: string | undefined;
+  productName?: string;
+  sku?: string;
 }
 
 /**

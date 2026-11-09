@@ -2,17 +2,16 @@ import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { ApiError } from '../../../shared/api';
-import { formatDateOnly, formatDateTime } from '../../../shared/lib/date';
 import { ButtonLink } from '../../../shared/ui/button';
 import { Price } from '../../../shared/ui/price';
 import { EmptyState, ErrorState, LoadingSkeleton } from '../../../shared/ui/states';
 import { CancelOrder } from '../../orders/components/cancel-order';
 import { OrderFulfilment } from '../../orders/components/order-fulfilment';
 import { OrderLines } from '../../orders/components/order-lines';
-import { OrderStatusBadge } from '../../orders/components/order-status-badge';
+import { OrderHeader } from '../../orders/components/order-header';
 import { OrderSummary } from '../../orders/components/order-summary';
 import { OrderTimeline } from '../../orders/components/order-timeline';
-import { canCancel, displayStatus } from '../../orders/model/order-status';
+import { canCancel } from '../../orders/model/order-status';
 import { AdvanceStatus } from '../components/advance-status';
 import { OrderPayments } from '../components/order-payments';
 import { RegisterReturn } from '../components/register-return';
@@ -59,24 +58,12 @@ export function StaffOrderPage() {
       <Link to="/admin/orders" className="text-sm text-accent hover:underline">
         {t('staffOrders.back')}
       </Link>
-      <header className="space-y-2">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-4xl text-stone-900">
-            {t('orders.detailTitle', { number: data.orderNumber })}
-          </h1>
-          <OrderStatusBadge status={displayStatus(data.statusName, data.paymentStatusName)} />
-        </div>
+      <OrderHeader order={data}>
         <p className="text-stone-700">
           {data.customerName}
           {data.customerEmail ? ` · ${data.customerEmail}` : null}
         </p>
-        <p className="text-stone-600">
-          {data.createdAt === undefined ? null : formatDateTime(data.createdAt)}
-          {data.requestedDeliveryDate === undefined
-            ? null
-            : ` · ${t('orders.deliveryOn', { date: formatDateOnly(data.requestedDeliveryDate) })}`}
-        </p>
-      </header>
+      </OrderHeader>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_22rem] lg:items-start">
         <div className="space-y-6">

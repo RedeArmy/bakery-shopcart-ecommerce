@@ -4,8 +4,8 @@ import { Badge } from '../../../shared/ui/badge';
 import { Price } from '../../../shared/ui/price';
 import { useStaffOrderPayments } from '../hooks/use-staff-orders';
 
-const KNOWN_STATUSES = ['Pending', 'UnderReview', 'Approved', 'Rejected', 'Expired'];
-const KNOWN_KINDS = ['Card', 'Deposit', 'Cash'];
+const KNOWN_STATUSES = new Set(['Pending', 'UnderReview', 'Approved', 'Rejected', 'Expired']);
+const KNOWN_KINDS = new Set(['Card', 'Deposit', 'Cash']);
 
 /** Los intentos de pago del pedido, del más reciente al más antiguo: con qué método, cuánto y en qué estado quedó. */
 export function OrderPayments({ idOrder }: Readonly<{ idOrder: number }>) {
@@ -34,12 +34,12 @@ export function OrderPayments({ idOrder }: Readonly<{ idOrder: number }>) {
           <li key={payment.idPayment} className="space-y-1 text-sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-stone-900">
-                {payment.methodKind !== undefined && KNOWN_KINDS.includes(payment.methodKind)
+                {payment.methodKind !== undefined && KNOWN_KINDS.has(payment.methodKind)
                   ? t(`staffOrders.payments.kinds.${payment.methodKind}`)
                   : payment.methodCode}
               </span>
               <Badge tone={payment.statusName === 'Approved' ? 'success' : 'neutral'}>
-                {KNOWN_STATUSES.includes(payment.statusName)
+                {KNOWN_STATUSES.has(payment.statusName)
                   ? t(`staffOrders.payments.statuses.${payment.statusName}`)
                   : payment.statusName}
               </Badge>

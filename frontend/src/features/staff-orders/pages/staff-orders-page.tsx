@@ -1,10 +1,9 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
-import { SelectField } from '../../../shared/ui/fields';
 import { Pagination } from '../../../shared/ui/pagination';
 import { EmptyState, ErrorState, LoadingSkeleton } from '../../../shared/ui/states';
-import { ORDER_STATUSES } from '../../orders/model/order-status';
+import { StatusFilter } from '../../orders/components/status-filter';
 import { SearchForm } from '../../payment-review/components/search-form';
 import { StaffOrderItem } from '../components/staff-order-item';
 import { useStaffOrders } from '../hooks/use-staff-orders';
@@ -59,22 +58,12 @@ export function StaffOrdersPage() {
         <p className="mt-1 max-w-2xl text-stone-600">{t('staffOrders.intro')}</p>
       </header>
       <div className="flex flex-wrap items-end gap-4">
-        <div className="w-full sm:w-64">
-          <SelectField
-            label={t('orders.filter')}
-            value={query.status === null ? '' : String(query.status)}
-            onChange={(event) => {
-              change({ status: event.target.value === '' ? null : Number(event.target.value) });
-            }}
-          >
-            <option value="">{t('orders.allStatuses')}</option>
-            {ORDER_STATUSES.map((name, index) => (
-              <option key={name} value={index + 1}>
-                {t(`orders.status.${name}`)}
-              </option>
-            ))}
-          </SelectField>
-        </div>
+        <StatusFilter
+          status={query.status}
+          onChange={(status) => {
+            change({ status });
+          }}
+        />
         <SearchForm
           id="staff-orders-search"
           label={t('staffOrders.search')}

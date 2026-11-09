@@ -48,7 +48,7 @@ export const canReturn = (status: string): boolean =>
 export interface ReturnableLine {
   idOrderLine: number;
   quantity: number;
-  returnedQuantity?: number | undefined;
+  returnedQuantity?: number;
 }
 
 /** Las unidades de una línea que todavía se pueden devolver. */
