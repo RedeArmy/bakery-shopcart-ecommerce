@@ -4,9 +4,9 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '../../src/shared/i18n';
 import {
-  parseOrdersQuery,
-  canCancel,
+  allows,
   displayStatus,
+  parseOrdersQuery,
 } from '../../src/features/orders/model/order-status';
 import { apiError, installFakeApi, json } from './support/fake-api';
 import { renderApp, resetSession, signInAs, signInAsGuest } from './support/render';
@@ -31,8 +31,11 @@ const summary = (extra = {}) => ({
   ...extra,
 });
 
+// Lo que el servidor ofrece sobre el pedido: uno pendiente de pago solo se puede cancelar
 const detail = (extra = {}) => ({
   ...summary(),
+  allowedActions: ['Cancel'],
+  operatorOnlyActions: [],
   subtotal: '145.00',
   discount: '0.00',
   vat: '15.54',
@@ -177,7 +180,7 @@ describe('the order detail', () => {
     const { calls } = installFakeApi({
       'GET /api/v1/orders/7': () => json(current),
       'POST /api/v1/orders/7/cancel': () => {
-        current = detail({ statusName: 'Cancelled' });
+        current = detail({ statusName: 'Cancelled', allowedActions: [] });
         return json(current);
       },
     });
@@ -198,12 +201,26 @@ describe('the order detail', () => {
 
   it('does not offer to cancel an order that was dispatched', async () => {
     await signInAs('Customer');
-    installFakeApi({ 'GET /api/v1/orders/7': json(detail({ statusName: 'Dispatched' })) });
+    installFakeApi({
+      'GET /api/v1/orders/7': json(detail({ statusName: 'Dispatched', allowedActions: [] })),
+    });
     renderApp('/orders/7');
 
     await screen.findByRole('heading', { name: 'Pedido PED-2026-000007' });
     expect(screen.queryByRole('button', { name: 'Cancelar pedido' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Ver cómo pagar' })).toBeNull();
+  });
+
+  it('shows the cancellation when the server offers it and not by working the status out', async () => {
+    await signInAs('Customer');
+    // El estado diría «pagado», pero el servidor no ofrece cancelar: la pantalla no lo contradice
+    installFakeApi({
+      'GET /api/v1/orders/7': json(detail({ statusName: 'Paid', allowedActions: [] })),
+    });
+    renderApp('/orders/7');
+
+    await screen.findByRole('heading', { name: 'Pedido PED-2026-000007' });
+    expect(screen.queryByRole('button', { name: 'Cancelar pedido' })).toBeNull();
   });
 
   it('answers an order that is not the customer’s as one that does not exist', async () => {
@@ -279,9 +296,11 @@ describe('the order list query', () => {
     });
   });
 
-  it('lets the customer cancel until the order is dispatched', () => {
-    expect(['PendingPayment', 'Paid', 'InPreparation'].every(canCancel)).toBe(true);
-    expect(['Dispatched', 'Delivered', 'Cancelled', 'Returned'].some(canCancel)).toBe(false);
+  it('reads an action from what the server offers and from nothing else', () => {
+    expect(allows({ allowedActions: ['Cancel'] }, 'Cancel')).toBe(true);
+    expect(allows({ allowedActions: ['Cancel', 'Prepare'] }, 'Prepare')).toBe(true);
+    expect(allows({ allowedActions: [] }, 'Cancel')).toBe(false);
+    expect(allows({ allowedActions: ['Return'] }, 'Cancel')).toBe(false);
   });
 });
 

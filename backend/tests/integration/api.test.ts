@@ -508,16 +508,39 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
 
     const order = await get(operator, `/admin/orders/${first.idOrder}`);
     expect(str(order.body, 'statusName')).toBe('Paid');
+    // La base de datos dice qué se puede hacer ahora, según quién pregunta: el personal prepara o cancela, el cliente solo cancela
+    expect(field(order.body, 'allowedActions')).toEqual(['Cancel', 'Prepare']);
+    expect(field(order.body, 'operatorOnlyActions')).toEqual([]);
+    const asCustomer = await get(customerA.token, `/orders/${first.idOrder}`);
+    expect(field(asCustomer.body, 'allowedActions')).toEqual(['Cancel']);
     const product = await api().get(`/api/v1/products/${idProduct}`);
     expect(list(product.body, 'variants')[0]?.['onHandStock']).toBe(18);
   });
 
   it('takes the order through preparation, dispatch and delivery, then returns one unit and refunds it', async () => {
     // Cada paso necesita que el anterior ya esté aplicado
+    const expectedActions: Record<string, string[]> = {
+      InPreparation: ['Cancel', 'Dispatch'],
+      Dispatched: ['Deliver'],
+      Delivered: ['Return'],
+    };
     await inOrder(['InPreparation', 'Dispatched', 'Delivered'], async (status) => {
       const changed = await patch(operator, `/admin/orders/${first.idOrder}/status`, { status });
       expect(changed.status).toBe(200);
       expect(str(changed.body, 'statusName')).toBe(status);
+      // Cada respuesta ya trae lo que se puede hacer a continuación
+      expect(field(changed.body, 'allowedActions')).toEqual(expectedActions[status]);
+
+      if (status === 'Dispatched') {
+        // A domicilio entrega el operador: el administrador no puede, y el detalle le dice por qué en lugar de callarlo
+        const asAdministrator = await get(administrator, `/admin/orders/${first.idOrder}`);
+        expect(field(asAdministrator.body, 'allowedActions')).toEqual([]);
+        expect(field(asAdministrator.body, 'operatorOnlyActions')).toEqual(['Deliver']);
+        const refused = await patch(administrator, `/admin/orders/${first.idOrder}/status`, {
+          status: 'Delivered',
+        });
+        expect(refused.status).toBe(422);
+      }
     });
     expect(
       (await patch(operator, `/admin/orders/${first.idOrder}/status`, { status: 'InPreparation' }))

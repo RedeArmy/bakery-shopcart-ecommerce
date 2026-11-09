@@ -1,7 +1,9 @@
 /* =====================================================================
    Objeto   : dbo.SP_Orders_ChangeStatus
-   Version  : 1.1.0
-   Cambio   : 1.1.0: el camino depende de la entrega. A domicilio: preparación, despacho y entrega, y solo un operador entrega. En
+   Version  : 1.2.0
+   Cambio   : 1.2.0: lo que cada rol puede hacer en cada estado sale de dbo.FU_Orders_AllowedActions, la misma fuente que ve el API en
+              allowedActions; antes eran tres IF aquí. Mismos errores y mismos mensajes.
+              1.1.0: el camino depende de la entrega. A domicilio: preparación, despacho y entrega, y solo un operador entrega. En
               sucursal no hay despacho (preparación y entrega) y tanto un operador como un administrador dan cada paso.
               1.0.0: el operador avanza el pedido por la preparación, el despacho y la entrega
    Autor    : Equipo ShopCart   Fecha: 2026-11-09
@@ -45,14 +47,21 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM dbo.OrderStatusTransitions WHERE IDFromStatus = @Current AND IDToStatus = @NewStatus)
     THROW 50422, 'INVALID_STATE_TRANSITION: The order cannot move from its current status to the requested one.', 1;
 
-  -- Lo que se recoge en sucursal no sale a ninguna parte: pasa de la preparación a la entrega sin despacho
-  IF @Fulfilment = N'Pickup' AND @NewStatus = 4
-    THROW 50422, 'INVALID_STATE_TRANSITION: A pickup order is handed over at the branch and is never dispatched.', 1;
-  -- Lo que se envía a domicilio se despacha antes de entregarse
-  IF @Fulfilment = N'Delivery' AND @Current = 3 AND @NewStatus = 5
-    THROW 50422, 'INVALID_STATE_TRANSITION: A delivery order must be dispatched before it is delivered.', 1;
+  -- El grafo dice que el estado se puede alcanzar; la función dice si este pedido lo recorre así y si esta persona puede darlo.
+  -- Se mira primero con el rol del operador, que toma todos los pasos: si ni así existe, el paso no es de este pedido
+  DECLARE @Action NVARCHAR(10) = CASE @NewStatus WHEN 3 THEN N'Prepare' WHEN 4 THEN N'Dispatch' ELSE N'Deliver' END;
+  IF NOT EXISTS (SELECT 1 FROM dbo.FU_Orders_AllowedActions(@Current, @Fulfilment, 2) WHERE Action = @Action AND Allowed = 1)
+  BEGIN
+    -- Lo que se recoge en sucursal no sale a ninguna parte: pasa de la preparación a la entrega sin despacho
+    IF @Fulfilment = N'Pickup' AND @NewStatus = 4
+      THROW 50422, 'INVALID_STATE_TRANSITION: A pickup order is handed over at the branch and is never dispatched.', 1;
+    -- Lo que se envía a domicilio se despacha antes de entregarse
+    IF @Fulfilment = N'Delivery' AND @Current = 3 AND @NewStatus = 5
+      THROW 50422, 'INVALID_STATE_TRANSITION: A delivery order must be dispatched before it is delivered.', 1;
+    THROW 50422, 'INVALID_STATE_TRANSITION: The order cannot move from its current status to the requested one.', 1;
+  END;
   -- Quien entrega a domicilio es el operador; el administrador gestiona pero no reparte
-  IF @Fulfilment = N'Delivery' AND @NewStatus = 5 AND @ActorRole <> 2
+  IF NOT EXISTS (SELECT 1 FROM dbo.FU_Orders_AllowedActions(@Current, @Fulfilment, @ActorRole) WHERE Action = @Action AND Allowed = 1)
     THROW 50422, 'Only an operator can mark a home delivery order as delivered.', 1;
 
   UPDATE dbo.Orders SET IDOrderStatus = @NewStatus WHERE IDOrder = @IDOrder;

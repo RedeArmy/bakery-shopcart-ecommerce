@@ -4495,6 +4495,16 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/OrderHistoryEntry'
+        allowedActions:
+          type: array
+          description: What the caller can do with the order right now. It is decided by the database (dbo.FU_Orders_AllowedActions), the same place that enforces it, so a client shows a button when the action is listed and never works the rule out by itself.
+          items:
+            $ref: '#/components/schemas/OrderAction'
+        operatorOnlyActions:
+          type: array
+          description: Actions that the status allows but that only an operator can take (an administrator does not deliver a home delivery order). Empty for a customer and for an operator. It lets a screen explain why an action is missing instead of hiding it without a word.
+          items:
+            $ref: '#/components/schemas/OrderAction'
       required:
         - idOrder
         - orderNumber
@@ -4502,6 +4512,17 @@ components:
         - total
         - lines
         - history
+        - allowedActions
+        - operatorOnlyActions
+    OrderAction:
+      type: string
+      description: Prepare (to InPreparation), Dispatch (to Dispatched, home delivery only), Deliver (to Delivered), Cancel and Return.
+      enum:
+        - Prepare
+        - Dispatch
+        - Deliver
+        - Cancel
+        - Return
     CancelRequest:
       type: object
       properties:

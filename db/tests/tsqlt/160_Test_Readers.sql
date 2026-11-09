@@ -138,7 +138,7 @@ BEGIN
                           StatusName NVARCHAR(30), PaymentStatusName NVARCHAR(30), CouponCode NVARCHAR(30), DeliveryRecipient NVARCHAR(120), DeliveryPhone NVARCHAR(20), DeliveryLine1 NVARCHAR(200),
                           DeliveryMunicipality NVARCHAR(80), DeliveryDepartment NVARCHAR(80), RequestedDeliveryDate DATE, FulfilmentType NVARCHAR(10), IDBranch INT, PickupBranchName NVARCHAR(80), PickupBranchAddress NVARCHAR(300), DeliveryNotes NVARCHAR(300), Subtotal VARCHAR(25), Discount VARCHAR(25),
                           Shipping VARCHAR(25), Total VARCHAR(25), TaxableBase VARCHAR(25), Vat VARCHAR(25), CreatedAt DATETIME2(3), PaidAt DATETIME2(3),
-                          Lines NVARCHAR(MAX), History NVARCHAR(MAX));
+                          Lines NVARCHAR(MAX), History NVARCHAR(MAX), AllowedActions NVARCHAR(MAX), OperatorOnlyActions NVARCHAR(MAX));
     INSERT INTO #Result EXEC dbo.SP_Orders_GetDetail @IDActor = @Ana, @IDOrder = @IDOrder;
 
     DECLARE @Status NVARCHAR(30) = (SELECT StatusName FROM #Result), @Total VARCHAR(25) = (SELECT Total FROM #Result);
@@ -152,6 +152,58 @@ BEGIN
     EXEC tSQLt.AssertEqualsString @Expected = N'166.35', @Actual = @LineTotal;
     -- Creado, pagado y en preparación
     EXEC tSQLt.AssertEquals @Expected = 3, @Actual = @HistoryCount;
+    -- Su cliente puede cancelarlo hasta que se despache y nada más; no hay nada reservado al operador que tenga que explicarle
+    DECLARE @Allowed NVARCHAR(MAX) = (SELECT AllowedActions FROM #Result), @Reserved NVARCHAR(MAX) = (SELECT OperatorOnlyActions FROM #Result);
+    EXEC tSQLt.AssertEqualsString @Expected = N'["Cancel"]', @Actual = @Allowed;
+    EXEC tSQLt.AssertEqualsString @Expected = N'[]', @Actual = @Reserved;
+END;
+GO
+
+CREATE PROCEDURE Test_Readers.[test the operator is offered the delivery of a dispatched home order and the administrator is told it is the operator's]
+AS
+BEGIN
+    DECLARE @IDOrder INT, @IDPayment INT, @Operator INT = Test_Shop.UserId(N'operator@shopcart.test'), @Admin INT = Test_Shop.UserId(N'admin@shopcart.test');
+    EXEC Test_Lifecycle.Make @Email = N'ana@shopcart.test', @SKU = N'C-CUPCAKE', @Quantity = 3, @Key = N'key-1', @To = 4, @IDOrder = @IDOrder OUTPUT, @IDPayment = @IDPayment OUTPUT;
+
+    CREATE TABLE #ByOperator (IDOrder INT, OrderNumber NVARCHAR(20), IDUser INT, CustomerName NVARCHAR(120), CustomerEmail NVARCHAR(256), IDOrderStatus TINYINT,
+                          StatusName NVARCHAR(30), PaymentStatusName NVARCHAR(30), CouponCode NVARCHAR(30), DeliveryRecipient NVARCHAR(120), DeliveryPhone NVARCHAR(20), DeliveryLine1 NVARCHAR(200),
+                          DeliveryMunicipality NVARCHAR(80), DeliveryDepartment NVARCHAR(80), RequestedDeliveryDate DATE, FulfilmentType NVARCHAR(10), IDBranch INT, PickupBranchName NVARCHAR(80), PickupBranchAddress NVARCHAR(300),
+                          DeliveryNotes NVARCHAR(300), Subtotal VARCHAR(25), Discount VARCHAR(25),
+                          Shipping VARCHAR(25), Total VARCHAR(25), TaxableBase VARCHAR(25), Vat VARCHAR(25), CreatedAt DATETIME2(3), PaidAt DATETIME2(3),
+                          Lines NVARCHAR(MAX), History NVARCHAR(MAX), AllowedActions NVARCHAR(MAX), OperatorOnlyActions NVARCHAR(MAX));
+    SELECT * INTO #ByAdministrator FROM #ByOperator WHERE 1 = 0;
+    INSERT INTO #ByOperator EXEC dbo.SP_Orders_GetDetail @IDActor = @Operator, @AsStaff = 1, @IDOrder = @IDOrder;
+    INSERT INTO #ByAdministrator EXEC dbo.SP_Orders_GetDetail @IDActor = @Admin, @AsStaff = 1, @IDOrder = @IDOrder;
+
+    DECLARE @OperatorAllowed NVARCHAR(MAX) = (SELECT AllowedActions FROM #ByOperator), @OperatorReserved NVARCHAR(MAX) = (SELECT OperatorOnlyActions FROM #ByOperator);
+    DECLARE @AdminAllowed NVARCHAR(MAX) = (SELECT AllowedActions FROM #ByAdministrator), @AdminReserved NVARCHAR(MAX) = (SELECT OperatorOnlyActions FROM #ByAdministrator);
+    EXEC tSQLt.AssertEqualsString @Expected = N'["Deliver"]', @Actual = @OperatorAllowed;
+    EXEC tSQLt.AssertEqualsString @Expected = N'[]', @Actual = @OperatorReserved;
+    -- El administrador no entrega a domicilio, y el detalle se lo dice en lugar de callarlo
+    EXEC tSQLt.AssertEqualsString @Expected = N'[]', @Actual = @AdminAllowed;
+    EXEC tSQLt.AssertEqualsString @Expected = N'["Deliver"]', @Actual = @AdminReserved;
+END;
+GO
+
+CREATE PROCEDURE Test_Readers.[test a delivered order offers the return to the staff and nothing to its customer]
+AS
+BEGIN
+    DECLARE @IDOrder INT, @IDPayment INT, @Ana INT = Test_Shop.UserId(N'ana@shopcart.test'), @Operator INT = Test_Shop.UserId(N'operator@shopcart.test');
+    EXEC Test_Lifecycle.Make @Email = N'ana@shopcart.test', @SKU = N'C-CUPCAKE', @Quantity = 3, @Key = N'key-1', @To = 5, @IDOrder = @IDOrder OUTPUT, @IDPayment = @IDPayment OUTPUT;
+
+    CREATE TABLE #ByCustomer (IDOrder INT, OrderNumber NVARCHAR(20), IDUser INT, CustomerName NVARCHAR(120), CustomerEmail NVARCHAR(256), IDOrderStatus TINYINT,
+                          StatusName NVARCHAR(30), PaymentStatusName NVARCHAR(30), CouponCode NVARCHAR(30), DeliveryRecipient NVARCHAR(120), DeliveryPhone NVARCHAR(20), DeliveryLine1 NVARCHAR(200),
+                          DeliveryMunicipality NVARCHAR(80), DeliveryDepartment NVARCHAR(80), RequestedDeliveryDate DATE, FulfilmentType NVARCHAR(10), IDBranch INT, PickupBranchName NVARCHAR(80), PickupBranchAddress NVARCHAR(300),
+                          DeliveryNotes NVARCHAR(300), Subtotal VARCHAR(25), Discount VARCHAR(25),
+                          Shipping VARCHAR(25), Total VARCHAR(25), TaxableBase VARCHAR(25), Vat VARCHAR(25), CreatedAt DATETIME2(3), PaidAt DATETIME2(3),
+                          Lines NVARCHAR(MAX), History NVARCHAR(MAX), AllowedActions NVARCHAR(MAX), OperatorOnlyActions NVARCHAR(MAX));
+    SELECT * INTO #ByStaff FROM #ByCustomer WHERE 1 = 0;
+    INSERT INTO #ByCustomer EXEC dbo.SP_Orders_GetDetail @IDActor = @Ana, @IDOrder = @IDOrder;
+    INSERT INTO #ByStaff EXEC dbo.SP_Orders_GetDetail @IDActor = @Operator, @AsStaff = 1, @IDOrder = @IDOrder;
+
+    DECLARE @CustomerAllowed NVARCHAR(MAX) = (SELECT AllowedActions FROM #ByCustomer), @StaffAllowed NVARCHAR(MAX) = (SELECT AllowedActions FROM #ByStaff);
+    EXEC tSQLt.AssertEqualsString @Expected = N'[]', @Actual = @CustomerAllowed;
+    EXEC tSQLt.AssertEqualsString @Expected = N'["Return"]', @Actual = @StaffAllowed;
 END;
 GO
 
@@ -175,7 +227,7 @@ BEGIN
                           StatusName NVARCHAR(30), PaymentStatusName NVARCHAR(30), CouponCode NVARCHAR(30), DeliveryRecipient NVARCHAR(120), DeliveryPhone NVARCHAR(20), DeliveryLine1 NVARCHAR(200),
                           DeliveryMunicipality NVARCHAR(80), DeliveryDepartment NVARCHAR(80), RequestedDeliveryDate DATE, FulfilmentType NVARCHAR(10), IDBranch INT, PickupBranchName NVARCHAR(80), PickupBranchAddress NVARCHAR(300), DeliveryNotes NVARCHAR(300), Subtotal VARCHAR(25), Discount VARCHAR(25),
                           Shipping VARCHAR(25), Total VARCHAR(25), TaxableBase VARCHAR(25), Vat VARCHAR(25), CreatedAt DATETIME2(3), PaidAt DATETIME2(3),
-                          Lines NVARCHAR(MAX), History NVARCHAR(MAX));
+                          Lines NVARCHAR(MAX), History NVARCHAR(MAX), AllowedActions NVARCHAR(MAX), OperatorOnlyActions NVARCHAR(MAX));
     INSERT INTO #Result EXEC dbo.SP_Orders_GetDetail @IDActor = @Admin, @AsStaff = 1, @IDOrder = @IDOrder;
 
     DECLARE @Rows INT = (SELECT COUNT(*) FROM #Result);

@@ -1,7 +1,8 @@
 /* =====================================================================
    Objeto   : dbo.SP_Orders_Cancel
-   Version  : 1.0.0
-   Cambio   : Primera versión: cancelación de un pedido por su cliente o por un operador, antes de despacharlo
+   Version  : 1.1.0
+   Cambio   : 1.1.0: el estado desde el que se puede cancelar sale de dbo.FU_Orders_AllowedActions y no de una lista fija. Mismo error.
+              1.0.0: Primera versión: cancelación de un pedido por su cliente o por un operador, antes de despacharlo
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Nueva. Un pedido pendiente de pago se cancela con SP_Orders_CancelPending (no hubo salida física). Uno pagado o en
               preparación devuelve las unidades al libro de inventario y deja un reembolso pendiente por todo lo cobrado.
@@ -31,8 +32,8 @@ BEGIN
   IF @Role IS NULL
     THROW 50422, 'The actor is not an active user.', 1;
 
-  DECLARE @Status TINYINT, @Owner INT, @OrderNumber NVARCHAR(20);
-  SELECT @Status = IDOrderStatus, @Owner = IDUser, @OrderNumber = OrderNumber
+  DECLARE @Status TINYINT, @Owner INT, @OrderNumber NVARCHAR(20), @Fulfilment NVARCHAR(10);
+  SELECT @Status = IDOrderStatus, @Owner = IDUser, @OrderNumber = OrderNumber, @Fulfilment = FulfilmentType
   FROM dbo.Orders WITH (UPDLOCK, ROWLOCK) WHERE IDOrder = @IDOrder;
 
   -- El pedido de otra persona responde igual que uno inexistente (IDOR); el personal puede cancelar cualquiera
@@ -50,8 +51,8 @@ BEGIN
     RETURN;
   END;
 
-  -- Despachado en adelante ya salió de la pastelería: solo cabe devolverlo cuando esté entregado
-  IF @Status NOT IN (1, 2, 3)
+  -- Despachado en adelante ya salió de la pastelería: solo cabe devolverlo cuando esté entregado (lo dice dbo.FU_Orders_AllowedActions)
+  IF NOT EXISTS (SELECT 1 FROM dbo.FU_Orders_AllowedActions(@Status, @Fulfilment, @Role) WHERE Action = N'Cancel' AND Allowed = 1)
     THROW 50422, 'INVALID_STATE_TRANSITION: An order that was dispatched can no longer be cancelled.', 1;
 
   IF @Status = 1

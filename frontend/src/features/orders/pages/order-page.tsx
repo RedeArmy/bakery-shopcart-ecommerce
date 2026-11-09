@@ -11,7 +11,7 @@ import { OrderHeader } from '../components/order-header';
 import { OrderSummary } from '../components/order-summary';
 import { OrderTimeline } from '../components/order-timeline';
 import { PaymentNotice } from '../components/payment-notice';
-import { canCancel } from '../model/order-status';
+import { allows } from '../model/order-status';
 
 /** El pedido con sus productos, su entrega, el historial y, mientras se puede, la cancelación. Uno ajeno responde 404. */
 export function OrderPage() {
@@ -61,7 +61,7 @@ export function OrderPage() {
               {t('orders.pay')}
             </ButtonLink>
           ) : null}
-          {canCancel(data.statusName) ? <CancelOrder idOrder={idOrder} paid={!waiting} /> : null}
+          {allows(data, 'Cancel') ? <CancelOrder idOrder={idOrder} paid={!waiting} /> : null}
         </aside>
       </div>
     </div>

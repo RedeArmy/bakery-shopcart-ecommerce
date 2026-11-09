@@ -33,7 +33,7 @@ export function createSqlOrdersRepository(execute: ProcedureExecutor): OrdersRep
       ]);
       const row = result.rows[0];
       if (row === undefined) throw new TypeError('SP_Orders_GetDetail returned no row');
-      return camelRow(row, ['Lines', 'History']);
+      return camelRow(row, ['Lines', 'History', 'AllowedActions', 'OperatorOnlyActions']);
     },
 
     async track(orderNumber: string, email: string): Promise<Row> {
