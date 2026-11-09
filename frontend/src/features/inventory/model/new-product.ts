@@ -143,11 +143,14 @@ export interface Packaging {
   stockVariantId: number | null;
 }
 
+/** Una variante que guarda su propia existencia y trae una unidad: lo de siempre. */
+const OWN_STOCK: Packaging = { unitsPerPack: 1, stockVariantId: null };
+
 /** El cuerpo de una variante: el precio como texto con dos decimales (ADR-0020) y el atributo solo si se escribió. */
 export const variantBody = (
   idProduct: number,
   variant: NewVariantValues,
-  packaging: Packaging = { unitsPerPack: 1, stockVariantId: null },
+  packaging: Packaging = OWN_STOCK,
 ) => ({
   productId: idProduct,
   sku: variant.sku,
