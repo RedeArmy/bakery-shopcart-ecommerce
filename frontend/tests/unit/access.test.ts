@@ -63,6 +63,17 @@ describe('visibleNavItems', () => {
     expect(visibleNavItems(null, NAV_ITEMS).map((item) => item.to)).toContain('/catalogue');
   });
 
+  it('gives each staff role the dashboard first, and no one else', () => {
+    const of = (role: Parameters<typeof visibleNavItems>[0]) =>
+      visibleNavItems(role, NAV_ITEMS).map((item) => item.to);
+    expect(of('Operator')).toEqual(expect.arrayContaining(['/admin']));
+    expect(of('Administrator')).toEqual(expect.arrayContaining(['/admin']));
+    // Va antes que el resto de las entradas del personal
+    expect(of('Operator').indexOf('/admin')).toBeLessThan(of('Operator').indexOf('/admin/orders'));
+    expect(of('Customer')).not.toContain('/admin');
+    expect(of(null)).not.toContain('/admin');
+  });
+
   it('gives the order administration to the staff and keeps it away from customers and visitors', () => {
     const of = (role: Parameters<typeof visibleNavItems>[0]) =>
       visibleNavItems(role, NAV_ITEMS).map((item) => item.to);

@@ -1,3 +1,4 @@
+import { isDateOnly } from '../../../shared/lib/date';
 import { parseOrdersQuery } from '../../orders/model/order-status';
 
 /** Cuántos pedidos se ven por página en la administración. */
@@ -9,6 +10,10 @@ export interface StaffOrdersQuery {
   page: number;
   /** Número de pedido o correo del cliente, tal cual lo busca el servidor */
   search: string;
+  /** Primer día (inclusive) en que se hizo el pedido, `aaaa-mm-dd`, o `null` */
+  from: string | null;
+  /** Último día (inclusive) en que se hizo el pedido, `aaaa-mm-dd`, o `null` */
+  to: string | null;
 }
 
 /**
@@ -17,7 +22,15 @@ export interface StaffOrdersQuery {
  */
 export function parseStaffOrdersQuery(params: URLSearchParams): StaffOrdersQuery {
   const { page, status } = parseOrdersQuery(params);
-  return { page, status, search: (params.get('q') ?? '').trim().slice(0, 100) };
+  const from = params.get('from') ?? '';
+  const to = params.get('to') ?? '';
+  return {
+    page,
+    status,
+    search: (params.get('q') ?? '').trim().slice(0, 100),
+    from: isDateOnly(from) ? from : null,
+    to: isDateOnly(to) ? to : null,
+  };
 }
 
 /** La dirección para una consulta: solo lleva lo que se aparta del valor por omisión. */
@@ -25,6 +38,8 @@ export function staffOrdersParams(query: StaffOrdersQuery): URLSearchParams {
   const params = new URLSearchParams();
   if (query.status !== null) params.set('status', String(query.status));
   if (query.search !== '') params.set('q', query.search);
+  if (query.from !== null) params.set('from', query.from);
+  if (query.to !== null) params.set('to', query.to);
   if (query.page > 1) params.set('page', String(query.page));
   return params;
 }

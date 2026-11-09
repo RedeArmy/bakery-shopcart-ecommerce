@@ -102,6 +102,13 @@ export const routes: RouteObject[] = [
         element: <ProtectedRoute roles={['Operator', 'Administrator']} />,
         children: [
           {
+            // Cada rol ve su panel: el administrador los reportes y el operador lo que hay que atender
+            path: 'admin',
+            lazy: async () => ({
+              Component: (await import('../features/dashboard/pages/dashboard-page')).DashboardPage,
+            }),
+          },
+          {
             path: 'admin/orders',
             lazy: async () => ({
               Component: (await import('../features/staff-orders/pages/staff-orders-page'))

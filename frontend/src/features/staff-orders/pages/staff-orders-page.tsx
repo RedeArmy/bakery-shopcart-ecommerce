@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
+import { isReversedRange } from '../../../shared/lib/date';
+import { TextField } from '../../../shared/ui/fields';
 import { Pagination } from '../../../shared/ui/pagination';
 import { EmptyState, ErrorState, LoadingSkeleton } from '../../../shared/ui/states';
 import { StatusFilter } from '../../orders/components/status-filter';
@@ -19,6 +21,8 @@ export function StaffOrdersPage() {
   const [params, setParams] = useSearchParams();
   const query = parseStaffOrdersQuery(params);
   const { data, isPending, isError, error, refetch } = useStaffOrders(query);
+  // Un período al revés no se pregunta al servidor: se explica
+  const reversed = isReversedRange(query.from, query.to);
 
   // Cambiar el estado o el texto vuelve a la primera página
   const change = (next: Partial<StaffOrdersQuery>): void => {
@@ -26,7 +30,13 @@ export function StaffOrdersPage() {
   };
 
   let content: ReactNode;
-  if (isPending) {
+  if (reversed) {
+    content = (
+      <p role="alert" className="text-sm text-red-700">
+        {t('staffOrders.reversedRange')}
+      </p>
+    );
+  } else if (isPending) {
     content = <LoadingSkeleton count={4} />;
   } else if (isError) {
     content = <ErrorState error={error} onRetry={() => void refetch()} />;
@@ -62,6 +72,24 @@ export function StaffOrdersPage() {
           status={query.status}
           onChange={(status) => {
             change({ status });
+          }}
+        />
+        <TextField
+          label={t('staffOrders.from')}
+          type="date"
+          value={query.from ?? ''}
+          max={query.to ?? undefined}
+          onChange={(event) => {
+            change({ from: event.target.value === '' ? null : event.target.value });
+          }}
+        />
+        <TextField
+          label={t('staffOrders.to')}
+          type="date"
+          value={query.to ?? ''}
+          min={query.from ?? undefined}
+          onChange={(event) => {
+            change({ to: event.target.value === '' ? null : event.target.value });
           }}
         />
         <SearchForm
