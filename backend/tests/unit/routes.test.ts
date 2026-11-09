@@ -134,6 +134,43 @@ describe('serialisation helpers', () => {
     });
   });
 
+  it('gives the date and time that FOR JSON PATH writes without a zone the Z of UTC, as the other columns have', () => {
+    // La base entrega los DATETIME2 de un JSON sin zona: sin la «Z» el navegador los leería como hora local
+    const row = camelRow(
+      {
+        History:
+          '[{"IDNewStatus":2,"CreatedAt":"2030-06-01T15:00:00.1234567"},{"IDNewStatus":3,"CreatedAt":"2030-06-01T16:00:00"}]',
+      },
+      ['History'],
+    );
+    expect(row).toEqual({
+      history: [
+        { idNewStatus: 2, createdAt: '2030-06-01T15:00:00.1234567Z' },
+        { idNewStatus: 3, createdAt: '2030-06-01T16:00:00Z' },
+      ],
+    });
+  });
+
+  it('leaves alone what already carries a zone, what is not a date and the date-only columns', () => {
+    const row = camelRow(
+      {
+        Events:
+          '[{"CreatedAt":"2030-06-01T15:00:00Z","Name":"2030-06-01T15:00:00","DepositDate":"2030-06-20","Note":null}]',
+      },
+      ['Events'],
+    );
+    expect(row).toEqual({
+      events: [
+        {
+          createdAt: '2030-06-01T15:00:00Z',
+          name: '2030-06-01T15:00:00',
+          depositDate: '2030-06-20',
+          note: null,
+        },
+      ],
+    });
+  });
+
   it('builds a page with the total of the first row, and zero when empty', () => {
     expect(toPage([{ IDOrder: 1, TotalCount: 7 }], 2, 5)).toEqual({
       items: [{ idOrder: 1 }],

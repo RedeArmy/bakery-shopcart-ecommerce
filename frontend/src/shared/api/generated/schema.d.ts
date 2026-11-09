@@ -1880,7 +1880,7 @@ export interface components {
             referenceNumber?: string | null;
             /** Format: date */
             depositDate?: string | null;
-            depositedAmount?: components["schemas"]["MoneyText"];
+            depositedAmount?: components["schemas"]["MoneyText"] | null;
             isCurrent?: boolean | null;
             rejectionReason?: string | null;
             /** Format: date-time */
@@ -1925,7 +1925,7 @@ export interface components {
             referenceNumber?: string | null;
             /** Format: date */
             depositDate?: string | null;
-            depositedAmount?: components["schemas"]["MoneyText"];
+            depositedAmount?: components["schemas"]["MoneyText"] | null;
             rejectionReason?: string | null;
             idPaymentProof?: number | null;
             /** Format: date-time */
