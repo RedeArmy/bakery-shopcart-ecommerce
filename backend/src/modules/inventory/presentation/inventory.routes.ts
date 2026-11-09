@@ -27,11 +27,12 @@ const adjustmentBody = z.object({
 
 export function createInventoryRouter(kit: RouteKit, repository: InventoryRepository): Router {
   const router = Router();
-  // El operador consulta el libro; solo el administrador mueve el stock (lo exigen los procedimientos, no solo la API)
+  // El operador gestiona el inventario (RF-01): consulta el libro y registra entradas y ajustes, igual que el administrador.
+  // El cliente no: los procedimientos lo vuelven a exigir, no solo la API
   const reader = [kit.authenticate, kit.role('Operator', 'Administrator')];
   const writer = [
     kit.authenticate,
-    kit.role('Administrator'),
+    kit.role('Operator', 'Administrator'),
     kit.rateLimit(POLICIES.authenticatedWrite),
   ];
   const required = kit.idempotent({ required: true });

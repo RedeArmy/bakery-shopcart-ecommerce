@@ -9,18 +9,20 @@
 EXEC tSQLt.NewTestClass 'Test_Ledger';
 GO
 
--- Un administrador, un cliente y dos variantes sin existencias. Los valores de referencia se insertan solo si faltan,
+-- Un administrador, un operador, un cliente y dos variantes sin existencias. Los valores de referencia se insertan solo si faltan,
 -- por si la prueba corre sin semillas.
 CREATE PROCEDURE Test_Ledger.SetUp
 AS
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM dbo.Roles WHERE IDRole = 1) INSERT INTO dbo.Roles (IDRole, Name) VALUES (1, N'Customer');
+    IF NOT EXISTS (SELECT 1 FROM dbo.Roles WHERE IDRole = 2) INSERT INTO dbo.Roles (IDRole, Name) VALUES (2, N'Operator');
     IF NOT EXISTS (SELECT 1 FROM dbo.Roles WHERE IDRole = 3) INSERT INTO dbo.Roles (IDRole, Name) VALUES (3, N'Administrator');
     IF NOT EXISTS (SELECT 1 FROM dbo.InventoryMovementTypes WHERE IDInventoryMovementType = 1) INSERT INTO dbo.InventoryMovementTypes VALUES (1, N'Entry');
     IF NOT EXISTS (SELECT 1 FROM dbo.InventoryMovementTypes WHERE IDInventoryMovementType = 3) INSERT INTO dbo.InventoryMovementTypes VALUES (3, N'Adjustment');
 
     INSERT INTO dbo.Users (IDRole, Email, PasswordHash, FullName)
     VALUES (3, N'admin@shopcart.test', N'not-a-real-hash', N'Test Admin'),
+           (2, N'operator@shopcart.test', N'not-a-real-hash', N'Test Operator'),
            (1, N'customer@shopcart.test', N'not-a-real-hash', N'Test Customer');
 
     INSERT INTO dbo.Categories (Name) VALUES (N'Ledger category');
@@ -71,14 +73,49 @@ BEGIN
 END;
 GO
 
-CREATE PROCEDURE Test_Ledger.[test only an administrator can register an entry]
+CREATE PROCEDURE Test_Ledger.[test a customer cannot register an entry]
 AS
 BEGIN
     DECLARE @IDCustomer INT = (SELECT IDUser FROM dbo.Users WHERE Email = N'customer@shopcart.test');
     DECLARE @IDVariant INT = (SELECT IDVariant FROM dbo.Variants WHERE SKU = N'LEDGER-1');
     DECLARE @IDMovement BIGINT;
-    EXEC tSQLt.ExpectException @ExpectedMessagePattern = N'%administrator%', @ExpectedErrorNumber = 50422;
+    EXEC tSQLt.ExpectException @ExpectedMessagePattern = N'%operator or administrator%', @ExpectedErrorNumber = 50422;
     EXEC dbo.SP_Inventory_RegisterEntry @IDActor = @IDCustomer, @IDVariant = @IDVariant, @Quantity = 1, @Reason = N'Free stock', @IDMovement = @IDMovement OUTPUT;
+END;
+GO
+
+CREATE PROCEDURE Test_Ledger.[test an operator registers an entry and adjusts the stock under their own name]
+AS
+BEGIN
+    DECLARE @IDOperator INT = (SELECT IDUser FROM dbo.Users WHERE Email = N'operator@shopcart.test');
+    DECLARE @IDVariant INT = (SELECT IDVariant FROM dbo.Variants WHERE SKU = N'LEDGER-1');
+    DECLARE @Entry BIGINT, @Adjustment BIGINT;
+    EXEC dbo.SP_Inventory_RegisterEntry @IDActor = @IDOperator, @IDVariant = @IDVariant, @Quantity = 10, @Reason = N'Delivery', @IDMovement = @Entry OUTPUT;
+    EXEC dbo.SP_Inventory_AdjustStock @IDActor = @IDOperator, @IDVariant = @IDVariant, @NewOnHand = 7, @Reason = N'Count', @IDMovement = @Adjustment OUTPUT;
+
+    DECLARE @OnHand INT = (SELECT OnHandStock FROM dbo.Variants WHERE IDVariant = @IDVariant);
+    DECLARE @ByOperator INT = (SELECT COUNT(*) FROM dbo.InventoryMovements WHERE IDVariant = @IDVariant AND IDUser = @IDOperator);
+    EXEC tSQLt.AssertEquals @Expected = 7, @Actual = @OnHand;
+    EXEC tSQLt.AssertEquals @Expected = 2, @Actual = @ByOperator;
+END;
+GO
+
+CREATE PROCEDURE Test_Ledger.[test only an active operator or administrator passes the staff check]
+AS
+BEGIN
+    DECLARE @IDAdmin INT = (SELECT IDUser FROM dbo.Users WHERE Email = N'admin@shopcart.test');
+    DECLARE @IDOperator INT = (SELECT IDUser FROM dbo.Users WHERE Email = N'operator@shopcart.test');
+    DECLARE @IDCustomer INT = (SELECT IDUser FROM dbo.Users WHERE Email = N'customer@shopcart.test');
+    DECLARE @Admin INT = (SELECT COUNT(*) FROM dbo.FU_Users_ActiveStaff(@IDAdmin));
+    DECLARE @Operator INT = (SELECT COUNT(*) FROM dbo.FU_Users_ActiveStaff(@IDOperator));
+    DECLARE @Customer INT = (SELECT COUNT(*) FROM dbo.FU_Users_ActiveStaff(@IDCustomer));
+    UPDATE dbo.Users SET IsActive = 0 WHERE IDUser = @IDOperator;
+    DECLARE @Disabled INT = (SELECT COUNT(*) FROM dbo.FU_Users_ActiveStaff(@IDOperator));
+
+    EXEC tSQLt.AssertEquals @Expected = 1, @Actual = @Admin;
+    EXEC tSQLt.AssertEquals @Expected = 1, @Actual = @Operator;
+    EXEC tSQLt.AssertEquals @Expected = 0, @Actual = @Customer;
+    EXEC tSQLt.AssertEquals @Expected = 0, @Actual = @Disabled;
 END;
 GO
 
@@ -194,13 +231,13 @@ BEGIN
 END;
 GO
 
-CREATE PROCEDURE Test_Ledger.[test only an administrator can adjust the stock]
+CREATE PROCEDURE Test_Ledger.[test a customer cannot adjust the stock]
 AS
 BEGIN
     DECLARE @IDCustomer INT = (SELECT IDUser FROM dbo.Users WHERE Email = N'customer@shopcart.test');
     DECLARE @IDVariant INT = (SELECT IDVariant FROM dbo.Variants WHERE SKU = N'LEDGER-1');
     DECLARE @IDMovement BIGINT;
-    EXEC tSQLt.ExpectException @ExpectedMessagePattern = N'%administrator%', @ExpectedErrorNumber = 50422;
+    EXEC tSQLt.ExpectException @ExpectedMessagePattern = N'%operator or administrator%', @ExpectedErrorNumber = 50422;
     EXEC dbo.SP_Inventory_AdjustStock @IDActor = @IDCustomer, @IDVariant = @IDVariant, @NewOnHand = 9, @Reason = N'Count', @IDMovement = @IDMovement OUTPUT;
 END;
 GO

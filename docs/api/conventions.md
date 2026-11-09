@@ -140,7 +140,7 @@ Responses answer **429** with the standard error, `Retry-After` and `RateLimit-L
 | `POST/PUT/DELETE /admin/categories`, `/admin/products`, `/admin/variants` | Administrator | 1 | `DELETE` deactivates when sales exist |
 | `PATCH /admin/variants/{id}/price` | Administrator | 1 | Idempotency-Key; audited |
 | `GET /admin/inventory/ledger?variant=` | Operator, Administrator | 1 | Read only |
-| `POST /admin/inventory/entries`, `POST /admin/inventory/adjustments` | Administrator | 1 | Reason required; Idempotency-Key. The procedures enforce the role |
+| `POST /admin/inventory/entries`, `POST /admin/inventory/adjustments` | Operator, Administrator | 1 | Reason required; Idempotency-Key. The operator manages the inventory (RF-01). The procedures enforce the role |
 | `GET /cart`, `PUT /cart/items/{variantId}`, `DELETE /cart/items/{variantId}` | Public (guest token) or Customer | 1 | Absolute quantity; `X-Cart-Token` for guests |
 | `POST /cart/coupon`, `DELETE /cart/coupon` | Customer | 1 | One coupon per order |
 | `POST /cart/merge` | Customer | 1 | Gives the visitor cart (`guestToken`) to the signed-in customer; repeating it changes nothing |

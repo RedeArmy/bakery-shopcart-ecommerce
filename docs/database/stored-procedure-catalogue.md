@@ -44,6 +44,7 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 | `FU_Money_CentsToText(@Cents)` | Built. The only conversion from cents to the two-decimal text that amounts use in the API (ADR-0020) |
 | `FU_Money_HalfEvenDivision(@N, @D)` | **The only rounding policy** (half-even). `NULL` outside its domain (`@N >= 0`, `@D > 0`) |
 | `FU_Users_ActiveAdministrator(@IDUser)` | One row when the account is an active administrator; the second line of defence behind the role middleware for every catalogue write |
+| `FU_Users_ActiveStaff(@IDUser)` | Built (`R0075`). One row when the account is an active operator or administrator; the second line of defence behind the role middleware for the stock entries and adjustments, which the operator may register |
 | `FU_Money_VatIncluded(@TotalCents, @VatRate)` | VAT included in a total (`VatCents`) and the taxable base (`BaseCents` by subtraction, so base + VAT = total) |
 | `FU_Checkout_EstimatedDeliveryDate(@LeadTimeDays, @Now)` | Built (`R0072`). The date the system defines for a delivery or a pickup: the first one that respects the lead time of the most demanding product and leaves time to pay by deposit. The customer no longer chooses it, and the screens present it as an estimate. |
 | `FU_Payments_DepositWindow(@DeliveryDate, @LeadTimeDays, @Now)` | Built. Deposit deadline `MIN(DepositReservationHours, delivery − lead time)` with the delivery read at 00:00 Guatemala time, and the minutes available (negative when it is already too late) |
@@ -183,7 +184,7 @@ A shopper who does not want to register buys with a **guest account** (`Users.Is
 
 ### Stock ledger (built)
 
-Sources: `R0113` (`SP_Inventory_RegisterEntry`), `R0114` (`SP_Inventory_AdjustStock`), `R0115` (`SP_Inventory_GetLedger`), `R0060` and `R0061` (the views). 21 tSQLt tests in `Test_Ledger`.
+Sources: `R0113` (`SP_Inventory_RegisterEntry`), `R0114` (`SP_Inventory_AdjustStock`), `R0115` (`SP_Inventory_GetLedger`), `R0060` and `R0061` (the views). 23 tSQLt tests in `Test_Ledger`.
 
 - Stock changes **only** through the ledger: a variant is born with zero units, and an entry or an adjustment updates `OnHandStock` and inserts its `InventoryMovements` row in the same transaction, under a lock on the variant. Concurrent entries therefore read the balance the previous one left, so `ResultingBalance` is always consecutive and no unit is lost.
 - `SP_Inventory_RegisterEntry(@IDActor, @IDVariant, @Quantity, @Reason, @Now, @IDMovement OUT)` adds units. The quantity must be positive and the reason is mandatory; an entry that would overflow the stored `INT` is refused with 50422.
