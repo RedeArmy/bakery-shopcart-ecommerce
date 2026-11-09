@@ -59,9 +59,10 @@ test('the administrator creates a product sold by the dozen and by the bag of 6 
   await expect(main.getByText(/sobran 6 unidades/)).toBeVisible();
 
   // Se abre el libro por la bolsa: es el de las 54 unidades compartidas
+  // La fila de la variante está dentro de la del producto, que también contiene su texto: se toma la más interna (la última)
   await main
-    .getByRole('listitem')
-    .filter({ hasText: 'Bolsa de 6' })
+    .locator('li', { hasText: `E2E-${stamp}-06` })
+    .last()
     .getByRole('button', { name: 'Ver movimientos' })
     .click();
   await expect(main.getByText('Stock inicial al crear el producto')).toBeVisible();
@@ -82,7 +83,7 @@ test('the administrator creates a product sold by the dozen and by the bag of 6 
   await expect(main.getByText(/sobran 4 unidades/)).toBeVisible();
 
   // Se deja de vender la docena: la existencia y la bolsa siguen donde estaban
-  const dozenRow = main.getByRole('listitem').filter({ hasText: `E2E-${stamp}-12` });
+  const dozenRow = main.locator('li', { hasText: `E2E-${stamp}-12` }).last();
   await dozenRow.getByRole('button', { name: 'Dejar de vender' }).click();
   await dozenRow.getByRole('button', { name: 'Sí, dejar de venderlo' }).click();
   await expect(dozenRow.getByText('Desactivada')).toBeVisible();

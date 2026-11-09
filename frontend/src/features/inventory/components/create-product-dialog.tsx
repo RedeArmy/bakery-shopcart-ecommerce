@@ -28,7 +28,7 @@ export function CreateProductDialog({
   onCreated: (idProduct: number, idCategory: number) => void;
 }>) {
   const { t } = useTranslation();
-  const categories = useCategories();
+  const categories = useCategories({ fresh: true });
   const create = useCreateProduct();
   const {
     register,

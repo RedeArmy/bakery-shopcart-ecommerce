@@ -3,11 +3,15 @@ import { api, unwrap } from '../../../shared/api';
 import { toApiQuery } from '../model/catalogue-query';
 import type { CatalogueQuery } from '../model/catalogue-query';
 
-/** Árbol de categorías activas: cambia muy poco, así que se conserva diez minutos. */
-export function useCategories() {
+/**
+ * Árbol de categorías activas: cambia muy poco, así que se conserva diez minutos. La administración lo pide `fresh`: cada vez que
+ * abre una pantalla lo vuelve a leer, porque quien la usa acaba de cambiar el catálogo y una lista vieja le ocultaría lo nuevo.
+ */
+export function useCategories({ fresh = false }: Readonly<{ fresh?: boolean }> = {}) {
   return useQuery({
     queryKey: ['categories'],
-    staleTime: 10 * 60 * 1000,
+    staleTime: fresh ? 0 : 10 * 60 * 1000,
+    refetchOnMount: fresh ? 'always' : true,
     queryFn: async ({ signal }) => unwrap(await api.GET('/api/v1/categories', { signal })),
   });
 }
