@@ -50,7 +50,7 @@ export interface Container {
   database: Database;
   /** La misma comprobación que usa /health/ready; main.ts la ejecuta al arrancar para dejar constancia en el registro */
   checkReadiness: () => Promise<ReadinessReport>;
-  /** Calienta la base de datos (la primera zona horaria tarda segundos); main.ts la ejecuta al arrancar y nunca falla */
+  /** Calienta la base de datos; no falla nunca. La llama el gancho de conexión y main.ts la repite cada minuto */
   warmUp: () => Promise<void>;
   /** Trabajos de fondo; main.ts los arranca y los detiene en el apagado */
   jobs: JobRunner;
@@ -67,7 +67,16 @@ export interface ContainerOptions {
  */
 export function buildContainer(env: Env, options: ContainerOptions = {}): Container {
   const logger = createLogger(env);
-  const database = createDatabase(env);
+  // Cada vez que la base de datos se conecta (al arrancar y tras una caída) se calienta: la primera zona horaria de SQL Server
+  // tarda segundos y no debe pagarla el primer cliente. El gancho llama a `warm` y no a la función: esta necesita la base
+  let warm: () => Promise<void> = () => Promise.resolve();
+  const database = createDatabase(env, {
+    onConnected: () => {
+      void warm();
+    },
+  });
+  const warmUp = createWarmUp(database, logger);
+  warm = warmUp;
   const checkReadiness = createReadiness({
     checkConnection: () => database.checkConnection(),
     readSchemaVersion: createSchemaVersionReader(database),
@@ -152,5 +161,5 @@ export function buildContainer(env: Env, options: ContainerOptions = {}): Contai
     health: { checkReadiness },
     api: { routers, globalLimit: rateLimit(POLICIES.global) },
   });
-  return { app, logger, database, checkReadiness, warmUp: createWarmUp(database, logger), jobs };
+  return { app, logger, database, checkReadiness, warmUp, jobs };
 }

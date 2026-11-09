@@ -5,17 +5,21 @@ import { loadEnv } from './platform/config/env.js';
 const env = loadEnv();
 const { app, logger, database, checkReadiness, warmUp, jobs } = buildContainer(env);
 
+// Tras reiniciarse, SQL Server vuelve a cargar la zona horaria con lo primero que la pide; el pool sigue marcado como conectado y
+// no avisa. Una consulta trivial cada minuto se la cobra a ella y no al primer cliente. Si la base está caída solo deja un aviso
+const REWARM_INTERVAL_MS = 60_000;
+const rewarm = setInterval(() => {
+  void warmUp();
+}, REWARM_INTERVAL_MS);
+// Sin referencia: no impide que el proceso termine
+rewarm.unref();
+
 const server = app.listen(env.PORT, () => {
   logger.info({ port: env.PORT }, 'ShopCart API listening');
   // Deja constancia en el registro de si el esquema está al día; el tráfico lo decide /health/ready
-  checkReadiness()
-    .catch((error: unknown) => {
-      logger.error({ err: error }, 'Start-up readiness check failed');
-    })
-    // La primera zona horaria de SQL Server tarda segundos: se paga aquí y no en la primera compra. Va después de la
-    // comprobación porque esta es quien conecta el pool: dos llamadas simultáneas a un pool que aún conecta fallan la segunda
-    .then(warmUp)
-    .catch(() => undefined);
+  checkReadiness().catch((error: unknown) => {
+    logger.error({ err: error }, 'Start-up readiness check failed');
+  });
   // Los trabajos corren en este mismo proceso; si hay varias réplicas, el bloqueo de la base de datos deja correr a una sola
   if (env.JOBS_ENABLED) jobs.start();
   else logger.warn('Background jobs are disabled in this instance (JOBS_ENABLED=false)');

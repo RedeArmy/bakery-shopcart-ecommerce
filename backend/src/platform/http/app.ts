@@ -4,6 +4,7 @@ import type { Express, RequestHandler, Router } from 'express';
 import helmet from 'helmet';
 import type { Env } from '../config/env.js';
 import type { Logger } from '../logging/logger.js';
+import { API_BASE, createAccessLog } from './access-log.js';
 import { createErrorHandler, notFoundHandler } from './error-handler.js';
 import { createHealthRouter } from './health.routes.js';
 import type { HealthChecks } from './health.routes.js';
@@ -25,6 +26,8 @@ export function createApp({ env, logger, health, api }: AppDependencies): Expres
   app.disable('x-powered-by');
 
   app.use(requestId);
+  // Un renglón por petición, con su duración: sin esto no hay forma de saber qué llamada fue lenta
+  app.use(createAccessLog(logger));
   app.use(helmet());
   app.use(cors({ origin: env.CORS_ORIGINS, credentials: true }));
 
@@ -32,7 +35,7 @@ export function createApp({ env, logger, health, api }: AppDependencies): Expres
   app.use(express.json({ limit: '100kb' }));
 
   app.use(createHealthRouter(health));
-  if (api !== undefined) app.use('/api/v1', api.globalLimit, ...api.routers);
+  if (api !== undefined) app.use(API_BASE, api.globalLimit, ...api.routers);
 
   app.use(notFoundHandler);
   app.use(createErrorHandler(logger));

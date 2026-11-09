@@ -5,6 +5,9 @@ const driver = vi.hoisted(() => ({
   failToConnect: false,
   created: 0,
   closed: 0,
+  connects: 0,
+  // Mientras tenga un valor, connect() espera a que la prueba lo libere: así se simula una conexión lenta
+  gate: undefined as Promise<void> | undefined,
 }));
 
 vi.mock('mssql', () => {
@@ -16,10 +19,15 @@ vi.mock('mssql', () => {
       driver.created += 1;
     }
 
-    connect(): Promise<this> {
-      if (driver.failToConnect) return Promise.reject(new Error('connection refused'));
+    async connect(): Promise<this> {
+      driver.connects += 1;
+      if (this.connecting) throw new Error('Database is already connecting');
+      this.connecting = true;
+      await driver.gate;
+      this.connecting = false;
+      if (driver.failToConnect) throw new Error('connection refused');
       this.connected = true;
-      return Promise.resolve(this);
+      return this;
     }
 
     close(): Promise<void> {
@@ -54,6 +62,8 @@ beforeEach(() => {
   driver.failToConnect = false;
   driver.created = 0;
   driver.closed = 0;
+  driver.connects = 0;
+  driver.gate = undefined;
 });
 
 describe('database pool certificate trust', () => {
@@ -114,5 +124,74 @@ describe('database pool', () => {
   it('does nothing when closing a pool that was never opened', async () => {
     await createDatabase(settings).close();
     expect(driver.closed).toBe(0);
+  });
+
+  it('makes callers that arrive while the pool is still connecting wait for that one connection', async () => {
+    let release: () => void = () => undefined;
+    driver.gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const database = createDatabase(settings);
+
+    // Tres llamadas a la vez con la conexión en curso: antes la segunda recibía un pool que aún no servía
+    const calls = [database.getPool(), database.getPool(), database.getPool()];
+    release();
+    const pools = await Promise.all(calls);
+
+    expect(driver.connects).toBe(1);
+    expect(pools[1]).toBe(pools[0]);
+    expect(pools[2]).toBe(pools[0]);
+    expect((pools[0] as unknown as { connected: boolean }).connected).toBe(true);
+  });
+
+  it('lets every waiting caller see the failure and tries again on the next call', async () => {
+    let release: () => void = () => undefined;
+    driver.gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    driver.failToConnect = true;
+    const database = createDatabase(settings);
+
+    const settled = Promise.allSettled([database.getPool(), database.getPool()]);
+    release();
+    expect((await settled).map((result) => result.status)).toEqual(['rejected', 'rejected']);
+    expect(driver.connects).toBe(1);
+
+    driver.failToConnect = false;
+    driver.gate = undefined;
+    await expect(database.getPool()).resolves.toBeDefined();
+    expect(driver.connects).toBe(2);
+  });
+});
+
+describe('database connection hook', () => {
+  it('runs once per established connection, not once per caller', async () => {
+    const onConnected = vi.fn();
+    const database = createDatabase(settings, { onConnected });
+
+    await Promise.all([database.getPool(), database.getPool()]);
+    await database.getPool();
+
+    expect(onConnected).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs again when the connection is re-established after a drop', async () => {
+    const onConnected = vi.fn();
+    const database = createDatabase(settings, { onConnected });
+    const pool = (await database.getPool()) as unknown as { connected: boolean };
+
+    // La base de datos se cayó: el driver deja de estar conectado y la siguiente llamada vuelve a conectar
+    pool.connected = false;
+    await database.getPool();
+
+    expect(onConnected).toHaveBeenCalledTimes(2);
+    expect(driver.connects).toBe(2);
+  });
+
+  it('does not run when the connection fails', async () => {
+    const onConnected = vi.fn();
+    driver.failToConnect = true;
+    await expect(createDatabase(settings, { onConnected }).getPool()).rejects.toThrow();
+    expect(onConnected).not.toHaveBeenCalled();
   });
 });
