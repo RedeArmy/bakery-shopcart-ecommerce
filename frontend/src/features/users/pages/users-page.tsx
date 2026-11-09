@@ -2,20 +2,12 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { useSession } from '../../../shared/auth';
-import { SelectField } from '../../../shared/ui/fields';
 import { Pagination } from '../../../shared/ui/pagination';
 import { EmptyState, ErrorState, LoadingSkeleton } from '../../../shared/ui/states';
-import { SearchForm } from '../../payment-review/components/search-form';
 import { UserCard } from '../components/user-card';
+import { UsersFilters } from '../components/users-filters';
 import { useUsers } from '../hooks/use-users';
-import {
-  PAGE_SIZE,
-  ROLES,
-  activeFromValue,
-  activeValue,
-  parseUsersQuery,
-  usersParams,
-} from '../model/users';
+import { PAGE_SIZE, parseUsersQuery, usersParams } from '../model/users';
 import type { UsersQuery } from '../model/users';
 
 /**
@@ -72,47 +64,7 @@ export function UsersPage() {
         <h1 className="text-4xl text-stone-900">{t('users.title')}</h1>
         <p className="mt-1 max-w-2xl text-stone-600">{t('users.intro')}</p>
       </header>
-      <div className="flex flex-wrap items-end gap-4">
-        <div className="w-full sm:w-52">
-          <SelectField
-            label={t('users.filterRole')}
-            value={query.role === null ? '' : String(query.role)}
-            onChange={(event) => {
-              change({ role: event.target.value === '' ? null : Number(event.target.value) });
-            }}
-          >
-            <option value="">{t('users.allRoles')}</option>
-            {ROLES.map((role) => (
-              <option key={role.id} value={role.id}>
-                {t(`users.roles.${role.name}`)}
-              </option>
-            ))}
-          </SelectField>
-        </div>
-        <div className="w-full sm:w-52">
-          <SelectField
-            label={t('users.filterStatus')}
-            value={activeValue(query.active)}
-            onChange={(event) => {
-              change({ active: activeFromValue(event.target.value) });
-            }}
-          >
-            <option value="">{t('users.allStatuses')}</option>
-            <option value="true">{t('users.onlyActive')}</option>
-            <option value="false">{t('users.onlyInactive')}</option>
-          </SelectField>
-        </div>
-        <SearchForm
-          id="users-search"
-          label={t('users.search')}
-          placeholder={t('users.searchHint')}
-          submitLabel={t('users.searchSubmit')}
-          value={query.search}
-          onSearch={(search) => {
-            change({ search });
-          }}
-        />
-      </div>
+      <UsersFilters query={query} onChange={change} />
       {content}
     </div>
   );
