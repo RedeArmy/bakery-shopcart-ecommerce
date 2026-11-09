@@ -1,6 +1,6 @@
 /* =====================================================================
    Semilla : S0002 · Estados del pedido y sus transiciones
-   Contenido : Ocho estados y once transiciones (docs/architecture/04-state-machines.md)
+   Contenido : Ocho estados y doce transiciones (docs/architecture/04-state-machines.md)
    Nota      : Idempotente (MERGE). Las transiciones son datos: el procedimiento y el trigger
                TR_Orders_ValidateTransition consultan esta tabla (ADR-0006).
    ===================================================================== */
@@ -23,7 +23,8 @@ WHEN MATCHED AND target.Name <> source.Name THEN
 WHEN NOT MATCHED BY TARGET THEN
   INSERT (IDOrderStatus, Name) VALUES (source.IDOrderStatus, source.Name);
 
--- Una vez despachado, un pedido ya no se cancela: solo se devuelve tras la entrega
+-- Una vez despachado, un pedido ya no se cancela: solo se devuelve tras la entrega. La transición 3→5 es la de la recogida en
+-- sucursal, que no se despacha; SP_Orders_ChangeStatus decide cuál de los dos caminos le toca a cada pedido según su entrega
 MERGE dbo.OrderStatusTransitions AS target
 USING (VALUES
   (CAST(1 AS TINYINT), CAST(2 AS TINYINT)),
@@ -31,6 +32,7 @@ USING (VALUES
   (CAST(2 AS TINYINT), CAST(3 AS TINYINT)),
   (CAST(2 AS TINYINT), CAST(6 AS TINYINT)),
   (CAST(3 AS TINYINT), CAST(4 AS TINYINT)),
+  (CAST(3 AS TINYINT), CAST(5 AS TINYINT)),
   (CAST(3 AS TINYINT), CAST(6 AS TINYINT)),
   (CAST(4 AS TINYINT), CAST(5 AS TINYINT)),
   (CAST(5 AS TINYINT), CAST(7 AS TINYINT)),

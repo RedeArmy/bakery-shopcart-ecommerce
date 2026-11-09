@@ -15,7 +15,16 @@ Both machines are stored as data (`OrderStatusTransitions`, `PaymentStatusTransi
 | 7 | `PartiallyReturned` | |
 | 8 | `Returned` | |
 
-Allowed transitions: `1→2`, `1→6`, `2→3`, `2→6`, `3→4`, `3→6`, `4→5`, `5→7`, `5→8`, `7→7`, `7→8`.
+Allowed transitions: `1→2`, `1→6`, `2→3`, `2→6`, `3→4`, `3→5`, `3→6`, `4→5`, `5→7`, `5→8`, `7→7`, `7→8`.
+
+The path depends on how the order is received. `SP_Orders_ChangeStatus` applies these rules on top of the table, because the table does not know the fulfilment type:
+
+| Fulfilment | Path | Who can take each step |
+|---|---|---|
+| `Delivery` (home) | `Paid → InPreparation → Dispatched → Delivered` | Operator or administrator prepare and dispatch; **only an operator marks it as delivered** |
+| `Pickup` (branch) | `Paid → InPreparation → Delivered` (`3→5`; never `Dispatched`) | Operator or administrator, every step |
+
+A delivery order cannot go from `InPreparation` straight to `Delivered`, and a pickup order cannot be dispatched. The trigger only checks the transition graph, so these two rules and the role rule are enforced by the procedure alone.
 
 ```mermaid
 stateDiagram-v2
@@ -24,9 +33,10 @@ stateDiagram-v2
   PendingPayment --> Cancelled: expires, customer cancels or attempts run out
   Paid --> InPreparation: Operator
   Paid --> Cancelled: Customer or Operator
-  InPreparation --> Dispatched: Operator
+  InPreparation --> Dispatched: Operator or administrator (home delivery)
+  InPreparation --> Delivered: Operator or administrator (branch pickup)
   InPreparation --> Cancelled: Customer or Operator
-  Dispatched --> Delivered: Operator
+  Dispatched --> Delivered: Operator (home delivery)
   Delivered --> PartiallyReturned: partial return
   Delivered --> Returned: full return
   PartiallyReturned --> PartiallyReturned: another partial return
