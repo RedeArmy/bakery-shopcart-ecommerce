@@ -4631,7 +4631,9 @@ components:
           format: date
           nullable: true
         depositedAmount:
-          $ref: '#/components/schemas/MoneyText'
+          # En OpenAPI 3.0 lo que acompaña a un $ref se ignora: para que admita null va envuelto en allOf
+          allOf:
+            - $ref: '#/components/schemas/MoneyText'
           nullable: true
         isCurrent:
           type: boolean
@@ -4735,7 +4737,9 @@ components:
           format: date
           nullable: true
         depositedAmount:
-          $ref: '#/components/schemas/MoneyText'
+          # En OpenAPI 3.0 lo que acompaña a un $ref se ignora: para que admita null va envuelto en allOf
+          allOf:
+            - $ref: '#/components/schemas/MoneyText'
           nullable: true
         rejectionReason:
           type: string

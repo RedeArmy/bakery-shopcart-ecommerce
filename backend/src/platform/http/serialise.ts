@@ -41,7 +41,18 @@ export function camelKey(key: string): string {
  */
 const isDateColumn = (key: string): boolean => key.endsWith('Date') || key.endsWith('Start');
 
+/**
+ * `FOR JSON PATH` entrega los DATETIME2 como «2030-06-01T15:00:00.1234567», sin zona, mientras que las columnas normales salen de
+ * `toISOString()` con su «Z». Todas las fechas y horas de la base son UTC (SYSUTCDATETIME); sin la «Z» el navegador las lee como
+ * hora local y un historial de pedido se vería desplazado las horas que separan a la persona de UTC.
+ */
+const NAIVE_DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/;
+const isDateTimeColumn = (key: string): boolean => key.endsWith('At');
+
 function camelValue(key: string, value: unknown): unknown {
+  if (typeof value === 'string' && isDateTimeColumn(key) && NAIVE_DATE_TIME.test(value)) {
+    return `${value}Z`;
+  }
   if (value instanceof Date) {
     const iso = value.toISOString();
     return isDateColumn(key) ? iso.slice(0, 10) : iso;

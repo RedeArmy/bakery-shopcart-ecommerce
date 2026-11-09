@@ -1,6 +1,8 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import express from 'express';
 import sql from 'mssql';
 import request from 'supertest';
 import type { Test } from 'supertest';
@@ -9,6 +11,7 @@ import { buildContainer } from '../../src/composition-root.js';
 import type { Container } from '../../src/composition-root.js';
 import { loadEnv } from '../../src/platform/config/env.js';
 import { argon2PasswordHasher } from '../../src/platform/security/passwords.js';
+import { createRecorder, loadContract } from '../support/contract.js';
 
 /**
  * Flujos completos contra un SQL Server real, por HTTP: catálogo, carrito, checkout, depósito con comprobante, revisión,
@@ -59,7 +62,11 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
   // La entrega se interpreta a las 00:00 de Guatemala (UTC-6): "hoy" es el día de Guatemala, no el de UTC, que desde las 18:00
   // locales ya es el siguiente y daría tiempo para un depósito
   const today = new Date(Date.now() - 6 * 3600 * 1000).toISOString().slice(0, 10);
-  const api = (): ReturnType<typeof request> => request(container.app);
+  // Delante de la aplicación va un registro de cada respuesta JSON: la última prueba las comprueba contra el contrato OpenAPI
+  const recorder = createRecorder();
+  const recorded = express();
+  recorded.use(recorder.middleware);
+  const api = (): ReturnType<typeof request> => request(recorded);
 
   const as = (token: string, call: Test): Test => call.set('Authorization', `Bearer ${token}`);
   const post = (token: string, path: string, body: unknown = {}, idempotencyKey = key()): Test =>
@@ -174,6 +181,7 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
       PAYMENT_PROOFS_DIR: storageDir,
     });
     container = buildContainer(env, { disableRateLimit: true });
+    recorded.use(container.app);
     limited = buildContainer(env);
 
     // Las cuentas del personal no se pueden crear por la API: se siembran con el login administrador de la base de pruebas
@@ -1163,5 +1171,25 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
       `SELECT Total = COUNT(*) FROM dbo.VW_Inventory_Reconciliation WHERE IDVariant = ${idVariant}`,
     );
     expect(stock.recordset[0]?.['Total']).toBe(0);
+  });
+
+  // Va la última: para entonces la suite ha recorrido casi todas las operaciones y cada respuesta quedó anotada
+  it('answers everything above in the shape that the OpenAPI contract promises', () => {
+    const contract = loadContract(
+      resolve(dirname(fileURLToPath(import.meta.url)), '../../../docs/api/openapi/openapi.yaml'),
+    );
+    // Una misma desviación se repite en cada llamada de su operación: se cuenta una vez
+    const violations = [
+      ...new Set(
+        recorder.responses
+          // La ruta que no existe se pide a propósito para comprobar el 404: el contrato no la describe
+          .filter((response) => response.path !== '/api/v1/nope')
+          .map((response) => contract.check(response))
+          .filter((violation): violation is string => violation !== null),
+      ),
+    ].sort();
+
+    expect(recorder.responses.length).toBeGreaterThan(100);
+    expect(violations).toEqual([]);
   });
 });

@@ -12,7 +12,7 @@
 | **File security** | An `.exe` renamed `.png` → 415. A 6 MB file → 413. The same file in another order → 422 |
 | **Rate limit** | The sixth login in a minute → 429 with `Retry-After` |
 | **Payment configuration** | With an empty `.env`, `GET /checkout/payment-methods` returns only `BANK_DEPOSIT` and the UI shows no card; requesting `CARD` → 422 |
-| Contract | Schemathesis against `openapi.yaml`, multipart included |
+| Contract | Every JSON response of the integration suite (more than 100 calls against a real SQL Server) is checked against `openapi.yaml`: the operation exists, the status is documented and the body has the shape of its schema (types, required fields, amount text, date formats, `null` only where the contract allows it). Schemathesis is not used |
 | End to end (Playwright, Phase 2) | Buy with a deposit: upload, reject, re-upload, approve. With the simulator: buy with a card |
 | Reconciliation | `VW_Inventory_Reconciliation` and `VW_Reconciliation_Amounts` empty after load tests |
 
@@ -27,7 +27,7 @@ Property tests with `fast-check` (allocation sums, parts within one cent, `Base 
 | `backend/tests/unit` | Fast tests, no I/O |
 | `backend/tests/integration` | Real SQL Server through Testcontainers |
 | `backend/tests/concurrency` | Parallel scenarios |
-| `backend/tests/contract` | Schemathesis |
+| `backend/tests/support/contract.ts` | The contract checker (Ajv) and the recorder of responses; the last case of `backend/tests/integration/api.test.ts` runs it; `backend/tests/unit/contract-validator.test.ts` tests the checker itself |
 | `frontend/tests/unit`, `frontend/tests/e2e` | Vitest and Playwright |
 | `db/tests/tsqlt` | tSQLt classes (CI only) |
 | `tools/scripts/tests` | Spelling and README checks |
