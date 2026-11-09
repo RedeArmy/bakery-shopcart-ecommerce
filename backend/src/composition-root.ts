@@ -18,6 +18,7 @@ import { createSqlIdempotencyStore } from './platform/db/idempotency-store.js';
 import { createSqlJobs } from './platform/db/jobs-store.js';
 import { createDatabase } from './platform/db/pool.js';
 import type { Database } from './platform/db/pool.js';
+import { createWarmUp } from './platform/db/warm-up.js';
 import {
   REQUIRED_SCHEMA_VERSION,
   createSchemaVersionReader,
@@ -49,6 +50,8 @@ export interface Container {
   database: Database;
   /** La misma comprobación que usa /health/ready; main.ts la ejecuta al arrancar para dejar constancia en el registro */
   checkReadiness: () => Promise<ReadinessReport>;
+  /** Calienta la base de datos (la primera zona horaria tarda segundos); main.ts la ejecuta al arrancar y nunca falla */
+  warmUp: () => Promise<void>;
   /** Trabajos de fondo; main.ts los arranca y los detiene en el apagado */
   jobs: JobRunner;
 }
@@ -149,5 +152,5 @@ export function buildContainer(env: Env, options: ContainerOptions = {}): Contai
     health: { checkReadiness },
     api: { routers, globalLimit: rateLimit(POLICIES.global) },
   });
-  return { app, logger, database, checkReadiness, jobs };
+  return { app, logger, database, checkReadiness, warmUp: createWarmUp(database, logger), jobs };
 }

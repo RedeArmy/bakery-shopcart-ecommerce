@@ -20,7 +20,7 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 | Dashboard (RF-08) | **Built:** `SP_Dashboard_Summary`, `SP_Dashboard_SalesByPeriod`, `SP_Dashboard_SalesByCategory`, `SP_Dashboard_TopProducts` (the draft called it `TopTenProducts`; it takes a limit), `SP_Dashboard_AbandonedCarts` |
 | Audit (RF-09) | `SP_Audit_Record` (built, internal use), `SP_Audit_Query` (built) |
 | Jobs | **Built:** `SP_Jobs_ExpirePayments`, `SP_Jobs_PurgeExpired`, `SP_Jobs_ReconcileAmounts`, `SP_Reconciliation_List` |
-| System | `SP_System_GetSchemaVersion` (built, `R0100`), `SP_System_ListObjectVersions` (built) |
+| System | `SP_System_GetSchemaVersion` (built, `R0100`), `SP_System_ListObjectVersions` (built), `SP_System_WarmUp` (built, `R0102`; the backend calls it once at start-up so that the first time zone conversion, which takes seconds, is not paid by the first checkout) |
 
 ## Views and functions
 

@@ -16,6 +16,19 @@ BEGIN
 END;
 GO
 
+CREATE PROCEDURE Test_System.[test SP_System_WarmUp answers the local date of the shop in one row]
+AS
+BEGIN
+    CREATE TABLE #Actual (LocalToday DATE);
+    INSERT INTO #Actual EXEC dbo.SP_System_WarmUp;
+
+    DECLARE @Rows INT = (SELECT COUNT(*) FROM #Actual);
+    DECLARE @Dated INT = (SELECT COUNT(*) FROM #Actual WHERE LocalToday IS NOT NULL);
+    EXEC tSQLt.AssertEquals @Expected = 1, @Actual = @Rows;
+    EXEC tSQLt.AssertEquals @Expected = 1, @Actual = @Dated;
+END;
+GO
+
 CREATE PROCEDURE Test_System.[test SP_System_GetSchemaVersion returns the highest applied migration]
 AS
 BEGIN
