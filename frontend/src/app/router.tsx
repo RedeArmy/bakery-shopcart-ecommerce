@@ -96,6 +96,13 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // Los cupones los administra solo el administrador (RF-07)
+            path: 'admin/coupons',
+            lazy: async () => ({
+              Component: (await import('../features/coupons/pages/coupons-page')).CouponsPage,
+            }),
+          },
+          {
             // Las cuentas las administra solo el administrador (RF-01)
             path: 'admin/users',
             lazy: async () => ({
