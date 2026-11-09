@@ -12,11 +12,11 @@ import { OrderHeader } from '../../orders/components/order-header';
 import { OrderSummary } from '../../orders/components/order-summary';
 import { OrderTimeline } from '../../orders/components/order-timeline';
 import { canCancel } from '../../orders/model/order-status';
-import { AdvanceStatus } from '../components/advance-status';
 import { OrderPayments } from '../components/order-payments';
+import { OrderStep } from '../components/order-step';
 import { RegisterReturn } from '../components/register-return';
 import { useRegisterReturn, useStaffOrder } from '../hooks/use-staff-orders';
-import { canReturn, nextStep } from '../model/staff-orders';
+import { canReturn } from '../model/staff-orders';
 
 /**
  * Un pedido para el personal: quién lo hizo, lo que lleva, cómo se recibe, sus pagos y su historial, con lo que se puede hacer
@@ -51,7 +51,6 @@ export function StaffOrderPage() {
   }
 
   const data = order.data;
-  const step = nextStep(data.statusName);
 
   return (
     <div className="space-y-8">
@@ -75,7 +74,11 @@ export function StaffOrderPage() {
         <aside className="space-y-4">
           <OrderSummary order={data} />
           <OrderPayments idOrder={idOrder} />
-          {step === null ? null : <AdvanceStatus idOrder={idOrder} step={step} />}
+          <OrderStep
+            idOrder={idOrder}
+            status={data.statusName}
+            fulfilmentType={data.fulfilmentType}
+          />
           {canCancel(data.statusName) ? (
             <CancelOrder idOrder={idOrder} paid={data.statusName !== 'PendingPayment'} />
           ) : null}

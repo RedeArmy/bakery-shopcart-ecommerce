@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildReturn,
   canReturn,
+  canTakeStep,
   nextStep,
   parseStaffOrdersQuery,
   pendingReturn,
@@ -43,19 +44,34 @@ describe('the address of the staff order list', () => {
 
 describe('the next step of an order', () => {
   it.each([
-    ['Paid', 'InPreparation'],
-    ['InPreparation', 'Dispatched'],
-    ['Dispatched', 'Delivered'],
-  ])('moves %s to %s', (from, to) => {
-    expect(nextStep(from)).toBe(to);
+    ['Paid', 'Delivery', 'InPreparation'],
+    ['InPreparation', 'Delivery', 'Dispatched'],
+    ['Dispatched', 'Delivery', 'Delivered'],
+    ['Paid', 'Pickup', 'InPreparation'],
+    ['InPreparation', 'Pickup', 'Delivered'],
+  ])('moves %s of a %s order to %s', (from, fulfilment, to) => {
+    expect(nextStep(from, fulfilment)).toBe(to);
+  });
+
+  it('treats an order with no known fulfilment as a delivery', () => {
+    expect(nextStep('InPreparation', undefined)).toBe('Dispatched');
   });
 
   it.each(['PendingPayment', 'Delivered', 'Cancelled', 'PartiallyReturned', 'Returned', 'Other'])(
     'has no step from %s',
     (status) => {
-      expect(nextStep(status)).toBeNull();
+      expect(nextStep(status, 'Delivery')).toBeNull();
     },
   );
+
+  it('lets only an operator mark a home delivery order as delivered', () => {
+    expect(canTakeStep('Delivered', 'Delivery', 'Operator')).toBe(true);
+    expect(canTakeStep('Delivered', 'Delivery', 'Administrator')).toBe(false);
+    expect(canTakeStep('Delivered', 'Pickup', 'Administrator')).toBe(true);
+    expect(canTakeStep('Delivered', 'Pickup', 'Operator')).toBe(true);
+    expect(canTakeStep('Dispatched', 'Delivery', 'Administrator')).toBe(true);
+    expect(canTakeStep('InPreparation', 'Delivery', 'Administrator')).toBe(true);
+  });
 
   it('only returns an order that was delivered', () => {
     expect(canReturn('Delivered')).toBe(true);

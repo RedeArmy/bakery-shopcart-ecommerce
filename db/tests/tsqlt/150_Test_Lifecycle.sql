@@ -18,7 +18,7 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM dbo.InventoryMovementTypes WHERE IDInventoryMovementType = 4) INSERT INTO dbo.InventoryMovementTypes VALUES (4, N'Return');
 
     INSERT INTO dbo.OrderStatusTransitions (IDFromStatus, IDToStatus)
-    SELECT t.F, t.T FROM (VALUES (2, 3), (2, 6), (3, 4), (3, 6), (4, 5), (5, 7), (5, 8), (7, 7), (7, 8)) AS t (F, T)
+    SELECT t.F, t.T FROM (VALUES (2, 3), (2, 6), (3, 4), (3, 5), (3, 6), (4, 5), (5, 7), (5, 8), (7, 7), (7, 8)) AS t (F, T)
     WHERE NOT EXISTS (SELECT 1 FROM dbo.OrderStatusTransitions x WHERE x.IDFromStatus = t.F AND x.IDToStatus = t.T);
     INSERT INTO dbo.PaymentStatusTransitions (IDFromStatus, IDToStatus)
     SELECT t.F, t.T FROM (VALUES (3, 7)) AS t (F, T)
@@ -220,6 +220,86 @@ BEGIN
     EXEC Test_Lifecycle.Make @Email = N'ana@shopcart.test', @SKU = N'A-CAKE', @Quantity = 1, @Key = N'key-1', @To = 3, @IDOrder = @IDOrder OUTPUT, @IDPayment = @IDPayment OUTPUT;
     EXEC tSQLt.ExpectException @ExpectedMessagePattern = N'INVALID_STATE_TRANSITION:%', @ExpectedErrorNumber = 50422;
     EXEC dbo.SP_Orders_ChangeStatus @IDActor = @Operator, @IDOrder = @IDOrder, @NewStatus = 3;
+END;
+GO
+
+-- Un pedido ya en el estado dado, con el tipo de entrega dado, sin el resto del flujo de compra
+CREATE PROCEDURE Test_Lifecycle.PlaceAt @Status TINYINT, @Fulfilment NVARCHAR(10)
+AS
+BEGIN
+    EXEC tSQLt.FakeTable @TableName = N'dbo.Orders';
+    EXEC tSQLt.FakeTable @TableName = N'dbo.OrderStatusHistory';
+    INSERT INTO dbo.Orders (IDOrder, IDOrderStatus, FulfilmentType) VALUES (1, @Status, @Fulfilment);
+END;
+GO
+
+CREATE PROCEDURE Test_Lifecycle.[test an administrator cannot mark a home delivery order as delivered]
+AS
+BEGIN
+    DECLARE @Admin INT = Test_Shop.UserId(N'admin@shopcart.test');
+    EXEC Test_Lifecycle.PlaceAt @Status = 4, @Fulfilment = N'Delivery';
+    EXEC tSQLt.ExpectException @ExpectedMessagePattern = N'%Only an operator can mark a home delivery%', @ExpectedErrorNumber = 50422;
+    EXEC dbo.SP_Orders_ChangeStatus @IDActor = @Admin, @IDOrder = 1, @NewStatus = 5;
+END;
+GO
+
+CREATE PROCEDURE Test_Lifecycle.[test an operator marks a home delivery order as delivered]
+AS
+BEGIN
+    DECLARE @Operator INT = Test_Shop.UserId(N'operator@shopcart.test');
+    EXEC Test_Lifecycle.PlaceAt @Status = 4, @Fulfilment = N'Delivery';
+    EXEC dbo.SP_Orders_ChangeStatus @IDActor = @Operator, @IDOrder = 1, @NewStatus = 5;
+    DECLARE @Status INT = (SELECT IDOrderStatus FROM dbo.Orders WHERE IDOrder = 1);
+    EXEC tSQLt.AssertEquals @Expected = 5, @Actual = @Status;
+END;
+GO
+
+CREATE PROCEDURE Test_Lifecycle.[test an administrator prepares and dispatches a home delivery order]
+AS
+BEGIN
+    DECLARE @Admin INT = Test_Shop.UserId(N'admin@shopcart.test');
+    EXEC Test_Lifecycle.PlaceAt @Status = 2, @Fulfilment = N'Delivery';
+    EXEC dbo.SP_Orders_ChangeStatus @IDActor = @Admin, @IDOrder = 1, @NewStatus = 3;
+    EXEC dbo.SP_Orders_ChangeStatus @IDActor = @Admin, @IDOrder = 1, @NewStatus = 4;
+    DECLARE @Status INT = (SELECT IDOrderStatus FROM dbo.Orders WHERE IDOrder = 1);
+    EXEC tSQLt.AssertEquals @Expected = 4, @Actual = @Status;
+END;
+GO
+
+CREATE PROCEDURE Test_Lifecycle.[test a home delivery order cannot skip the dispatch]
+AS
+BEGIN
+    DECLARE @Operator INT = Test_Shop.UserId(N'operator@shopcart.test');
+    EXEC Test_Lifecycle.PlaceAt @Status = 3, @Fulfilment = N'Delivery';
+    EXEC tSQLt.ExpectException @ExpectedMessagePattern = N'INVALID_STATE_TRANSITION:%dispatched before%', @ExpectedErrorNumber = 50422;
+    EXEC dbo.SP_Orders_ChangeStatus @IDActor = @Operator, @IDOrder = 1, @NewStatus = 5;
+END;
+GO
+
+CREATE PROCEDURE Test_Lifecycle.[test an administrator and an operator both deliver a pickup order without dispatching it]
+AS
+BEGIN
+    DECLARE @Admin INT = Test_Shop.UserId(N'admin@shopcart.test'), @Operator INT = Test_Shop.UserId(N'operator@shopcart.test');
+    EXEC Test_Lifecycle.PlaceAt @Status = 3, @Fulfilment = N'Pickup';
+    EXEC dbo.SP_Orders_ChangeStatus @IDActor = @Admin, @IDOrder = 1, @NewStatus = 5;
+    DECLARE @ByAdmin INT = (SELECT IDOrderStatus FROM dbo.Orders WHERE IDOrder = 1);
+
+    UPDATE dbo.Orders SET IDOrderStatus = 3 WHERE IDOrder = 1;
+    EXEC dbo.SP_Orders_ChangeStatus @IDActor = @Operator, @IDOrder = 1, @NewStatus = 5;
+    DECLARE @ByOperator INT = (SELECT IDOrderStatus FROM dbo.Orders WHERE IDOrder = 1);
+
+    EXEC tSQLt.AssertEquals @Expected = 5, @Actual = @ByAdmin;
+    EXEC tSQLt.AssertEquals @Expected = 5, @Actual = @ByOperator;
+END;
+GO
+
+CREATE PROCEDURE Test_Lifecycle.[test a pickup order is never dispatched]
+AS
+BEGIN
+    DECLARE @Operator INT = Test_Shop.UserId(N'operator@shopcart.test');
+    EXEC Test_Lifecycle.PlaceAt @Status = 3, @Fulfilment = N'Pickup';
+    EXEC tSQLt.ExpectException @ExpectedMessagePattern = N'INVALID_STATE_TRANSITION:%never dispatched%', @ExpectedErrorNumber = 50422;
+    EXEC dbo.SP_Orders_ChangeStatus @IDActor = @Operator, @IDOrder = 1, @NewStatus = 4;
 END;
 GO
 

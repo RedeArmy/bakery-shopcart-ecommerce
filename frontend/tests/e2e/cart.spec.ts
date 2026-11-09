@@ -47,8 +47,8 @@ test('a visitor buys as a guest, with the coupon, the made-to-order products and
   await expect(page.getByRole('heading', { level: 1, name: 'Finalizar compra' })).toBeVisible();
   await page.getByRole('button', { name: 'Continuar como invitado' }).click();
   await expect(header.getByRole('link', { name: 'Carrito, 3 productos' })).toBeVisible();
-  await page.getByLabel('Nombre completo').fill('Invitado E2E');
-  const guestEmail = `e2e-guest-${String(Date.now())}@shopcart.test`;
+  await page.getByLabel('Nombre completo').fill('Invitado');
+  const guestEmail = `guest-${String(Date.now())}@shopcart.test`;
   await page.getByLabel('Correo electrónico').fill(guestEmail);
   await page.getByRole('button', { name: 'Guardar datos' }).click();
   await expect(page.getByText('Datos guardados')).toBeVisible();
@@ -71,13 +71,13 @@ test('a visitor buys as a guest, with the coupon, the made-to-order products and
   await expect(page.getByText(/Es un estimado/)).toBeVisible();
   await expect(page.getByLabel('Día de entrega')).toHaveCount(0);
   await page.getByLabel('Nombre de la dirección').fill('Casa');
-  await page.getByLabel('Quién recibe').fill('Invitado E2E');
+  await page.getByLabel('Quién recibe').fill('Invitado');
   await page.getByLabel('Teléfono de quien recibe').fill('5555-1234');
   await page.getByLabel('Municipio').fill('Guatemala');
   await page.getByLabel('Departamento').fill('Guatemala');
   await page.getByLabel('Dirección', { exact: true }).fill('5a avenida 10-20 zona 1');
   await page.getByRole('button', { name: 'Guardar dirección' }).click();
-  await expect(page.getByRole('radio', { name: /Casa · Invitado E2E/ })).toBeVisible();
+  await expect(page.getByRole('radio', { name: /Casa · Invitado/ })).toBeVisible();
 
   // El método de pago es el depósito y sus cuentas se leen como texto: no se elige ninguna
   await expect(page.getByRole('heading', { level: 2, name: 'Método de pago' })).toBeVisible();
@@ -237,8 +237,9 @@ test('a visitor buys as a guest, with the coupon, the made-to-order products and
   await expect(
     staff.getByRole('heading', { level: 1, name: `Pedido ${cashNumber}` }),
   ).toBeVisible();
-  // Cada paso aparece cuando el anterior se guardó: el botón de la pantalla es el único que el estado permite
-  for (const step of ['Pasar a preparación', 'Marcar como despachado', 'Marcar como entregado']) {
+  // Cada paso aparece cuando el anterior se guardó: el botón de la pantalla es el único que el estado permite. Un pedido que se
+  // recoge en sucursal no se despacha, y por eso el administrador de la sesión puede entregarlo
+  for (const step of ['Pasar a preparación', 'Marcar como entregado']) {
     await staff.getByRole('button', { name: step }).click();
   }
   await staff.getByRole('button', { name: 'Registrar una devolución' }).click();

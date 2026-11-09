@@ -31,15 +31,24 @@ export function staffOrdersParams(query: StaffOrdersQuery): URLSearchParams {
 
 export type NextStep = 'InPreparation' | 'Dispatched' | 'Delivered';
 
-// El pedido avanza de uno en uno; cancelar y devolver tienen su propio camino
-const NEXT_STEPS: Partial<Record<string, NextStep>> = {
-  Paid: 'InPreparation',
-  InPreparation: 'Dispatched',
-  Dispatched: 'Delivered',
-};
+/**
+ * El único paso que el personal puede dar desde este estado, o `null` si ya no hay ninguno. El pedido avanza de uno en uno y
+ * cancelar y devolver tienen su propio camino. Lo que se recoge en sucursal no se despacha: de la preparación pasa a la entrega.
+ * Un pedido a domicilio se prepara, se despacha y se entrega. El servidor tiene la última palabra.
+ */
+export function nextStep(status: string, fulfilmentType: string | undefined): NextStep | null {
+  if (status === 'Paid') return 'InPreparation';
+  if (status === 'InPreparation') return fulfilmentType === 'Pickup' ? 'Delivered' : 'Dispatched';
+  if (status === 'Dispatched') return 'Delivered';
+  return null;
+}
 
-/** El único paso que el personal puede dar desde este estado, o `null` si ya no hay ninguno. El servidor tiene la última palabra. */
-export const nextStep = (status: string): NextStep | null => NEXT_STEPS[status] ?? null;
+/** Quien entrega un pedido a domicilio es el operador; el administrador lo prepara y lo despacha, pero no lo reparte. */
+export const canTakeStep = (
+  step: NextStep,
+  fulfilmentType: string | undefined,
+  role: string | undefined,
+): boolean => step !== 'Delivered' || fulfilmentType === 'Pickup' || role === 'Operator';
 
 /** Solo un pedido entregado se devuelve, y mientras le queden unidades por devolver. */
 export const canReturn = (status: string): boolean =>
