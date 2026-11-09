@@ -1,9 +1,10 @@
 /* =====================================================================
    Objeto   : dbo.SP_Inventory_AdjustStock
-   Version  : 1.0.0
-   Cambio   : Primera versión: ajuste de la existencia física al conteo real, con un movimiento compensatorio
-   Autor    : Equipo ShopCart   Fecha: 2026-10-30
-   Compat   : Nueva. @NewOnHand es el conteo real, no un incremento. Errores: 50400, 50404 variante inexistente,
+   Version  : 1.1.0
+   Cambio   : 1.1.0: lo puede hacer un operador o un administrador activo (RF-01: el operador gestiona el inventario); antes solo el administrador.
+              1.0.0: Primera versión: ajuste de la existencia física al conteo real, con un movimiento compensatorio
+   Autor    : Equipo ShopCart   Fecha: 2026-11-09
+   Compat   : Mismos parámetros; solo cambia quién puede llamarlo. @NewOnHand es el conteo real, no un incremento. Errores: 50400, 50404 variante inexistente,
               50422 actor sin permiso o conteo por debajo de lo reservado.
    ===================================================================== */
 CREATE OR ALTER PROCEDURE dbo.SP_Inventory_AdjustStock
@@ -30,8 +31,8 @@ BEGIN
   DECLARE @OwnsTransaction BIT = CASE WHEN @@TRANCOUNT = 0 THEN 1 ELSE 0 END;
   IF @OwnsTransaction = 1 BEGIN TRANSACTION;
 
-  IF NOT EXISTS (SELECT 1 FROM dbo.FU_Users_ActiveAdministrator(@IDActor))
-    THROW 50422, 'Only an active administrator can change the stock.', 1;
+  IF NOT EXISTS (SELECT 1 FROM dbo.FU_Users_ActiveStaff(@IDActor))
+    THROW 50422, 'Only an active operator or administrator can change the stock.', 1;
 
   DECLARE @OnHand INT, @Reserved INT;
   SELECT @OnHand = OnHandStock, @Reserved = ReservedStock FROM dbo.Variants WITH (UPDLOCK, ROWLOCK) WHERE IDVariant = @IDVariant;

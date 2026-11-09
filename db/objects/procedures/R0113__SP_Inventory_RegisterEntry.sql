@@ -1,9 +1,10 @@
 /* =====================================================================
    Objeto   : dbo.SP_Inventory_RegisterEntry
-   Version  : 1.0.0
-   Cambio   : Primera versión: entrada de mercadería, con su movimiento en el libro de inventario
-   Autor    : Equipo ShopCart   Fecha: 2026-10-30
-   Compat   : Nueva. Errores: 50400, 50404 variante inexistente, 50422 actor sin permiso o existencia fuera de rango.
+   Version  : 1.1.0
+   Cambio   : 1.1.0: lo puede hacer un operador o un administrador activo (RF-01: el operador gestiona el inventario); antes solo el administrador.
+              1.0.0: Primera versión: entrada de mercadería, con su movimiento en el libro de inventario
+   Autor    : Equipo ShopCart   Fecha: 2026-11-09
+   Compat   : Mismos parámetros; solo cambia quién puede llamarlo. Errores: 50400, 50404 variante inexistente, 50422 actor sin permiso o existencia fuera de rango.
    ===================================================================== */
 CREATE OR ALTER PROCEDURE dbo.SP_Inventory_RegisterEntry
   @IDActor    INT,
@@ -27,8 +28,8 @@ BEGIN
   DECLARE @OwnsTransaction BIT = CASE WHEN @@TRANCOUNT = 0 THEN 1 ELSE 0 END;
   IF @OwnsTransaction = 1 BEGIN TRANSACTION;
 
-  IF NOT EXISTS (SELECT 1 FROM dbo.FU_Users_ActiveAdministrator(@IDActor))
-    THROW 50422, 'Only an active administrator can change the stock.', 1;
+  IF NOT EXISTS (SELECT 1 FROM dbo.FU_Users_ActiveStaff(@IDActor))
+    THROW 50422, 'Only an active operator or administrator can change the stock.', 1;
 
   -- El bloqueo sobre la variante serializa las entradas simultáneas: cada una lee el saldo que dejó la anterior, así que
   -- el saldo resultante del libro es siempre consecutivo y nunca se pierde una unidad

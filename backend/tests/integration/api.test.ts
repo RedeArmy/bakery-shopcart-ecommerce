@@ -260,6 +260,13 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
     expect((await get(customerA.token, '/admin/orders')).status).toBe(403);
     expect((await get(customerA.token, '/admin/users')).status).toBe(403);
     expect((await get(operator, '/admin/users')).status).toBe(403);
+    // Mover el stock es del personal: un cliente no puede, aunque el cuerpo sea válido
+    const forbiddenEntry = await post(customerA.token, '/admin/inventory/entries', {
+      idVariant,
+      quantity: 1,
+      reason: 'Free stock',
+    });
+    expect(forbiddenEntry.status).toBe(403);
     const noKey = await as(customerA.token, api().post('/api/v1/checkout/start')).send({});
     expect(noKey.status).toBe(400);
     expect(str(noKey.body, 'error.code')).toBe('IDEMPOTENCY_KEY_REQUIRED');

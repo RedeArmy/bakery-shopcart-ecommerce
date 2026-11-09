@@ -404,7 +404,7 @@ describe('administration routes', () => {
     expect((await request(app).get('/admin/coupons').set(as('2:Operator'))).status).toBe(403);
   });
 
-  it('lets an operator read the ledger but only an administrator move stock', async () => {
+  it('lets an operator read the ledger and move stock, and keeps a customer out', async () => {
     const { repository, calls } = fake({
       ledger: { items: [], page: 1, size: 20, total: 0 },
       registerEntry: '10',
@@ -421,10 +421,16 @@ describe('administration routes', () => {
       (
         await request(app)
           .post('/admin/inventory/entries')
-          .set(as('2:Operator'))
+          .set(as('3:Customer'))
           .send({ idVariant: 4, quantity: 5, reason: 'x' })
       ).status,
     ).toBe(403);
+    const byOperator = await request(app)
+      .post('/admin/inventory/entries')
+      .set(as('2:Operator'))
+      .send({ idVariant: 4, quantity: 5, reason: 'Delivery' });
+    expect(byOperator.status).toBe(201);
+    expect(calls.at(-1)).toEqual({ method: 'registerEntry', args: [2, 4, 5, 'Delivery'] });
     const entry = await request(app)
       .post('/admin/inventory/entries')
       .set(as('1:Administrator'))
