@@ -3,16 +3,19 @@ import { z } from 'zod';
 /** Cuántos movimientos se ven por página del libro; el API admite hasta 100. */
 export const PAGE_SIZE = 20;
 
-/** Cuántos productos se ofrecen al buscar: pocos, para elegir uno y seguir. */
-export const PRODUCT_CHOICES = 8;
+/** Cuántos productos de la categoría se ven por página. */
+export const PRODUCT_LIST_SIZE = 12;
 
 export interface InventoryQuery {
-  /** Texto con el que se busca el producto */
-  search: string;
-  /** Producto elegido, del que se ven las variantes */
+  /** Categoría elegida, de la que se ven los productos */
+  category: number | null;
+  /** Página de la lista de productos de la categoría */
+  list: number;
+  /** Producto abierto, del que se ven las variantes */
   product: number | null;
   /** Variante elegida, de la que se ve el libro de movimientos */
   variant: number | null;
+  /** Página del libro de movimientos */
   page: number;
 }
 
@@ -22,13 +25,17 @@ const positiveInteger = (value: string | null): number | null => {
   return parsed > 0 ? parsed : null;
 };
 
-/** Lo que dice la dirección. Lo que no se entiende vuelve al valor por omisión en lugar de romper la pantalla. */
+/**
+ * Lo que dice la dirección. Lo que no se entiende vuelve al valor por omisión en lugar de romper la pantalla. Un producto solo se
+ * abre dentro de su categoría y una variante dentro de su producto: sin lo de arriba, lo de abajo no se muestra.
+ */
 export function parseInventoryQuery(params: URLSearchParams): InventoryQuery {
-  const product = positiveInteger(params.get('product'));
+  const category = positiveInteger(params.get('category'));
+  const product = category === null ? null : positiveInteger(params.get('product'));
   return {
-    search: (params.get('q') ?? '').trim().slice(0, 100),
+    category,
+    list: positiveInteger(params.get('list')) ?? 1,
     product,
-    // Una variante sin producto no se muestra: se llega a ella desde el producto
     variant: product === null ? null : positiveInteger(params.get('variant')),
     page: positiveInteger(params.get('page')) ?? 1,
   };
@@ -37,12 +44,14 @@ export function parseInventoryQuery(params: URLSearchParams): InventoryQuery {
 /** La dirección para una consulta: solo lleva lo que se aparta del valor por omisión. */
 export function inventoryParams(query: InventoryQuery): URLSearchParams {
   const params = new URLSearchParams();
-  if (query.search !== '') params.set('q', query.search);
-  if (query.product !== null) params.set('product', String(query.product));
-  if (query.product !== null && query.variant !== null) {
-    params.set('variant', String(query.variant));
-    if (query.page > 1) params.set('page', String(query.page));
-  }
+  if (query.category === null) return params;
+  params.set('category', String(query.category));
+  if (query.list > 1) params.set('list', String(query.list));
+  if (query.product === null) return params;
+  params.set('product', String(query.product));
+  if (query.variant === null) return params;
+  params.set('variant', String(query.variant));
+  if (query.page > 1) params.set('page', String(query.page));
   return params;
 }
 
