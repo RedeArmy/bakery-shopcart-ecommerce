@@ -1486,14 +1486,24 @@ export interface components {
             primaryImageUrl?: string | null;
             minPrice: components["schemas"]["MoneyText"];
             maxPrice: components["schemas"]["MoneyText"];
+            /** @description The most packs that can be bought now of one of the active variants (they share their stock, so they are not added) */
             available?: number;
         };
         Variant: {
             idVariant: components["schemas"]["Id"];
             sku: string;
             price: components["schemas"]["MoneyText"];
+            /** @description Units in one pack of this variant (1 a single piece, 6 a bag of 6, 12 a dozen). Immutable once created. */
+            unitsPerPack?: number;
+            /** @description The variant that holds the stock this one draws from. It is the variant itself when it keeps its own stock. */
+            idStockHolder?: components["schemas"]["Id"];
+            /** @description Physical stock in UNITS, shared by every packaging that draws from the same holder */
             onHandStock?: number;
-            /** @description Units that can be bought now, the physical stock minus the units reserved by other carts */
+            /** @description Whole packs of this variant in the physical stock, the units divided by the units per pack, rounded down */
+            onHandPacks?: number;
+            /** @description Units that do not make a whole pack of this variant (50 units are 8 bags of 6 and 2 loose units) */
+            looseUnits?: number;
+            /** @description PACKS of this variant that can be bought now, the physical units minus the units reserved by other carts, divided by the units per pack and rounded down */
             available?: number;
             isActive?: boolean;
             attributes?: {
@@ -1530,6 +1540,13 @@ export interface components {
             productId: components["schemas"]["Id"];
             sku: string;
             price: components["schemas"]["MoneyText"];
+            /**
+             * @description Units in one pack (1 a single piece, 6 a bag of 6, 12 a dozen)
+             * @default 1
+             */
+            unitsPerPack: number;
+            /** @description A variant of the SAME product that keeps its own stock and from which this one draws. Without it, the variant keeps its own stock. */
+            stockVariantId?: number | null;
             attributes?: {
                 name: string;
                 value: string;
@@ -1555,6 +1572,7 @@ export interface components {
             inscription?: string | null;
             unitPrice: components["schemas"]["MoneyText"];
             lineTotal: components["schemas"]["MoneyText"];
+            /** @description Packs of this variant that can be bought now, counting what this cart already holds */
             available?: number;
             isAvailable?: boolean;
         };
@@ -2001,12 +2019,16 @@ export interface components {
             createdAt?: string;
         };
         EntryRequest: {
+            /** @description Any variant of the product; the units go to the stock they all share */
             idVariant: components["schemas"]["Id"];
+            /** @description Units that arrived (not packs) */
             quantity: number;
             reason: string;
         };
         AdjustmentRequest: {
+            /** @description Any variant of the product; the count is of the stock they all share */
             idVariant: components["schemas"]["Id"];
+            /** @description Units counted now (not packs) */
             newOnHand: number;
             reason: string;
         };

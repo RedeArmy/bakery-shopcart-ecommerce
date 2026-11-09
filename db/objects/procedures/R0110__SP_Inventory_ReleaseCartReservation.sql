@@ -1,7 +1,8 @@
 /* =====================================================================
    Objeto   : dbo.SP_Inventory_ReleaseCartReservation
-   Version  : 1.0.0
-   Cambio   : Primera versión: libera la reserva activa de un carrito y devuelve sus unidades al stock disponible
+   Version  : 1.1.0
+   Cambio   : 1.1.0: las variantes de un producto comparten una existencia medida en unidades (V0019); las cantidades de las líneas son paquetes
+              Antes: Primera versión: libera la reserva activa de un carrito y devuelve sus unidades al stock disponible
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Nueva; SP_Inventory_ReserveStock (R0111) la invoca antes de reservar de nuevo
    ===================================================================== */
@@ -27,9 +28,10 @@ BEGIN
   -- Mismo orden de bloqueo que ReserveStock (ver allí): ascendente por IDVariant, para no formar ciclos entre procedimientos
   DECLARE @ToLock TABLE (IDVariant INT PRIMARY KEY);
   INSERT INTO @ToLock (IDVariant)
-  SELECT rl.IDVariant
+  SELECT DISTINCT sv.IDStockHolder
   FROM dbo.ReservationLines AS rl
   JOIN dbo.Reservations AS r ON r.IDReservation = rl.IDReservation
+  JOIN dbo.Variants AS sv ON sv.IDVariant = rl.IDVariant
   WHERE r.IDCart = @IDCart AND r.IDOrder IS NULL AND r.Status = N'Active';
   DECLARE @IDVariant INT = 0, @Locked INT;
   WHILE 1 = 1
@@ -48,15 +50,17 @@ BEGIN
   OUTPUT inserted.IDReservation INTO @Released
   WHERE IDCart = @IDCart AND IDOrder IS NULL AND Status = N'Active';
 
+  -- Lo apartado se devuelve en unidades a la variante que guarda la existencia
   UPDATE v
-  SET ReservedStock = v.ReservedStock - l.Quantity
+  SET ReservedStock = v.ReservedStock - l.Units
   FROM dbo.Variants AS v WITH (UPDLOCK, ROWLOCK)
   JOIN (
-    SELECT rl.IDVariant, Quantity = SUM(rl.Quantity)
+    SELECT sv.IDStockHolder, Units = SUM(rl.Quantity * sv.UnitsPerPack)
     FROM dbo.ReservationLines AS rl
     JOIN @Released AS r ON r.IDReservation = rl.IDReservation
-    GROUP BY rl.IDVariant
-  ) AS l ON l.IDVariant = v.IDVariant;
+    JOIN dbo.Variants AS sv ON sv.IDVariant = rl.IDVariant
+    GROUP BY sv.IDStockHolder
+  ) AS l ON l.IDStockHolder = v.IDVariant;
 
   IF @OwnsTransaction = 1 COMMIT TRANSACTION;
 END;

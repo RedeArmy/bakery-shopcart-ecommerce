@@ -1,7 +1,8 @@
 /* =====================================================================
    Objeto   : dbo.SP_Products_Search
-   Version  : 1.0.0
-   Cambio   : Primera versión: búsqueda paginada del catálogo con filtros y orden fijo
+   Version  : 1.1.0
+   Cambio   : 1.1.0: lo disponible del producto es el mayor número de paquetes que se pueden comprar de una de sus variantes activas (las existencias se comparten, no se suman)
+              Antes: Primera versión: búsqueda paginada del catálogo con filtros y orden fijo
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Nueva. Errores: 50400 paginación u orden inválidos.
    ===================================================================== */
@@ -44,10 +45,11 @@ BEGIN
   -- Un producto sin variantes activas no se puede comprar: el catálogo público no lo muestra aunque el producto esté activo
   WITH Priced AS (
     SELECT p.IDProduct, p.IDCategory, p.Name, p.Description, p.LeadTimeDays, p.IsActive, p.RowVer, CategoryName = c.Name,
-           MinPriceValue = MIN(v.Price), MaxPriceValue = MAX(v.Price), Available = SUM(v.OnHandStock - v.ReservedStock)
+           MinPriceValue = MIN(v.Price), MaxPriceValue = MAX(v.Price), Available = MAX(CAST((h.OnHandStock - h.ReservedStock) / v.UnitsPerPack AS INT))
     FROM dbo.Products AS p
     JOIN dbo.Categories AS c ON c.IDCategory = p.IDCategory
     JOIN dbo.Variants AS v ON v.IDProduct = p.IDProduct AND (v.IsActive = 1 OR @IncludeInactive = 1)
+    JOIN dbo.Variants AS h ON h.IDVariant = v.IDStockHolder
     WHERE (p.IsActive = 1 OR @IncludeInactive = 1)
       AND (@IDCategory IS NULL OR p.IDCategory IN (SELECT IDCategory FROM @Categories))
       -- CHARINDEX y no LIKE: el texto del usuario no se interpreta como patrón

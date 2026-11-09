@@ -1,7 +1,8 @@
 /* =====================================================================
    Objeto   : dbo.SP_Cart_Get
-   Version  : 1.0.0
-   Cambio   : Primera versión: carrito activo con sus líneas, su disponibilidad y sus totales calculados
+   Version  : 1.1.0
+   Cambio   : 1.1.0: la disponibilidad de una línea son PAQUETES de su variante, calculados sobre la existencia compartida del producto
+              Antes: Primera versión: carrito activo con sus líneas, su disponibilidad y sus totales calculados
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Nueva. Una sola fila; IDCart es NULL si todavía no hay carrito. Lines es un arreglo JSON. Errores: 50400.
    ===================================================================== */
@@ -37,16 +38,18 @@ BEGIN
          HasUnavailableLines = CAST(CASE WHEN EXISTS (
                SELECT 1 FROM dbo.CartItems AS ci
                JOIN dbo.Variants AS v ON v.IDVariant = ci.IDVariant
+               JOIN dbo.Variants AS h ON h.IDVariant = v.IDStockHolder
                JOIN dbo.Products AS p ON p.IDProduct = v.IDProduct
-               WHERE ci.IDCart = @IDCart AND (v.IsActive = 0 OR p.IsActive = 0 OR v.OnHandStock - v.ReservedStock < ci.Quantity)
+               WHERE ci.IDCart = @IDCart AND (v.IsActive = 0 OR p.IsActive = 0 OR h.OnHandStock - h.ReservedStock < ci.Quantity * v.UnitsPerPack)
              ) THEN 1 ELSE 0 END AS BIT),
          Lines = ISNULL((
            SELECT ci.IDCartItem, ci.IDVariant, v.SKU, ProductName = p.Name, ci.Quantity, ci.Inscription,
                   UnitPrice = CAST(v.Price AS VARCHAR(25)), LineTotal = CAST(v.Price * ci.Quantity AS VARCHAR(25)),
-                  Available = v.OnHandStock - v.ReservedStock,
+                  Available = CAST((h.OnHandStock - h.ReservedStock) / v.UnitsPerPack AS INT),
                   IsAvailable = CAST(CASE WHEN v.IsActive = 1 AND p.IsActive = 1 THEN 1 ELSE 0 END AS BIT)
            FROM dbo.CartItems AS ci
            JOIN dbo.Variants AS v ON v.IDVariant = ci.IDVariant
+           JOIN dbo.Variants AS h ON h.IDVariant = v.IDStockHolder
            JOIN dbo.Products AS p ON p.IDProduct = v.IDProduct
            WHERE ci.IDCart = @IDCart
            ORDER BY ci.IDCartItem

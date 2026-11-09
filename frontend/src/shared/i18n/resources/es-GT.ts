@@ -323,6 +323,10 @@ export const esGT = {
     price: 'Precio',
     available_one: 'Queda {{count}} unidad',
     available_other: 'Quedan {{count}} unidades',
+    availablePacks_one: 'Queda {{count}} paquete',
+    availablePacks_other: 'Quedan {{count}} paquetes',
+    unitsPerPack_one: 'Cada paquete trae {{count}} unidad.',
+    unitsPerPack_other: 'Cada paquete trae {{count}} unidades.',
     soldOut: 'Agotado por ahora',
     madeToOrderLocked: {
       title: 'Este producto se prepara por encargo',
@@ -465,6 +469,47 @@ export const esGT = {
     available_one: '{{count}} disponible para comprar',
     available_other: '{{count}} disponibles para comprar',
     openLedger: 'Ver movimientos',
+    stopSelling: 'Dejar de vender',
+    resumeSelling: 'Volver a vender',
+    perPack_one: 'Trae {{count}} unidad por paquete',
+    perPack_other: 'Trae {{count}} unidades por paquete',
+    packs_one: '{{count}} paquete de {{size}} unidades en existencia',
+    packs_other: '{{count}} paquetes de {{size}} unidades en existencia',
+    loose_one: 'sobra {{count}} unidad',
+    loose_other: 'sobran {{count}} unidades',
+    sharedStock_one: 'Existencia compartida por sus empaques: {{count}} unidad',
+    sharedStock_other: 'Existencia compartida por sus empaques: {{count}} unidades',
+    ledgerIsUnits:
+      'El libro cuenta unidades, no paquetes: es el de la existencia que comparten los empaques de este producto.',
+    packaging: {
+      add: 'Agregar empaque',
+      title: 'Agregar empaque',
+      help: 'Un empaque nuevo de esta misma existencia, por ejemplo una bolsa de 6 donde ya se vende la docena. No trae stock propio: toma las unidades que ya hay y sus paquetes aparecen solos.',
+      submit: 'Agregar empaque',
+      fields: {
+        name: 'Nombre del empaque',
+        sku: 'Código (SKU)',
+        price: 'Precio',
+        unitsPerPack: 'Unidades por paquete',
+      },
+      hints: {
+        name: 'Por ejemplo: Bolsa de 6 o Docena.',
+        unitsPerPack: 'Cuántas unidades trae cada paquete, de 1 a 1000.',
+      },
+      removeTitle: '¿Dejar de vender este empaque?',
+      removeText:
+        'Ya no se ofrecerá en la tienda ni se podrá agregar a un carrito. La existencia no cambia y los pedidos que ya lo tienen se conservan; lo puede volver a vender cuando quiera.',
+      removeConfirm: 'Sí, dejar de venderlo',
+      removeKeep: 'No, seguir vendiéndolo',
+      validation: {
+        name: 'Escriba cómo se llama el empaque.',
+        nameTooLong: 'El nombre es demasiado largo (60 caracteres como máximo).',
+        sku: 'Escriba el código del empaque.',
+        skuTooLong: 'El código es demasiado largo (40 caracteres como máximo).',
+        price: 'Escriba un precio mayor que cero, como 19 o 35.50.',
+        units: 'Escriba cuántas unidades trae, un número entero de 1 a 1000.',
+      },
+    },
     ledgerOf: 'Movimientos de {{name}}',
     reason: 'Motivo',
     saved: 'Movimiento registrado.',
@@ -511,7 +556,10 @@ export const esGT = {
         attributeName: 'Atributo',
         attributeValue: 'Valor del atributo',
         stock: 'Unidades con las que empieza',
+        initialUnits: 'Unidades con las que empieza',
+        unitsPerPack: 'Unidades por paquete',
       },
+      sharedStock: 'Los empaques comparten una sola existencia en unidades',
       chooseCategory: 'Elija una categoría',
       hints: {
         description: 'Lo que verá el cliente en la página del producto.',
@@ -521,6 +569,14 @@ export const esGT = {
         attributeName: 'Por ejemplo: Tamaño o Sabor.',
         attributeValue: 'Por ejemplo: Grande o Chocolate.',
         stock: 'Si se deja vacío, empieza sin stock y se agrega después.',
+        sharedStock:
+          'Actívelo si el producto se vende en varios empaques de las mismas piezas, como las champurradas en bolsa de 6 y en docena: la existencia se cuenta en unidades y de ahí salen los paquetes de cada empaque. Si no, cada variante guarda su propio stock.',
+        initialUnits:
+          'Unidades sueltas, no paquetes. Si se deja vacío, empieza sin stock y se agrega después.',
+        holderUnits:
+          'Cuántas unidades trae este empaque. La existencia compartida queda en la variante 1.',
+        unitsPerPack:
+          'Cuántas unidades trae este empaque. Toma sus paquetes de la existencia compartida.',
       },
       variants: 'Variantes',
       variantsHelp:
@@ -547,6 +603,7 @@ export const esGT = {
         stock: 'Escriba un número entero mayor que cero, o déjelo vacío.',
         tooLong: 'Este dato es demasiado largo.',
         attributePair: 'Escriba el atributo y su valor, o deje los dos vacíos.',
+        units: 'Escriba cuántas unidades trae, un número entero de 1 a 1000.',
       },
     },
   },

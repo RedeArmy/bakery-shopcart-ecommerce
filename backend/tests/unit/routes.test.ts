@@ -284,6 +284,56 @@ describe('catalogue routes', () => {
   });
 });
 
+describe('variants with packaging', () => {
+  const post = (app: express.Express, body: Record<string, unknown>) =>
+    request(app)
+      .post('/admin/variants')
+      .set(as('1:Administrator'))
+      .send({ productId: 3, sku: 'CHAMP-BAG6', price: '16.00', ...body });
+
+  it('creates a variant that holds its own stock with one unit per pack by default', async () => {
+    const { repository, calls } = fake({ createVariant: 21 });
+    const app = appWith(createCatalogueRouter(kit, repository));
+    const created = await post(app, {});
+    expect(created.status).toBe(201);
+    expect(created.body).toEqual({ idVariant: 21 });
+    expect(calls.at(-1)).toEqual({
+      method: 'createVariant',
+      args: [
+        1,
+        3,
+        {
+          sku: 'CHAMP-BAG6',
+          price: '16.00',
+          attributes: null,
+          unitsPerPack: 1,
+          stockVariantId: null,
+        },
+      ],
+    });
+  });
+
+  it('passes the units of the packaging and the variant that holds the shared stock', async () => {
+    const { repository, calls } = fake({ createVariant: 22 });
+    const app = appWith(createCatalogueRouter(kit, repository));
+    expect((await post(app, { unitsPerPack: 6, stockVariantId: 20 })).status).toBe(201);
+    expect(calls.at(-1)?.args[2]).toMatchObject({ unitsPerPack: 6, stockVariantId: 20 });
+  });
+
+  it.each([0, 1001, 1.5, '6'])('refuses %j units per pack', async (unitsPerPack) => {
+    const { repository, calls } = fake({ createVariant: 22 });
+    const app = appWith(createCatalogueRouter(kit, repository));
+    expect((await post(app, { unitsPerPack })).status).toBe(400);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('refuses a stock variant that is not an identifier', async () => {
+    const { repository } = fake({ createVariant: 22 });
+    const app = appWith(createCatalogueRouter(kit, repository));
+    expect((await post(app, { stockVariantId: 0 })).status).toBe(400);
+  });
+});
+
 describe('cart routes', () => {
   const token = '6f1c2a34-8e0b-4a6e-9a3a-0b1f7c9d2e11';
 

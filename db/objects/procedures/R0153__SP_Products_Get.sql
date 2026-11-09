@@ -1,7 +1,8 @@
 /* =====================================================================
    Objeto   : dbo.SP_Products_Get
-   Version  : 1.0.0
-   Cambio   : Primera versión: ficha de un producto con sus imágenes y variantes
+   Version  : 1.1.0
+   Cambio   : 1.1.0: cada variante dice cuántas unidades trae (UnitsPerPack), cuántos paquetes hay y cuántas unidades sueltas sobran; la existencia es la compartida del producto, en unidades
+              Antes: Primera versión: ficha de un producto con sus imágenes y variantes
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Nueva. Una sola fila; Images y Variants son arreglos JSON. Errores: 50400, 50404.
    ===================================================================== */
@@ -29,12 +30,16 @@ BEGIN
                           FROM dbo.ProductImages AS i WHERE i.IDProduct = p.IDProduct
                           ORDER BY i.IsPrimary DESC, i.SortOrder, i.IDProductImage
                           FOR JSON PATH), N'[]'),
-         Variants = ISNULL((SELECT v.IDVariant, v.SKU, Price = CAST(v.Price AS VARCHAR(20)), v.OnHandStock,
-                                   Available = v.OnHandStock - v.ReservedStock, v.IsActive,
+         Variants = ISNULL((SELECT v.IDVariant, v.SKU, Price = CAST(v.Price AS VARCHAR(20)), v.UnitsPerPack, v.IDStockHolder,
+                                   OnHandStock = h.OnHandStock,
+                                   OnHandPacks = CAST(h.OnHandStock / v.UnitsPerPack AS INT),
+                                   LooseUnits = CAST(h.OnHandStock % v.UnitsPerPack AS INT),
+                                   Available = CAST((h.OnHandStock - h.ReservedStock) / v.UnitsPerPack AS INT), v.IsActive,
                                    Attributes = (SELECT Name = a.Name, va.Value
                                                  FROM dbo.VariantAttributes AS va JOIN dbo.Attributes AS a ON a.IDAttribute = va.IDAttribute
                                                  WHERE va.IDVariant = v.IDVariant ORDER BY a.Name FOR JSON PATH)
                             FROM dbo.Variants AS v
+                            JOIN dbo.Variants AS h ON h.IDVariant = v.IDStockHolder
                             WHERE v.IDProduct = p.IDProduct AND (v.IsActive = 1 OR @IncludeInactive = 1)
                             ORDER BY v.IDVariant
                             FOR JSON PATH), N'[]')

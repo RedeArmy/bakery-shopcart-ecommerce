@@ -99,9 +99,9 @@ BEGIN
         JOIN sys.columns AS rc ON rc.object_id = fkc.referenced_object_id AND rc.column_id = fkc.referenced_column_id
         WHERE SCHEMA_NAME(fk.schema_id) = N'dbo'
           AND pc.name <> rc.name
-          -- Excepciones deliberadas: relaciones con un papel distinto al de la clave (padre, anterior, revisor...)
+          -- Excepciones deliberadas: relaciones con un papel distinto al de la clave (padre, anterior, revisor, variante que guarda la existencia...)
           AND pc.name NOT IN (N'IDParentCategory', N'IDReplacedBy', N'IDFromStatus', N'IDToStatus',
-                              N'IDPreviousStatus', N'IDNewStatus', N'IDReviewerUser'));
+                              N'IDPreviousStatus', N'IDNewStatus', N'IDReviewerUser', N'IDStockVariant'));
 
     SET @Offenders = ISNULL(@Offenders, N'');
     EXEC tSQLt.AssertEqualsString @Expected = N'', @Actual = @Offenders;

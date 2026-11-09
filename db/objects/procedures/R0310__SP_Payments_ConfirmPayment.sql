@@ -1,7 +1,8 @@
 /* =====================================================================
    Objeto   : dbo.SP_Payments_ConfirmPayment
-   Version  : 1.0.0
-   Cambio   : Primera versión: núcleo idempotente que aprueba un pago, marca el pedido como pagado y da salida al inventario
+   Version  : 1.1.0
+   Cambio   : 1.1.0: las variantes de un producto comparten una existencia medida en unidades (V0019); las cantidades de las líneas son paquetes; la salida del libro son UNIDADES sobre la variante que guarda la existencia
+              Antes: Primera versión: núcleo idempotente que aprueba un pago, marca el pedido como pagado y da salida al inventario
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Nueva. Los resultados esperados NO son errores: se informan en @Outcome (Approved, AlreadyApproved, Orphan).
               Errores: 50400, 50404 pago inexistente, 50422 estado que no permite aprobar o monto distinto del pedido.
@@ -81,7 +82,9 @@ BEGIN
   --    bloquean en orden ascendente, el mismo de la reserva y de la cancelación.
   DECLARE @ToLock TABLE (IDVariant INT PRIMARY KEY);
   -- El índice por pedido fuerza una búsqueda: un recorrido completo chocaría con las filas sin confirmar de otros pedidos
-  INSERT INTO @ToLock (IDVariant) SELECT DISTINCT IDVariant FROM dbo.OrderLines WITH (INDEX(IX_OrderLines_Order)) WHERE IDOrder = @IDOrder;
+  INSERT INTO @ToLock (IDVariant)
+  SELECT DISTINCT sv.IDStockHolder FROM dbo.OrderLines AS ol WITH (INDEX(IX_OrderLines_Order))
+  JOIN dbo.Variants AS sv ON sv.IDVariant = ol.IDVariant WHERE ol.IDOrder = @IDOrder;
   DECLARE @IDVariant INT = 0, @Locked INT;
   WHILE 1 = 1
   BEGIN
@@ -95,7 +98,9 @@ BEGIN
   SET OnHandStock = v.OnHandStock - l.Quantity, ReservedStock = v.ReservedStock - l.Quantity
   OUTPUT inserted.IDVariant, l.Quantity, inserted.OnHandStock INTO @Exits (IDVariant, Quantity, ResultingBalance)
   FROM dbo.Variants AS v WITH (UPDLOCK, ROWLOCK)
-  JOIN (SELECT IDVariant, Quantity = SUM(Quantity) FROM dbo.OrderLines WITH (INDEX(IX_OrderLines_Order)) WHERE IDOrder = @IDOrder GROUP BY IDVariant) AS l ON l.IDVariant = v.IDVariant;
+  JOIN (SELECT sv.IDStockHolder, Quantity = SUM(ol.Quantity * sv.UnitsPerPack)
+         FROM dbo.OrderLines AS ol WITH (INDEX(IX_OrderLines_Order)) JOIN dbo.Variants AS sv ON sv.IDVariant = ol.IDVariant
+         WHERE ol.IDOrder = @IDOrder GROUP BY sv.IDStockHolder) AS l ON l.IDStockHolder = v.IDVariant;
 
   -- El movimiento necesita un usuario; cuando confirma el sistema (un webhook, un job) se atribuye al cliente del pedido
   DECLARE @MovementUser INT = ISNULL(@IDUser, @OrderCustomer);

@@ -1,7 +1,8 @@
 /* =====================================================================
    Objeto   : dbo.SP_Inventory_AdjustStock
-   Version  : 1.1.0
-   Cambio   : 1.1.0: lo puede hacer un operador o un administrador activo (RF-01: el operador gestiona el inventario); antes solo el administrador.
+   Version  : 1.2.0
+   Cambio   : 1.2.0: el conteo es de UNIDADES de la existencia compartida del producto, se indique la variante que se indique
+              Antes: 1.1.0: lo puede hacer un operador o un administrador activo (RF-01: el operador gestiona el inventario); antes solo el administrador.
               1.0.0: Primera versión: ajuste de la existencia física al conteo real, con un movimiento compensatorio
    Autor    : Equipo ShopCart   Fecha: 2026-11-09
    Compat   : Mismos parámetros; solo cambia quién puede llamarlo. @NewOnHand es el conteo real, no un incremento. Errores: 50400, 50404 variante inexistente,
@@ -35,7 +36,9 @@ BEGIN
     THROW 50422, 'Only an active operator or administrator can change the stock.', 1;
 
   DECLARE @OnHand INT, @Reserved INT;
-  SELECT @OnHand = OnHandStock, @Reserved = ReservedStock FROM dbo.Variants WITH (UPDLOCK, ROWLOCK) WHERE IDVariant = @IDVariant;
+  -- Los empaques de un producto comparten una existencia medida en unidades: el conteo es de la variante que la guarda
+  DECLARE @IDHolder INT = (SELECT IDStockHolder FROM dbo.Variants WHERE IDVariant = @IDVariant);
+  SELECT @OnHand = OnHandStock, @Reserved = ReservedStock FROM dbo.Variants WITH (UPDLOCK, ROWLOCK) WHERE IDVariant = @IDHolder;
   IF @OnHand IS NULL
     THROW 50404, 'Variant not found.', 1;
 
@@ -49,16 +52,16 @@ BEGIN
   -- Un conteo que coincide con la existencia no es un cambio: no deja movimiento ni entrada en la bitácora
   IF @Delta <> 0
   BEGIN
-    UPDATE dbo.Variants SET OnHandStock = @NewOnHand WHERE IDVariant = @IDVariant;
+    UPDATE dbo.Variants SET OnHandStock = @NewOnHand WHERE IDVariant = @IDHolder;
 
     -- El ajuste lleva signo: positivo si el conteo encontró más de lo esperado, negativo si encontró menos
     INSERT INTO dbo.InventoryMovements (IDVariant, IDInventoryMovementType, Quantity, ResultingBalance, Reason, IDUser, CreatedAt)
-    VALUES (@IDVariant, 3, @Delta, @NewOnHand, @Reason, @IDActor, @Now);
+    VALUES (@IDHolder, 3, @Delta, @NewOnHand, @Reason, @IDActor, @Now);
     SET @IDMovement = SCOPE_IDENTITY();
 
     DECLARE @Previous NVARCHAR(100) = CONCAT(N'{"OnHandStock":', @OnHand, N'}');
     DECLARE @New NVARCHAR(100) = CONCAT(N'{"OnHandStock":', @NewOnHand, N'}');
-    DECLARE @EntityKey NVARCHAR(40) = CAST(@IDVariant AS NVARCHAR(40));
+    DECLARE @EntityKey NVARCHAR(40) = CAST(@IDHolder AS NVARCHAR(40));
     EXEC dbo.SP_Audit_Record @Module = N'Stock', @EntityName = N'Variant', @EntityKey = @EntityKey, @Action = N'Update',
          @PreviousValue = @Previous, @NewValue = @New, @IDUser = @IDActor;
   END;

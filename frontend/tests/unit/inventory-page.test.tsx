@@ -375,7 +375,7 @@ describe('creating a product', () => {
       },
       'POST /api/v1/admin/variants': json({ idVariant: 71 }, { status: 201 }),
       'POST /api/v1/admin/inventory/entries': json({ idMovement: '1' }, { status: 201 }),
-      'GET /api/v1/products/31': json({
+      'GET /api/v1/admin/products/31': json({
         ...detail([]),
         idProduct: 31,
         name: 'Pastel de zanahoria',
@@ -539,9 +539,11 @@ describe('creating a product', () => {
         productId: 31,
         sku: 'ZAN-M',
         price: '95.00',
+        unitsPerPack: 1,
+        stockVariantId: null,
         attributes: [{ name: 'Tamaño', value: 'Mediano' }],
       },
-      { productId: 31, sku: 'ZAN-G', price: '150.50' },
+      { productId: 31, sku: 'ZAN-G', price: '150.50', unitsPerPack: 1, stockVariantId: null },
     ]);
     // Solo la primera variante pidió stock inicial, y lleva su motivo
     const entries = sent(calls, '/api/v1/admin/inventory/entries');
@@ -567,7 +569,7 @@ describe('creating a product', () => {
           ? apiError(409, 'CONFLICT')
           : json({ idVariant: 71 }, { status: 201 });
       },
-      'GET /api/v1/products/31': json({ ...detail([]), idProduct: 31 }),
+      'GET /api/v1/admin/products/31': json({ ...detail([]), idProduct: 31 }),
     });
     renderApp('/admin/inventory');
     await user.click(await screen.findByRole('button', { name: 'Crear producto' }));

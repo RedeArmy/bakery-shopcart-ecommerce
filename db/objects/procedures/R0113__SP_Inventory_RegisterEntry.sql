@@ -1,7 +1,8 @@
 /* =====================================================================
    Objeto   : dbo.SP_Inventory_RegisterEntry
-   Version  : 1.1.0
-   Cambio   : 1.1.0: lo puede hacer un operador o un administrador activo (RF-01: el operador gestiona el inventario); antes solo el administrador.
+   Version  : 1.2.0
+   Cambio   : 1.2.0: la entrada se anota en UNIDADES sobre la variante que guarda la existencia del producto, se indique la variante que se indique
+              Antes: 1.1.0: lo puede hacer un operador o un administrador activo (RF-01: el operador gestiona el inventario); antes solo el administrador.
               1.0.0: Primera versión: entrada de mercadería, con su movimiento en el libro de inventario
    Autor    : Equipo ShopCart   Fecha: 2026-11-09
    Compat   : Mismos parámetros; solo cambia quién puede llamarlo. Errores: 50400, 50404 variante inexistente, 50422 actor sin permiso o existencia fuera de rango.
@@ -33,7 +34,9 @@ BEGIN
 
   -- El bloqueo sobre la variante serializa las entradas simultáneas: cada una lee el saldo que dejó la anterior, así que
   -- el saldo resultante del libro es siempre consecutivo y nunca se pierde una unidad
-  DECLARE @OnHand INT = (SELECT OnHandStock FROM dbo.Variants WITH (UPDLOCK, ROWLOCK) WHERE IDVariant = @IDVariant);
+  -- Los empaques de un producto comparten una existencia medida en unidades: la entrada va a la variante que la guarda
+  DECLARE @IDHolder INT = (SELECT IDStockHolder FROM dbo.Variants WHERE IDVariant = @IDVariant);
+  DECLARE @OnHand INT = (SELECT OnHandStock FROM dbo.Variants WITH (UPDLOCK, ROWLOCK) WHERE IDVariant = @IDHolder);
   IF @OnHand IS NULL
     THROW 50404, 'Variant not found.', 1;
 
@@ -42,16 +45,16 @@ BEGIN
 
   DECLARE @NewOnHand INT = @OnHand + @Quantity;
 
-  UPDATE dbo.Variants SET OnHandStock = @NewOnHand WHERE IDVariant = @IDVariant;
+  UPDATE dbo.Variants SET OnHandStock = @NewOnHand WHERE IDVariant = @IDHolder;
 
   -- La existencia solo cambia junto con su movimiento, en la misma transacción: VW_Inventory_Reconciliation lo comprueba
   INSERT INTO dbo.InventoryMovements (IDVariant, IDInventoryMovementType, Quantity, ResultingBalance, Reason, IDUser, CreatedAt)
-  VALUES (@IDVariant, 1, @Quantity, @NewOnHand, @Reason, @IDActor, @Now);
+  VALUES (@IDHolder, 1, @Quantity, @NewOnHand, @Reason, @IDActor, @Now);
   SET @IDMovement = SCOPE_IDENTITY();
 
   DECLARE @Previous NVARCHAR(100) = CONCAT(N'{"OnHandStock":', @OnHand, N'}');
   DECLARE @New NVARCHAR(100) = CONCAT(N'{"OnHandStock":', @NewOnHand, N'}');
-  DECLARE @EntityKey NVARCHAR(40) = CAST(@IDVariant AS NVARCHAR(40));
+  DECLARE @EntityKey NVARCHAR(40) = CAST(@IDHolder AS NVARCHAR(40));
   EXEC dbo.SP_Audit_Record @Module = N'Stock', @EntityName = N'Variant', @EntityKey = @EntityKey, @Action = N'Update',
        @PreviousValue = @Previous, @NewValue = @New, @IDUser = @IDActor;
 

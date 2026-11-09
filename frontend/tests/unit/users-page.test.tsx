@@ -1,11 +1,17 @@
 // cspell:disable
 import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import '../../src/shared/i18n';
 import { apiError, installFakeApi, json } from './support/fake-api';
 import type { Call } from './support/fake-api';
 import { renderApp, resetSession, signInAs } from './support/render';
+
+// El menú del operador se prueba en el panel (/admin), cuya ruta carga las gráficas con una importación perezosa: la primera vez
+// tarda más que la espera de una prueba. Se carga una vez antes de empezar, para que ninguna dependa de ese arranque en frío.
+beforeAll(async () => {
+  await import('../../src/features/dashboard/pages/dashboard-page');
+}, 60_000);
 
 beforeEach(async () => {
   await resetSession();

@@ -26,7 +26,7 @@ export function InventoryPage() {
   const [params, setParams] = useSearchParams();
   const [creating, setCreating] = useState(false);
   const query = parseInventoryQuery(params);
-  const categories = useCategories();
+  const categories = useCategories({ fresh: true });
   const products = useCategoryProducts(query.category, query.list);
   const go = (next: Partial<InventoryQuery>): void => {
     setParams(inventoryParams({ ...query, ...next }));
