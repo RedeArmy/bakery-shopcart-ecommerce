@@ -357,6 +357,116 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
     expect(exact.status).toBe(200);
   });
 
+  it('sells a product in packs that share one stock: 54 units are 9 bags of 6 and 4 dozens, and 50 are 8 bags', async () => {
+    const category = await post(administrator, '/admin/categories', { name: `IT Packs ${runId}` });
+    const idPackCategory = num(category.body, 'idCategory');
+    const created = await post(administrator, '/admin/products', {
+      categoryId: idPackCategory,
+      name: `IT Champurradas ${runId}`,
+      leadTimeDays: 0,
+    });
+    const idPackProduct = num(created.body, 'idProduct');
+    const sku = (suffix: string): string => `ITP${runId}${suffix}`.toUpperCase();
+    const unit = await post(administrator, '/admin/variants', {
+      productId: idPackProduct,
+      sku: sku('U'),
+      price: '3.00',
+    });
+    const idUnit = num(unit.body, 'idVariant');
+    const bag = await post(administrator, '/admin/variants', {
+      productId: idPackProduct,
+      sku: sku('B'),
+      price: '16.00',
+      unitsPerPack: 6,
+      stockVariantId: idUnit,
+      attributes: [{ name: 'Packaging', value: 'Bag of 6' }],
+    });
+    expect(bag.status).toBe(201);
+    const idBag = num(bag.body, 'idVariant');
+    const dozen = await post(administrator, '/admin/variants', {
+      productId: idPackProduct,
+      sku: sku('D'),
+      price: '30.00',
+      unitsPerPack: 12,
+      stockVariantId: idUnit,
+    });
+    const idDozen = num(dozen.body, 'idVariant');
+
+    // Un empaque no puede tomar la existencia de otro empaque ni de una variante de otro producto
+    const chained = await post(administrator, '/admin/variants', {
+      productId: idPackProduct,
+      sku: sku('X'),
+      price: '5.00',
+      unitsPerPack: 2,
+      stockVariantId: idBag,
+    });
+    expect(chained.status).toBe(422);
+    const foreign = await post(administrator, '/admin/variants', {
+      productId: idPackProduct,
+      sku: sku('Y'),
+      price: '5.00',
+      unitsPerPack: 2,
+      stockVariantId: idVariant,
+    });
+    expect(foreign.status).toBe(422);
+
+    // La entrada es de unidades, se indique el empaque que se indique
+    const entry = await post(operator, '/admin/inventory/entries', {
+      idVariant: idDozen,
+      quantity: 54,
+      reason: 'Opening count',
+    });
+    expect(entry.status).toBe(201);
+
+    const variantsOf = async (): Promise<Record<string, Record<string, unknown>>> => {
+      const detail = await api().get(`/api/v1/products/${idPackProduct}`);
+      return Object.fromEntries(
+        list(detail.body, 'variants').map((row) => [String(row['idVariant']), row]),
+      );
+    };
+    const shown = await variantsOf();
+    expect(shown[String(idBag)]).toMatchObject({
+      unitsPerPack: 6,
+      onHandStock: 54,
+      onHandPacks: 9,
+      looseUnits: 0,
+      available: 9,
+      idStockHolder: idUnit,
+    });
+    expect(shown[String(idDozen)]).toMatchObject({ onHandPacks: 4, looseUnits: 6, available: 4 });
+
+    // 50 unidades: 8 bolsas y sobran 2, que no cuentan como paquete
+    const count = await post(operator, '/admin/inventory/adjustments', {
+      idVariant: idBag,
+      newOnHand: 50,
+      reason: 'Monday count',
+    });
+    expect(count.status).toBe(201);
+    expect((await variantsOf())[String(idBag)]).toMatchObject({
+      onHandPacks: 8,
+      looseUnits: 2,
+      available: 8,
+    });
+
+    // El libro es de la existencia compartida, en unidades, y se lee por cualquier empaque
+    const ledger = await get(operator, `/admin/inventory/ledger?variant=${idBag}`);
+    expect(list(ledger.body, 'items').map((row) => row['quantity'])).toEqual([-4, 54]);
+
+    // El carrito cuenta paquetes: 8 bolsas caben, 9 no
+    const tooMany = await as(customerB.token, api().put(`/api/v1/cart/items/${idBag}`)).send({
+      quantity: 9,
+    });
+    expect(tooMany.status).toBe(409);
+    expect((tooMany.body as { error: { message: string } }).error.message).toBe(
+      'Only 8 units are available.',
+    );
+    const fits = await as(customerB.token, api().put(`/api/v1/cart/items/${idBag}`)).send({
+      quantity: 8,
+    });
+    expect(fits.status).toBe(200);
+    await as(customerB.token, api().delete(`/api/v1/cart/items/${idBag}`));
+  });
+
   it('prices the cart in the database and offers the deposit with the bank accounts', async () => {
     const cart = await as(customerA.token, api().put(`/api/v1/cart/items/${idVariant}`)).send({
       quantity: 2,

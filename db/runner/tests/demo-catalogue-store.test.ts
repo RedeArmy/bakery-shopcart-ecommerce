@@ -1,3 +1,4 @@
+// cspell:disable
 import type sql from 'mssql';
 import { describe, expect, it } from 'vitest';
 import { DEMO_ADMIN_EMAIL, createSqlDemoStore } from '../src/demo-catalogue.js';
@@ -151,6 +152,29 @@ describe('createSqlDemoStore: creation through the real procedures', () => {
     expect(await createSqlDemoStore(pool).createProduct(1, 5, product)).toBe(9);
     expect(calls[0]).toMatchObject({ kind: 'execute', text: 'dbo.SP_Products_Create' });
     expect(calls[0]?.inputs).toMatchObject({ IDCategory: 5, Name: 'Pastel', LeadTimeDays: 1 });
+  });
+
+  it('creates a packaging that draws its units from the variant that holds the stock', async () => {
+    const { pool, calls } = fakePool(() => ({ recordset: [{ Id: 12 }] }));
+    const bag: DemoVariant = {
+      sku: 'PAN-CHA-06',
+      size: 'Bolsa de 6',
+      price: '19.00',
+      stock: 0,
+      unitsPerPack: 6,
+      sharesStockWith: 'PAN-CHA-12',
+    };
+    expect(await createSqlDemoStore(pool).createVariant(1, 9, bag)).toBe(12);
+    const call = calls[0];
+    expect(call?.text).toContain('@UnitsPerPack = @UnitsPerPack');
+    expect(call?.text).toContain('@IDStockVariant = @IDStockVariant');
+    expect(call?.inputs).toMatchObject({ UnitsPerPack: 6, StockSku: 'PAN-CHA-12' });
+  });
+
+  it('creates a variant with one unit per pack and no shared stock by default', async () => {
+    const { pool, calls } = fakePool(() => ({ recordset: [{ Id: 11 }] }));
+    await createSqlDemoStore(pool).createVariant(1, 9, variant);
+    expect(calls[0]?.inputs).toMatchObject({ UnitsPerPack: 1, StockSku: null });
   });
 
   it('creates a variant sending the price as text that SQL converts to DECIMAL(18,2), never as a number', async () => {

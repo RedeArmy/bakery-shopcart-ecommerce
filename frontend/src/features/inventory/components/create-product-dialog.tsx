@@ -3,7 +3,7 @@ import { useFieldArray, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { errorMessage } from '../../../shared/api';
 import { Button } from '../../../shared/ui/button';
-import { SelectField, TextField } from '../../../shared/ui/fields';
+import { CheckboxField, SelectField, TextField } from '../../../shared/ui/fields';
 import { Modal } from '../../../shared/ui/modal';
 import { fieldError } from '../../auth/components/auth-layout';
 import { useCategories } from '../../catalogue/hooks/use-catalogue-queries';
@@ -44,6 +44,7 @@ export function CreateProductDialog({
   // Una vez creado el producto no se vuelve a tocar lo escrito: el reintento solo termina lo que falta
   const locked = create.createdProduct !== null;
   const leadTime = Number(watch('leadTimeDays'));
+  const shared = watch('sharedStock');
 
   const submit = handleSubmit((values) => {
     create.mutate(
@@ -93,6 +94,22 @@ export function CreateProductDialog({
             }
           />
 
+          <div className="space-y-3 rounded-card border border-stone-200 p-4">
+            <CheckboxField label={t('inventory.create.sharedStock')} {...register('sharedStock')} />
+            <p className="text-sm text-stone-600">{t('inventory.create.hints.sharedStock')}</p>
+            {shared ? (
+              <TextField
+                {...register('initialUnits')}
+                label={t('inventory.create.fields.initialUnits')}
+                inputMode="numeric"
+                className="sm:max-w-56"
+                optionalLabel={t('common.optional')}
+                hint={t('inventory.create.hints.initialUnits')}
+                error={fieldError(t, errors.initialUnits?.message)}
+              />
+            ) : null}
+          </div>
+
           <section className="space-y-3" aria-label={t('inventory.create.variants')}>
             <div>
               <h3 className="text-xl text-stone-900">{t('inventory.create.variants')}</h3>
@@ -134,14 +151,28 @@ export function CreateProductDialog({
                       error={fieldError(t, issue?.attributeValue?.message)}
                       {...register(`variants.${index}.attributeValue`)}
                     />
-                    <TextField
-                      label={t('inventory.create.fields.stock')}
-                      inputMode="numeric"
-                      optionalLabel={t('common.optional')}
-                      hint={t('inventory.create.hints.stock')}
-                      error={fieldError(t, issue?.stock?.message)}
-                      {...register(`variants.${index}.stock`)}
-                    />
+                    {shared ? (
+                      <TextField
+                        label={t('inventory.create.fields.unitsPerPack')}
+                        inputMode="numeric"
+                        hint={
+                          index === 0
+                            ? t('inventory.create.hints.holderUnits')
+                            : t('inventory.create.hints.unitsPerPack')
+                        }
+                        error={fieldError(t, issue?.unitsPerPack?.message)}
+                        {...register(`variants.${index}.unitsPerPack`)}
+                      />
+                    ) : (
+                      <TextField
+                        label={t('inventory.create.fields.stock')}
+                        inputMode="numeric"
+                        optionalLabel={t('common.optional')}
+                        hint={t('inventory.create.hints.stock')}
+                        error={fieldError(t, issue?.stock?.message)}
+                        {...register(`variants.${index}.stock`)}
+                      />
+                    )}
                   </div>
                   {fields.length > 1 ? (
                     <Button

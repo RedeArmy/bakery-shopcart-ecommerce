@@ -12,6 +12,10 @@ export interface DemoVariant {
   stock: number;
   /** Valor del atributo Sabor, cuando tiene sentido */
   flavour?: string;
+  /** Unidades que trae el empaque (por omisión 1: una pieza); con varios empaques, `stock` de la que guarda la existencia son unidades */
+  unitsPerPack?: number;
+  /** SKU de la variante del mismo producto que guarda la existencia que este empaque comparte; esta no tiene stock propio */
+  sharesStockWith?: string;
 }
 
 export interface DemoProduct {
@@ -36,6 +40,24 @@ const v = (
   flavour?: string,
 ): DemoVariant =>
   flavour === undefined ? { sku, size, price, stock } : { sku, size, price, stock, flavour };
+
+/** Un empaque que guarda la existencia compartida de su producto (en unidades): la bolsa de 6 o la docena. */
+const pack = (
+  sku: string,
+  size: string,
+  price: string,
+  unitsPerPack: number,
+  units: number,
+): DemoVariant => ({ sku, size, price, stock: units, unitsPerPack });
+
+/** Un empaque que toma sus unidades de otra variante del mismo producto: no guarda existencia propia. */
+const sharedPack = (
+  sku: string,
+  size: string,
+  price: string,
+  unitsPerPack: number,
+  sharesStockWith: string,
+): DemoVariant => ({ sku, size, price, stock: 0, unitsPerPack, sharesStockWith });
 
 const p = (
   name: string,
@@ -193,19 +215,20 @@ export const DEMO_CATEGORIES: readonly DemoCategory[] = [
     description: 'Pan dulce tradicional, recién horneado.',
     products: [
       p('Conchas', 'Suaves, con cubierta de azúcar de colores.', 0, [
-        v('PAN-CON-06', 'Bolsa de 6', '30.00', 50),
-        v('PAN-CON-12', 'Docena', '55.00', 40),
+        pack('PAN-CON-06', 'Bolsa de 6', '30.00', 6, 780),
+        sharedPack('PAN-CON-12', 'Docena', '55.00', 12, 'PAN-CON-06'),
       ]),
       p('Cuernitos', 'De hojaldre, con mantequilla.', 0, [
-        v('PAN-CUE-06', 'Bolsa de 6', '30.00', 50),
-        v('PAN-CUE-12', 'Docena', '55.00', 40),
+        pack('PAN-CUE-06', 'Bolsa de 6', '30.00', 6, 780),
+        sharedPack('PAN-CUE-12', 'Docena', '55.00', 12, 'PAN-CUE-06'),
       ]),
       p('Champurradas', 'Crujientes, con ajonjolí, para acompañar el café.', 0, [
-        v('PAN-CHA-12', 'Docena', '35.00', 50),
+        pack('PAN-CHA-12', 'Docena', '35.00', 12, 600),
+        sharedPack('PAN-CHA-06', 'Bolsa de 6', '19.00', 6, 'PAN-CHA-12'),
       ]),
       p('Pan de Yema', 'Dorado y esponjoso, con yema de huevo.', 0, [
-        v('PAN-YEM-06', 'Bolsa de 6', '28.00', 50),
-        v('PAN-YEM-12', 'Docena', '50.00', 40),
+        pack('PAN-YEM-06', 'Bolsa de 6', '28.00', 6, 780),
+        sharedPack('PAN-YEM-12', 'Docena', '50.00', 12, 'PAN-YEM-06'),
       ]),
       p('Quesadilla Guatemalteca', 'Con queso y ajonjolí, para el café de la tarde.', 1, [
         v('PAN-QUE-UN', 'Unidad', '95.00', 16),
@@ -217,12 +240,12 @@ export const DEMO_CATEGORIES: readonly DemoCategory[] = [
         v('PAN-BAN-UN', 'Unidad', '45.00', 20),
       ]),
       p('Empanadas de Manjar', 'Rellenas de manjar y espolvoreadas con azúcar.', 0, [
-        v('PAN-EMP-06', 'Bolsa de 6', '48.00', 40),
-        v('PAN-EMP-12', 'Docena', '90.00', 30),
+        pack('PAN-EMP-06', 'Bolsa de 6', '48.00', 6, 600),
+        sharedPack('PAN-EMP-12', 'Docena', '90.00', 12, 'PAN-EMP-06'),
       ]),
       p('Semitas', 'Con relleno de piña y canela.', 0, [
-        v('PAN-SEM-06', 'Bolsa de 6', '32.00', 50),
-        v('PAN-SEM-12', 'Docena', '58.00', 40),
+        pack('PAN-SEM-06', 'Bolsa de 6', '32.00', 6, 780),
+        sharedPack('PAN-SEM-12', 'Docena', '58.00', 12, 'PAN-SEM-06'),
       ]),
       p('Pan de Molde Artesanal', 'De miga suave, ideal para el desayuno.', 1, [
         v('PAN-MOL-UN', 'Unidad', '38.00', 24),

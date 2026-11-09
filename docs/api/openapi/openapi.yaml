@@ -3698,6 +3698,7 @@ components:
           $ref: '#/components/schemas/MoneyText'
         available:
           type: integer
+          description: The most packs that can be bought now of one of the active variants (they share their stock, so they are not added)
       required:
         - idProduct
         - name
@@ -3712,11 +3713,27 @@ components:
           type: string
         price:
           $ref: '#/components/schemas/MoneyText'
+        unitsPerPack:
+          type: integer
+          minimum: 1
+          maximum: 1000
+          description: Units in one pack of this variant (1 a single piece, 6 a bag of 6, 12 a dozen). Immutable once created.
+        idStockHolder:
+          allOf:
+            - $ref: '#/components/schemas/Id'
+          description: The variant that holds the stock this one draws from. It is the variant itself when it keeps its own stock.
         onHandStock:
           type: integer
+          description: Physical stock in UNITS, shared by every packaging that draws from the same holder
+        onHandPacks:
+          type: integer
+          description: Whole packs of this variant in the physical stock, the units divided by the units per pack, rounded down
+        looseUnits:
+          type: integer
+          description: Units that do not make a whole pack of this variant (50 units are 8 bags of 6 and 2 loose units)
         available:
           type: integer
-          description: Units that can be bought now, the physical stock minus the units reserved by other carts
+          description: PACKS of this variant that can be bought now, the physical units minus the units reserved by other carts, divided by the units per pack and rounded down
         isActive:
           type: boolean
         attributes:
@@ -3805,6 +3822,17 @@ components:
           maxLength: 40
         price:
           $ref: '#/components/schemas/MoneyText'
+        unitsPerPack:
+          type: integer
+          minimum: 1
+          maximum: 1000
+          default: 1
+          description: Units in one pack (1 a single piece, 6 a bag of 6, 12 a dozen)
+        stockVariantId:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: A variant of the SAME product that keeps its own stock and from which this one draws. Without it, the variant keeps its own stock.
         attributes:
           type: array
           items:
@@ -3875,6 +3903,7 @@ components:
           $ref: '#/components/schemas/MoneyText'
         available:
           type: integer
+          description: Packs of this variant that can be bought now, counting what this cart already holds
         isAvailable:
           type: boolean
       required:
@@ -4926,10 +4955,13 @@ components:
       type: object
       properties:
         idVariant:
-          $ref: '#/components/schemas/Id'
+          allOf:
+            - $ref: '#/components/schemas/Id'
+          description: Any variant of the product; the units go to the stock they all share
         quantity:
           type: integer
           minimum: 1
+          description: Units that arrived (not packs)
         reason:
           type: string
           maxLength: 250
@@ -4941,10 +4973,13 @@ components:
       type: object
       properties:
         idVariant:
-          $ref: '#/components/schemas/Id'
+          allOf:
+            - $ref: '#/components/schemas/Id'
+          description: Any variant of the product; the count is of the stock they all share
         newOnHand:
           type: integer
           minimum: 0
+          description: Units counted now (not packs)
         reason:
           type: string
           maxLength: 250

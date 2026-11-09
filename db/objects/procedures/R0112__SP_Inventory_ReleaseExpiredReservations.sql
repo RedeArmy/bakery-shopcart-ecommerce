@@ -1,7 +1,8 @@
 /* =====================================================================
    Objeto   : dbo.SP_Inventory_ReleaseExpiredReservations
-   Version  : 1.1.0
-   Cambio   : Devuelve también el conteo por parámetro de salida (@Released) para que el procedimiento del job no tenga que capturar el conjunto de resultados
+   Version  : 1.2.0
+   Cambio   : 1.2.0: las variantes de un producto comparten una existencia medida en unidades (V0019); las cantidades de las líneas son paquetes
+              Antes: Devuelve también el conteo por parámetro de salida (@Released) para que el procedimiento del job no tenga que capturar el conjunto de resultados
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Compatible: sigue devolviendo una fila con ReleasedReservations; el parámetro de salida es opcional. Lo llama el job
               de expiración cada 60 segundos (SP_Jobs_ExpirePayments).
@@ -23,9 +24,10 @@ BEGIN
   -- candidatas antes de reclamarlas; si otra sesión cambia alguna entretanto, bloquear de más no hace daño.
   DECLARE @ToLock TABLE (IDVariant INT PRIMARY KEY);
   INSERT INTO @ToLock (IDVariant)
-  SELECT DISTINCT rl.IDVariant
+  SELECT DISTINCT sv.IDStockHolder
   FROM dbo.Reservations AS r
   JOIN dbo.ReservationLines AS rl ON rl.IDReservation = r.IDReservation
+  JOIN dbo.Variants AS sv ON sv.IDVariant = rl.IDVariant
   WHERE r.Status = N'Active' AND r.IDOrder IS NULL AND r.ExpiresAt <= @Now;
   DECLARE @IDVariant INT = 0, @Locked INT;
   WHILE 1 = 1
@@ -46,14 +48,15 @@ BEGIN
   WHERE Status = N'Active' AND IDOrder IS NULL AND ExpiresAt <= @Now;
 
   UPDATE v
-  SET ReservedStock = v.ReservedStock - l.Quantity
+  SET ReservedStock = v.ReservedStock - l.Units
   FROM dbo.Variants AS v WITH (UPDLOCK, ROWLOCK)
   JOIN (
-    SELECT rl.IDVariant, Quantity = SUM(rl.Quantity)
+    SELECT sv.IDStockHolder, Units = SUM(rl.Quantity * sv.UnitsPerPack)
     FROM dbo.ReservationLines AS rl
     JOIN @Expired AS e ON e.IDReservation = rl.IDReservation
-    GROUP BY rl.IDVariant
-  ) AS l ON l.IDVariant = v.IDVariant;
+    JOIN dbo.Variants AS sv ON sv.IDVariant = rl.IDVariant
+    GROUP BY sv.IDStockHolder
+  ) AS l ON l.IDStockHolder = v.IDVariant;
 
   SET @Released = (SELECT COUNT(*) FROM @Expired);
   SELECT ReleasedReservations = @Released;

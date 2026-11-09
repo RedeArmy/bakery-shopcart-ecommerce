@@ -1,7 +1,8 @@
 /* =====================================================================
    Objeto   : dbo.VW_Inventory_Reconciliation
-   Version  : 1.0.0
-   Cambio   : Primera versión: variantes cuyos contadores no cuadran con su libro o con sus reservas
+   Version  : 1.1.0
+   Cambio   : 1.1.0: lo reservado se compara por variante que guarda la existencia y en unidades (cantidad de paquetes por unidades por paquete)
+              Antes: Primera versión: variantes cuyos contadores no cuadran con su libro o con sus reservas
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Nueva. Debe devolver CERO filas; cada fila es una discrepancia con su causa en Issue.
    ===================================================================== */
@@ -24,10 +25,11 @@ AS
   SELECT v.IDVariant, v.SKU, N'ReservedVsReservations', ISNULL(r.Held, 0), CAST(v.ReservedStock AS BIGINT)
   FROM dbo.Variants AS v
   LEFT JOIN (
-    SELECT rl.IDVariant, Held = SUM(CAST(rl.Quantity AS BIGINT))
+    SELECT sv.IDStockHolder, Held = SUM(CAST(rl.Quantity AS BIGINT) * sv.UnitsPerPack)
     FROM dbo.ReservationLines AS rl
     JOIN dbo.Reservations AS res ON res.IDReservation = rl.IDReservation AND res.Status = N'Active'
-    GROUP BY rl.IDVariant
-  ) AS r ON r.IDVariant = v.IDVariant
+    JOIN dbo.Variants AS sv ON sv.IDVariant = rl.IDVariant
+    GROUP BY sv.IDStockHolder
+  ) AS r ON r.IDStockHolder = v.IDVariant
   WHERE v.ReservedStock <> ISNULL(r.Held, 0);
 GO

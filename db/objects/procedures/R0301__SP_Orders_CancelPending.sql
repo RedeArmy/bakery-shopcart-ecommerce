@@ -1,7 +1,8 @@
 /* =====================================================================
    Objeto   : dbo.SP_Orders_CancelPending
-   Version  : 1.0.0
-   Cambio   : Primera versión: cancela un pedido que aún no se pagó y devuelve todo lo que retenía (uso interno)
+   Version  : 1.1.0
+   Cambio   : 1.1.0: las variantes de un producto comparten una existencia medida en unidades (V0019); las cantidades de las líneas son paquetes
+              Antes: Primera versión: cancela un pedido que aún no se pagó y devuelve todo lo que retenía (uso interno)
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Nueva. La usan el rechazo definitivo del depósito, la expiración y, más adelante, la cancelación del cliente.
               Errores: 50400, 50404 pedido inexistente, 50422 el pedido ya no está pendiente de pago. Cancelar un pedido
@@ -68,7 +69,9 @@ BEGIN
   IF @IDReservation IS NOT NULL
   BEGIN
     DECLARE @ToLock TABLE (IDVariant INT PRIMARY KEY);
-    INSERT INTO @ToLock (IDVariant) SELECT IDVariant FROM dbo.ReservationLines WHERE IDReservation = @IDReservation;
+    INSERT INTO @ToLock (IDVariant)
+    SELECT DISTINCT sv.IDStockHolder FROM dbo.ReservationLines AS rl JOIN dbo.Variants AS sv ON sv.IDVariant = rl.IDVariant
+    WHERE rl.IDReservation = @IDReservation;
     DECLARE @IDVariant INT = 0, @Locked INT;
     WHILE 1 = 1
     BEGIN
@@ -77,9 +80,11 @@ BEGIN
       SELECT @Locked = IDVariant FROM dbo.Variants WITH (UPDLOCK, ROWLOCK) WHERE IDVariant = @IDVariant;
     END;
 
-    UPDATE v SET ReservedStock = v.ReservedStock - l.Quantity
+    UPDATE v SET ReservedStock = v.ReservedStock - l.Units
     FROM dbo.Variants AS v WITH (UPDLOCK, ROWLOCK)
-    JOIN dbo.ReservationLines AS l ON l.IDVariant = v.IDVariant AND l.IDReservation = @IDReservation;
+    JOIN (SELECT sv.IDStockHolder, Units = SUM(rl.Quantity * sv.UnitsPerPack)
+          FROM dbo.ReservationLines AS rl JOIN dbo.Variants AS sv ON sv.IDVariant = rl.IDVariant
+          WHERE rl.IDReservation = @IDReservation GROUP BY sv.IDStockHolder) AS l ON l.IDStockHolder = v.IDVariant;
 
     UPDATE dbo.Reservations SET Status = N'Released' WHERE IDReservation = @IDReservation;
   END;

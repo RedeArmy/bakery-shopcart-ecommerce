@@ -50,6 +50,10 @@ const variantCreateBody = z.object({
   sku: z.string().trim().min(1).max(40),
   price: money,
   attributes,
+  // Unidades que trae el empaque (1 una pieza, 6 una bolsa de 6, 12 una docena) y la variante del mismo producto que guarda la
+  // existencia compartida; sin ella, la variante guarda la suya
+  unitsPerPack: z.number().int().min(1).max(1000).default(1),
+  stockVariantId: positiveInt.nullish(),
 });
 const variantUpdateBody = z.object({
   sku: z.string().trim().min(1).max(40),
@@ -205,6 +209,8 @@ export function createCatalogueRouter(kit: RouteKit, repository: CatalogueReposi
       sku: body.sku,
       price: body.price,
       attributes: body.attributes ?? null,
+      unitsPerPack: body.unitsPerPack,
+      stockVariantId: body.stockVariantId ?? null,
     });
     res.status(201).json({ idVariant: id });
   });

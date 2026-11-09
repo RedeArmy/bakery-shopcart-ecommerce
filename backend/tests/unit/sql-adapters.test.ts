@@ -177,9 +177,11 @@ const cases: Case[] = [
         sku: 'A',
         price: '1.00',
         attributes: [{ name: 'a', value: 'b' }],
+        unitsPerPack: 6,
+        stockVariantId: 9,
       }),
     'dbo.SP_Variants_Create',
-    ['IDActor', 'IDProduct', 'SKU', 'Price', 'Attributes'],
+    ['IDActor', 'IDProduct', 'SKU', 'Price', 'Attributes', 'UnitsPerPack', 'IDStockVariant'],
     ['IDVariant'],
   ],
   [

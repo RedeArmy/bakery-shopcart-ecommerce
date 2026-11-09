@@ -1,7 +1,8 @@
 /* =====================================================================
    Objeto   : dbo.SP_Orders_Cancel
-   Version  : 1.1.0
-   Cambio   : 1.1.0: el estado desde el que se puede cancelar sale de dbo.FU_Orders_AllowedActions y no de una lista fija. Mismo error.
+   Version  : 1.2.0
+   Cambio   : 1.2.0: las variantes de un producto comparten una existencia medida en unidades (V0019); las cantidades de las líneas son paquetes; el libro anota UNIDADES sobre la variante que guarda la existencia
+              Antes: 1.1.0: el estado desde el que se puede cancelar sale de dbo.FU_Orders_AllowedActions y no de una lista fija. Mismo error.
               1.0.0: Primera versión: cancelación de un pedido por su cliente o por un operador, antes de despacharlo
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Nueva. Un pedido pendiente de pago se cancela con SP_Orders_CancelPending (no hubo salida física). Uno pagado o en
@@ -77,7 +78,9 @@ BEGIN
 
   -- Las unidades vuelven a la existencia física. Las variantes se bloquean en orden ascendente, el mismo de la reserva y del pago.
   DECLARE @ToLock TABLE (IDVariant INT PRIMARY KEY);
-  INSERT INTO @ToLock (IDVariant) SELECT DISTINCT IDVariant FROM dbo.OrderLines WITH (INDEX(IX_OrderLines_Order)) WHERE IDOrder = @IDOrder;
+  INSERT INTO @ToLock (IDVariant)
+  SELECT DISTINCT sv.IDStockHolder FROM dbo.OrderLines AS ol WITH (INDEX(IX_OrderLines_Order))
+  JOIN dbo.Variants AS sv ON sv.IDVariant = ol.IDVariant WHERE ol.IDOrder = @IDOrder;
   DECLARE @IDVariant INT = 0, @Locked INT;
   WHILE 1 = 1
   BEGIN
@@ -91,8 +94,10 @@ BEGIN
   SET OnHandStock = v.OnHandStock + l.Quantity
   OUTPUT inserted.IDVariant, l.Quantity, inserted.OnHandStock INTO @Entries (IDVariant, Quantity, ResultingBalance)
   FROM dbo.Variants AS v WITH (UPDLOCK, ROWLOCK)
-  JOIN (SELECT IDVariant, Quantity = SUM(Quantity) FROM dbo.OrderLines WITH (INDEX(IX_OrderLines_Order)) WHERE IDOrder = @IDOrder GROUP BY IDVariant) AS l
-    ON l.IDVariant = v.IDVariant;
+  JOIN (SELECT sv.IDStockHolder, Quantity = SUM(ol.Quantity * sv.UnitsPerPack)
+         FROM dbo.OrderLines AS ol WITH (INDEX(IX_OrderLines_Order)) JOIN dbo.Variants AS sv ON sv.IDVariant = ol.IDVariant
+         WHERE ol.IDOrder = @IDOrder GROUP BY sv.IDStockHolder) AS l
+    ON l.IDStockHolder = v.IDVariant;
 
   INSERT INTO dbo.InventoryMovements (IDVariant, IDInventoryMovementType, Quantity, ResultingBalance, Reason, IDUser, IDOrder, CreatedAt)
   SELECT IDVariant, 4, Quantity, ResultingBalance, CONCAT(N'Cancellation of order ', @OrderNumber), @IDActor, @IDOrder, @Now FROM @Entries;

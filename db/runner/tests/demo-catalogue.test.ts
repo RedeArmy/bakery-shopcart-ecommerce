@@ -1,3 +1,4 @@
+// cspell:disable
 import { describe, expect, it } from 'vitest';
 import { seedDemoCatalogue, variantAttributes } from '../src/demo-catalogue.js';
 import type { DemoStore } from '../src/demo-catalogue.js';
@@ -153,6 +154,39 @@ describe('demo catalogue data', () => {
     const soldOut = allVariants.filter((variant) => variant.stock === 0);
     expect(soldOut.length).toBeGreaterThanOrEqual(2);
     expect(soldOut.length).toBeLessThan(allVariants.length / 10);
+  });
+
+  it('shares the stock of the packagings of a product: the one that draws has none of its own and comes after the one that holds it', () => {
+    for (const category of DEMO_CATEGORIES) {
+      for (const product of category.products) {
+        const seen = new Map<string, DemoVariant>();
+        for (const variant of product.variants) {
+          if (variant.sharesStockWith !== undefined) {
+            const holder = seen.get(variant.sharesStockWith);
+            expect(holder, `${variant.sku} draws from ${variant.sharesStockWith}`).toBeDefined();
+            expect(holder?.sharesStockWith).toBeUndefined();
+            expect(variant.stock).toBe(0);
+            expect(variant.unitsPerPack).toBeGreaterThan(0);
+          }
+          seen.set(variant.sku, variant);
+        }
+      }
+    }
+  });
+
+  it('sells the champurradas by the dozen and by the bag of 6 from the same 600 units', () => {
+    const champurradas = DEMO_CATEGORIES.flatMap((category) => category.products).find(
+      (product) => product.name === 'Champurradas',
+    );
+    expect(champurradas?.variants).toEqual([
+      expect.objectContaining({ sku: 'PAN-CHA-12', unitsPerPack: 12, stock: 600 }),
+      expect.objectContaining({
+        sku: 'PAN-CHA-06',
+        unitsPerPack: 6,
+        sharesStockWith: 'PAN-CHA-12',
+        stock: 0,
+      }),
+    ]);
   });
 
   it('has the four documented coupons, one for each message of RF-05', () => {
