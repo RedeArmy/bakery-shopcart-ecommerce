@@ -2,8 +2,7 @@ import { useTranslation } from 'react-i18next';
 import type { components } from '../../../shared/api/generated/schema';
 import { formatDateTime } from '../../../shared/lib/date';
 import { Badge } from '../../../shared/ui/badge';
-import { describeChange } from '../model/audit';
-import { isAuditModule } from '../model/audit';
+import { describeChange, isAuditModule } from '../model/audit';
 
 type AuditEntryData = components['schemas']['AuditEntry'];
 
