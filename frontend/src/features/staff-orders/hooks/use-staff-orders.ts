@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, unwrap } from '../../../shared/api';
 import { useSession } from '../../../shared/auth';
+import { dayEnd, dayStart, isReversedRange } from '../../../shared/lib/date';
 import { useIdempotencyKey } from '../../checkout/hooks/use-checkout';
 import { PAGE_SIZE } from '../model/staff-orders';
 import type { NextStep, StaffOrdersQuery } from '../model/staff-orders';
@@ -9,8 +10,16 @@ import type { NextStep, StaffOrdersQuery } from '../model/staff-orders';
 export function useStaffOrders(query: StaffOrdersQuery) {
   const { user } = useSession();
   return useQuery({
-    queryKey: ['staff-orders', user?.idUser ?? null, query.status, query.search, query.page],
-    enabled: user !== null,
+    queryKey: [
+      'staff-orders',
+      user?.idUser ?? null,
+      query.status,
+      query.search,
+      query.from,
+      query.to,
+      query.page,
+    ],
+    enabled: user !== null && !isReversedRange(query.from, query.to),
     placeholderData: keepPreviousData,
     queryFn: async ({ signal }) =>
       unwrap(
@@ -21,6 +30,8 @@ export function useStaffOrders(query: StaffOrdersQuery) {
               size: PAGE_SIZE,
               ...(query.status === null ? {} : { status: query.status }),
               ...(query.search === '' ? {} : { search: query.search }),
+              ...(query.from === null ? {} : { from: dayStart(query.from) }),
+              ...(query.to === null ? {} : { to: dayEnd(query.to) }),
             },
           },
           signal,

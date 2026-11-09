@@ -65,7 +65,7 @@ export function Header() {
       <div className="mx-auto grid h-16 max-w-[1200px] grid-cols-[1fr_auto_1fr] items-center px-4 md:px-6">
         <nav className="hidden gap-6 md:flex" aria-label={t('common.mainNavigation')}>
           {publicItems.map((item) => (
-            <NavLink key={item.to} to={item.to} className={LINK}>
+            <NavLink key={item.to} to={item.to} end={item.to === '/admin'} className={LINK}>
               {t(navLabelKey(item, inAccount))}
             </NavLink>
           ))}
@@ -101,7 +101,7 @@ export function Header() {
           aria-label={t('common.adminNavigation')}
         >
           {staffItems.map((item) => (
-            <NavLink key={item.to} to={item.to} className={LINK}>
+            <NavLink key={item.to} to={item.to} end={item.to === '/admin'} className={LINK}>
               {t(navLabelKey(item, inAccount))}
             </NavLink>
           ))}
@@ -117,7 +117,11 @@ export function Header() {
         <ul className="space-y-1">
           {items.map((item) => (
             <li key={item.to}>
-              <NavLink to={item.to} className={`${LINK} flex min-h-11 items-center`}>
+              <NavLink
+                to={item.to}
+                end={item.to === '/admin'}
+                className={`${LINK} flex min-h-11 items-center`}
+              >
                 {t(navLabelKey(item, inAccount))}
               </NavLink>
             </li>

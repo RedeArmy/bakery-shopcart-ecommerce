@@ -17,6 +17,7 @@ export interface NavItem {
 export const NAV_ITEMS: readonly NavItem[] = [
   { labelKey: 'nav.catalogue', to: '/catalogue' },
   { labelKey: 'nav.orders', accountLabelKey: 'nav.myOrders', to: '/orders' },
+  { labelKey: 'nav.dashboard', to: '/admin', roles: ['Operator', 'Administrator'] },
   { labelKey: 'nav.staffOrders', to: '/admin/orders', roles: ['Operator', 'Administrator'] },
   {
     labelKey: 'nav.depositReview',

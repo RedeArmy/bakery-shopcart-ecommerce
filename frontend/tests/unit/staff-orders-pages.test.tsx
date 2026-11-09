@@ -1,5 +1,5 @@
 // cspell:disable
-import { cleanup, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '../../src/shared/i18n';
@@ -115,6 +115,36 @@ describe('the staff order list', () => {
     renderApp('/admin/orders?q=nadie');
 
     expect(await screen.findByText('No hay pedidos con esos datos')).toBeDefined();
+  });
+
+  it('filters by the first and the last day on which the order was made', async () => {
+    await signInAs('Operator');
+    const { calls } = installFakeApi({ 'GET /api/v1/admin/orders': json(page([summary()])) });
+    renderApp('/admin/orders');
+    await screen.findByRole('link', { name: /PED-2030-000007/ });
+
+    fireEvent.change(screen.getByLabelText('Desde'), { target: { value: '2030-06-01' } });
+    fireEvent.change(screen.getByLabelText('Hasta'), { target: { value: '2030-06-30' } });
+
+    // El último día cuenta entero: el límite es la medianoche siguiente, hora de Guatemala
+    await waitFor(() => {
+      const last = calls.filter((call) => call.path === '/api/v1/admin/orders').at(-1);
+      const query = new URLSearchParams(last?.search);
+      expect(query.get('from')).toBe('2030-06-01T00:00:00-06:00');
+      expect(query.get('to')).toBe('2030-07-01T06:00:00.000Z');
+    });
+  });
+
+  it('reads the dates from the address and explains a range that is reversed', async () => {
+    await signInAs('Operator');
+    const { calls } = installFakeApi({ 'GET /api/v1/admin/orders': json(page([summary()])) });
+    renderApp('/admin/orders?from=2030-06-10&to=2030-06-01');
+
+    expect(
+      await screen.findByText('La fecha «Desde» no puede ser posterior a «Hasta».'),
+    ).toBeDefined();
+    expect(screen.getByLabelText<HTMLInputElement>('Desde').value).toBe('2030-06-10');
+    expect(calls.some((call) => call.path === '/api/v1/admin/orders')).toBe(false);
   });
 
   it('keeps the list away from customers', async () => {

@@ -18,6 +18,8 @@ describe('the address of the staff order list', () => {
       status: 3,
       search: 'ana@x.test',
       page: 2,
+      from: null,
+      to: null,
     });
   });
 
@@ -26,6 +28,21 @@ describe('the address of the staff order list', () => {
       status: null,
       search: '',
       page: 1,
+      from: null,
+      to: null,
+    });
+  });
+
+  it('reads the first and the last day, and ignores what is not a date', () => {
+    expect(
+      parseStaffOrdersQuery(new URLSearchParams('from=2030-06-01&to=2030-06-30')),
+    ).toMatchObject({
+      from: '2030-06-01',
+      to: '2030-06-30',
+    });
+    expect(parseStaffOrdersQuery(new URLSearchParams('from=ayer&to=2030-6-1'))).toMatchObject({
+      from: null,
+      to: null,
     });
   });
 
@@ -35,10 +52,17 @@ describe('the address of the staff order list', () => {
   });
 
   it('only writes what differs from the defaults', () => {
-    expect(staffOrdersParams({ status: null, search: '', page: 1 }).toString()).toBe('');
-    expect(staffOrdersParams({ status: 2, search: 'PED-1', page: 3 }).toString()).toBe(
-      'status=2&q=PED-1&page=3',
-    );
+    const none = { status: null, search: '', page: 1, from: null, to: null };
+    expect(staffOrdersParams(none).toString()).toBe('');
+    expect(
+      staffOrdersParams({
+        status: 2,
+        search: 'PED-1',
+        page: 3,
+        from: '2030-06-01',
+        to: '2030-06-30',
+      }).toString(),
+    ).toBe('status=2&q=PED-1&from=2030-06-01&to=2030-06-30&page=3');
   });
 });
 

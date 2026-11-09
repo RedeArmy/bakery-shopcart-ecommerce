@@ -27,3 +27,18 @@ export function formatDateTime(value: string): string {
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? value : shortDateTime.format(parsed);
 }
+
+// Guatemala no cambia de hora, así que un día vale siempre 24 horas y el comienzo de un día es la medianoche de UTC-6.
+const GUATEMALA_OFFSET = '-06:00';
+const DAY_MILLISECONDS = 86_400_000;
+
+/** El instante en que empieza el día `day` (`2030-06-10`) en Guatemala, para el extremo que entra de un filtro por fecha. */
+export const dayStart = (day: string): string => `${day}T00:00:00${GUATEMALA_OFFSET}`;
+
+/** El instante en que termina el día `day` (la medianoche siguiente), para el extremo que no entra: así el último día se cuenta entero. */
+export const dayEnd = (day: string): string =>
+  new Date(Date.parse(dayStart(day)) + DAY_MILLISECONDS).toISOString();
+
+/** Un período al revés no tiene sentido y el servidor lo rechazaría: se avisa antes de preguntar. Las fechas ISO ordenan como el calendario. */
+export const isReversedRange = (from: string | null, to: string | null): boolean =>
+  from !== null && to !== null && from > to;
