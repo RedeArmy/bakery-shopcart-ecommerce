@@ -38,7 +38,8 @@ export function SalesChart({
 
   return (
     <div className="space-y-4">
-      <div role="group" aria-label={t('dashboard.sales.metric')} className="flex gap-2">
+      <fieldset className="m-0 flex gap-2 border-0 p-0">
+        <legend className="sr-only">{t('dashboard.sales.metric')}</legend>
         {METRICS.map((item) => (
           <Button
             key={item}
@@ -51,35 +52,37 @@ export function SalesChart({
             {t(`dashboard.sales.${item}`)}
           </Button>
         ))}
-      </div>
-      <figure
-        role="img"
-        aria-label={t('dashboard.sales.chartLabel', {
-          metric: t(`dashboard.sales.${metric}`).toLowerCase(),
-          granularity: t(`dashboard.period.${granularity}`).toLowerCase(),
-        })}
-        className="h-64 w-full"
-      >
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="label" tickLine={false} fontSize={12} />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              fontSize={12}
-              width={48}
-              allowDecimals={false}
-            />
-            <Tooltip
-              formatter={(_value, _name, item) => {
-                const datum = item.payload as { net: string; orders: number };
-                return metric === 'amount' ? formatMoney(datum.net) : String(datum.orders);
-              }}
-            />
-            <Bar dataKey="value" fill={BAR_FILL} radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+      </fieldset>
+      {/* La gráfica repite lo que dice la tabla de abajo: se anuncia con su descripción y el dibujo se oculta a los lectores */}
+      <figure>
+        <figcaption className="sr-only">
+          {t('dashboard.sales.chartLabel', {
+            metric: t(`dashboard.sales.${metric}`).toLowerCase(),
+            granularity: t(`dashboard.period.${granularity}`).toLowerCase(),
+          })}
+        </figcaption>
+        <div aria-hidden="true" className="h-64 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="label" tickLine={false} fontSize={12} />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                fontSize={12}
+                width={48}
+                allowDecimals={false}
+              />
+              <Tooltip
+                formatter={(_value, _name, item) => {
+                  const datum = item.payload as { net: string; orders: number };
+                  return metric === 'amount' ? formatMoney(datum.net) : String(datum.orders);
+                }}
+              />
+              <Bar dataKey="value" fill={BAR_FILL} radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </figure>
       <details className="text-sm">
         <summary className="min-h-11 cursor-pointer py-2 text-stone-700">
