@@ -157,6 +157,13 @@ export const routes: RouteObject[] = [
                 .CashPaymentsPage,
             }),
           },
+          {
+            // El inventario lo mueve quien atiende: un operador o un administrador (RF-05)
+            path: 'admin/inventory',
+            lazy: async () => ({
+              Component: (await import('../features/inventory/pages/inventory-page')).InventoryPage,
+            }),
+          },
         ],
       },
       { path: '*', element: <NotFoundPage /> },
