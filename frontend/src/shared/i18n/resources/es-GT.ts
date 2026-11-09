@@ -377,6 +377,7 @@ export const esGT = {
     back: 'Volver a los pedidos',
     notFoundTitle: 'Este pedido no existe',
     notFoundText: 'Revise la dirección o busque el pedido por su número.',
+    operatorOnly: 'La entrega de un pedido a domicilio la marca un operador.',
     steps: {
       InPreparation: 'Pasar a preparación',
       Dispatched: 'Marcar como despachado',

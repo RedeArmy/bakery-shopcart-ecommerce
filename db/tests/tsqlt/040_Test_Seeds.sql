@@ -41,7 +41,7 @@ CREATE PROCEDURE Test_Seeds.[test the order transitions are exactly the document
 AS
 BEGIN
     CREATE TABLE #Expected (IDFromStatus TINYINT, IDToStatus TINYINT);
-    INSERT INTO #Expected VALUES (1, 2), (1, 6), (2, 3), (2, 6), (3, 4), (3, 6), (4, 5), (5, 7), (5, 8), (7, 7), (7, 8);
+    INSERT INTO #Expected VALUES (1, 2), (1, 6), (2, 3), (2, 6), (3, 4), (3, 5), (3, 6), (4, 5), (5, 7), (5, 8), (7, 7), (7, 8);
 
     SELECT IDFromStatus, IDToStatus INTO #Actual FROM dbo.OrderStatusTransitions;
 

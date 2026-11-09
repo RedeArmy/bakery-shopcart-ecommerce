@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { ApiError } from '../../../shared/api';
+import { useSession } from '../../../shared/auth';
 import { ButtonLink } from '../../../shared/ui/button';
 import { Price } from '../../../shared/ui/price';
 import { EmptyState, ErrorState, LoadingSkeleton } from '../../../shared/ui/states';
@@ -16,7 +17,7 @@ import { AdvanceStatus } from '../components/advance-status';
 import { OrderPayments } from '../components/order-payments';
 import { RegisterReturn } from '../components/register-return';
 import { useRegisterReturn, useStaffOrder } from '../hooks/use-staff-orders';
-import { canReturn, nextStep } from '../model/staff-orders';
+import { canReturn, canTakeStep, nextStep } from '../model/staff-orders';
 
 /**
  * Un pedido para el personal: quién lo hizo, lo que lleva, cómo se recibe, sus pagos y su historial, con lo que se puede hacer
@@ -27,6 +28,7 @@ export function StaffOrderPage() {
   const { t } = useTranslation();
   const params = useParams();
   const idOrder = /^\d{1,9}$/.test(params['id'] ?? '') ? Number(params['id']) : null;
+  const session = useSession();
   const order = useStaffOrder(idOrder);
   // La devolución se registra desde la página y no desde su formulario: este desaparece cuando ya no queda nada por devolver
   const register = useRegisterReturn(idOrder ?? 0);
@@ -51,7 +53,8 @@ export function StaffOrderPage() {
   }
 
   const data = order.data;
-  const step = nextStep(data.statusName);
+  const step = nextStep(data.statusName, data.fulfilmentType);
+  const mayStep = step !== null && canTakeStep(step, data.fulfilmentType, session.user?.role);
 
   return (
     <div className="space-y-8">
@@ -75,7 +78,12 @@ export function StaffOrderPage() {
         <aside className="space-y-4">
           <OrderSummary order={data} />
           <OrderPayments idOrder={idOrder} />
-          {step === null ? null : <AdvanceStatus idOrder={idOrder} step={step} />}
+          {step !== null && mayStep ? <AdvanceStatus idOrder={idOrder} step={step} /> : null}
+          {step !== null && !mayStep ? (
+            <p className="rounded-card bg-stone-100 p-3 text-sm text-stone-700">
+              {t('staffOrders.operatorOnly')}
+            </p>
+          ) : null}
           {canCancel(data.statusName) ? (
             <CancelOrder idOrder={idOrder} paid={data.statusName !== 'PendingPayment'} />
           ) : null}

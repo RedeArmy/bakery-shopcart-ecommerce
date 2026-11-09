@@ -165,10 +165,47 @@ describe('the staff order detail', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Pasar a preparación' }));
 
-    expect(await screen.findByRole('button', { name: 'Marcar como despachado' })).toBeDefined();
+    // La recogida en sucursal no se despacha: de la preparación pasa a la entrega
+    expect(await screen.findByRole('button', { name: 'Marcar como entregado' })).toBeDefined();
     const sent = calls.find((call) => call.method === 'PATCH');
     expect(sent?.body).toEqual({ status: 'InPreparation' });
     expect(sent?.headers.get('Idempotency-Key')).toBeTruthy();
+  });
+
+  it('dispatches a home delivery order before it is delivered', async () => {
+    await signInAs('Administrator');
+    open(detail({ statusName: 'InPreparation', fulfilmentType: 'Delivery' }));
+    renderApp('/admin/orders/7');
+
+    expect(await screen.findByRole('button', { name: 'Marcar como despachado' })).toBeDefined();
+    expect(screen.queryByRole('button', { name: 'Marcar como entregado' })).toBeNull();
+  });
+
+  it('leaves the delivery of a home order to the operators', async () => {
+    await signInAs('Administrator');
+    open(detail({ statusName: 'Dispatched', fulfilmentType: 'Delivery' }));
+    renderApp('/admin/orders/7');
+
+    expect(
+      await screen.findByText('La entrega de un pedido a domicilio la marca un operador.'),
+    ).toBeDefined();
+    expect(screen.queryByRole('button', { name: 'Marcar como entregado' })).toBeNull();
+  });
+
+  it('lets an operator mark a home delivery order as delivered', async () => {
+    await signInAs('Operator');
+    open(detail({ statusName: 'Dispatched', fulfilmentType: 'Delivery' }));
+    renderApp('/admin/orders/7');
+
+    expect(await screen.findByRole('button', { name: 'Marcar como entregado' })).toBeDefined();
+  });
+
+  it('lets an administrator deliver an order that is collected at a branch', async () => {
+    await signInAs('Administrator');
+    open(detail({ statusName: 'InPreparation', fulfilmentType: 'Pickup' }));
+    renderApp('/admin/orders/7');
+
+    expect(await screen.findByRole('button', { name: 'Marcar como entregado' })).toBeDefined();
   });
 
   it('shows the reason when the server refuses the step', async () => {
