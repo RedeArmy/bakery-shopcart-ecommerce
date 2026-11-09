@@ -399,7 +399,7 @@ Seeds are idempotent `MERGE` scripts applied after the migrations. They are regi
 | ID | File | SHA-256 | Content | Re-run behaviour |
 |---|---|---|---|---|
 | S0001 | `S0001__seed_roles.sql` | `d5bd6005e962e2cce6652f2412bfa0acc44cc2204570f3bdd3cdd2f27b0d8914` | Roles Customer (1), Operator (2), Administrator (3) | Names are corrected if they differ |
-| S0002 | `S0002__seed_order_statuses.sql` | `580c22e5fa106b5aaa0c7fee092837c10e1960fc4cc4b7fe6ffc69d1e0bb93c2` | Eight order states and the eleven allowed transitions | Transitions are made equal to the declared set (a removed transition is deleted) |
+| S0002 | `S0002__seed_order_statuses.sql` | `c3e638c14df8863a9e600097af4f56aa9c2afa29c979e51c316746b7d5c5048a` | Eight order states and the twelve allowed transitions | Transitions are made equal to the declared set (a removed transition is deleted) |
 | S0003 | `S0003__seed_payment_reference_data.sql` | `de3d5b7c00c36e11c0dafe6cab47b93aafa44840679566143b889285cb962148` | Payment methods `CARD` and `BANK_DEPOSIT`, eight payment states and nine transitions | Same as S0002 |
 | S0004 | `S0004__seed_inventory_movement_types.sql` | `c374071314d410942a1d22410f5985f8a722d6abe1bf9e656dd73a8ed197a7e4` | Entry (1), Exit (2), Adjustment (3), Return (4) | Names are corrected if they differ |
 | S0005 | `S0005__seed_configuration.sql` | `430c3a4b144d71ed846491d9dd4066f7b997d7e92fb57a505d91fc7980f805ff` | Ten business settings with their defaults (reservation minutes, deposit hours, shipping cost, VAT rate and others) | Inserts only missing keys and never overwrites a tuned value |

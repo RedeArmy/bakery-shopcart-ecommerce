@@ -39,7 +39,7 @@ The nine modules of the brief are built in the database and the backend. What ea
 | RF-08 Dashboard and reports | Complete (the charts belong to Phase 2) | [ADR-0009](docs/adr/0009-definition-of-completed-order-for-reports.md) |
 | RF-09 Audit log | Complete | [Data model](docs/database/er-diagram.md) |
 
-The 21 acceptance criteria of the brief are in the [criteria map](docs/quality/acceptance-criteria-map.md): for each one it says what makes it hold and which test proves it. The tests are 630 for the database (tSQLt), 16 concurrency scenarios with real connections, 22 HTTP flows against SQL Server and more than 550 unit tests.
+The 21 acceptance criteria of the brief are in the [criteria map](docs/quality/acceptance-criteria-map.md): for each one it says what makes it hold and which test proves it. The tests are 636 for the database (tSQLt), 16 concurrency scenarios with real connections, 22 HTTP flows against SQL Server and more than 550 unit tests.
 
 ## 3. Architecture
 
@@ -229,7 +229,7 @@ To start from scratch, database included, use `docker compose down --volumes`, d
 | What is tested | Command |
 |---|---|
 | Unit tests of the backend, the runner and the scripts | `npm test` |
-| 630 database tests (tSQLt) | `npm run sql:test:up` and then `npm run sql:test` |
+| 636 database tests (tSQLt) | `npm run sql:test:up` and then `npm run sql:test` |
 | 16 concurrency scenarios with real connections | `npm run sql:concurrency` |
 | HTTP flows against SQL Server (22) | `npm run test:integration -w backend`, with the test server migrated ([commands](docs/quality/sql-testing-tsqlt.md#concurrency-http-and-performance-suites)) |
 | Procedure coverage by tests (96 of 96) | `npm run sql:coverage` |
