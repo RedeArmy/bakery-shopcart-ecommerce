@@ -1252,6 +1252,7 @@ describe('payments', () => {
   it('keeps the review, the accounts and the refunds in the hands of the right roles', async () => {
     const { app, calls } = build({
       listDeposits: { items: [], page: 1, size: 20, total: 0 },
+      listCash: { items: [], page: 1, size: 20, total: 0 },
       approve: 'Approved',
       confirmCash: 'Approved',
       reject: 'Rejected',
@@ -1265,7 +1266,25 @@ describe('payments', () => {
       403,
     );
     await request(app).get('/admin/payments/deposits?status=Rejected').set(as('2:Operator'));
-    expect(calls.at(-1)?.args[0]).toMatchObject({ statusId: 4, page: 1, size: 20 });
+    expect(calls.at(-1)?.args[0]).toMatchObject({
+      statusId: 4,
+      search: null,
+      page: 1,
+      size: 20,
+    });
+    await request(app).get('/admin/payments/deposits?search=%20PED-1%20').set(as('2:Operator'));
+    expect(calls.at(-1)?.args[0]).toMatchObject({ statusId: 2, search: 'PED-1' });
+    // Los cobros en efectivo: pendientes por omisión, con el texto de búsqueda tal cual; un cliente no los ve
+    expect((await request(app).get('/admin/payments/cash').set(as('7:Customer'))).status).toBe(403);
+    await request(app).get('/admin/payments/cash').set(as('2:Operator'));
+    expect(calls.at(-1)?.args[0]).toEqual({ statusId: 1, search: null, page: 1, size: 20 });
+    await request(app)
+      .get('/admin/payments/cash?status=Approved&search=%20PED-1%20')
+      .set(as('2:Operator'));
+    expect(calls.at(-1)?.args[0]).toEqual({ statusId: 3, search: 'PED-1', page: 1, size: 20 });
+    expect(
+      (await request(app).get('/admin/payments/cash?status=Nope').set(as('2:Operator'))).status,
+    ).toBe(400);
     expect(
       (await request(app).post('/admin/payments/11/approve').set(as('2:Operator')).send({})).body,
     ).toEqual({ outcome: 'Approved' });

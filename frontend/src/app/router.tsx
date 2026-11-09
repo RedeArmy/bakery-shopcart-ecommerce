@@ -97,6 +97,26 @@ export const routes: RouteObject[] = [
           },
         ],
       },
+      {
+        // La revisión de pagos la hace quien atiende: un operador o un administrador
+        element: <ProtectedRoute roles={['Operator', 'Administrator']} />,
+        children: [
+          {
+            path: 'admin/payments/deposits',
+            lazy: async () => ({
+              Component: (await import('../features/payment-review/pages/deposit-review-page'))
+                .DepositReviewPage,
+            }),
+          },
+          {
+            path: 'admin/payments/cash',
+            lazy: async () => ({
+              Component: (await import('../features/payment-review/pages/cash-payments-page'))
+                .CashPaymentsPage,
+            }),
+          },
+        ],
+      },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

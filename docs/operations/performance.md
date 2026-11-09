@@ -33,6 +33,7 @@ Measured on 30 October 2026, SQL Server 2022 in Docker on a developer laptop. "B
 | `SP_Inventory_GetLedger`, a variant with 60,000 movements | 713 ms | 29 ms |
 | `SP_Payments_ListPendingDeposits`, history of 20,000 approved deposits | 281 ms | 26 ms |
 | `SP_Users_List`, 3,000 accounts | 6,393 reads; 15.4 ms | 100 reads; 8.7 ms |
+| `SP_Payments_ListPendingDeposits` and `SP_Payments_ListCash`, searching by text in the history of 50,000 orders (8 November 2026) | 104,647 and 180,192 reads with the first plan, which looked up the order of each payment one by one | 3,569 and 3,390 reads with `HASH JOIN` and `RECOMPILE`; the text-free queue is 995 reads |
 
 The causes, in order of impact:
 

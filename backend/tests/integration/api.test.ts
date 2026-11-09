@@ -1046,6 +1046,14 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
     const proof = await uploadProof(customerA.token, idOrder, `CASH-${runId}`, '1.00');
     expect(proof.status).toBe(422);
 
+    // Quien atiende lo encuentra en la lista de cobros en efectivo, por su número de pedido; el cliente no la ve
+    expect((await get(customerA.token, '/admin/payments/cash')).status).toBe(403);
+    const pendingCash = await get(operator, '/admin/payments/cash');
+    expect(list(pendingCash.body, 'items').map((row) => row['idPayment'])).toContain(idPayment);
+    const orderNumber = str((await get(customerA.token, `/orders/${idOrder}`)).body, 'orderNumber');
+    const found = await get(operator, `/admin/payments/cash?search=${orderNumber}`);
+    expect(list(found.body, 'items').map((row) => row['idPayment'])).toEqual([idPayment]);
+
     // Lo confirma quien atiende, no el cliente; confirmar dos veces no cambia nada
     expect(
       (await post(customerA.token, `/admin/payments/${idPayment}/confirm-cash`, {})).status,

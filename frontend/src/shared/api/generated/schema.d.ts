@@ -878,6 +878,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/payments/cash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cash payments, for the person who collects them in the branch
+         * @description By default the pending ones, the ones that expire first at the top. `search` is a literal text looked for in the order number and in the name and email of the customer.
+         */
+        get: operations["adminListCashPayments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/payments/{id}/proofs/{proofId}": {
         parameters: {
             query?: never;
@@ -1911,6 +1931,23 @@ export interface components {
             /** Format: date-time */
             submittedAt?: string | null;
             ageHours?: number | null;
+        };
+        CashQueueItem: {
+            idPayment: components["schemas"]["Id"];
+            idOrder: components["schemas"]["Id"];
+            orderNumber: string;
+            customerName?: string;
+            customerEmail?: string;
+            amount: components["schemas"]["MoneyText"];
+            idPaymentStatus?: number;
+            statusName: string;
+            pickupBranchName?: string | null;
+            /** Format: date */
+            requestedDeliveryDate?: string | null;
+            /** Format: date-time */
+            expiresAt: string;
+            /** Format: date-time */
+            createdAt?: string;
         };
         ReviewOutcome: {
             /** @description Approved, AlreadyApproved, Orphan, RejectedAmountMismatch, Rejected, RejectedOrderCancelled or AlreadyRejected */
@@ -4024,6 +4061,8 @@ export interface operations {
                 status?: "Pending" | "UnderReview" | "Approved" | "Rejected";
                 from?: string;
                 to?: string;
+                /** @description A literal text looked for in the order number and in the name and email of the customer. */
+                search?: string;
                 page?: components["parameters"]["Page"];
                 size?: components["parameters"]["Size"];
             };
@@ -4041,6 +4080,40 @@ export interface operations {
                 content: {
                     "application/json": {
                         items: components["schemas"]["DepositQueueItem"][];
+                        page: number;
+                        size: number;
+                        total: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminListCashPayments: {
+        parameters: {
+            query?: {
+                status?: "Pending" | "Approved" | "Expired";
+                search?: string;
+                page?: components["parameters"]["Page"];
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["CashQueueItem"][];
                         page: number;
                         size: number;
                         total: number;

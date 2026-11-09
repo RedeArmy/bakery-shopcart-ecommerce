@@ -513,3 +513,37 @@ BEGIN
     EXEC tSQLt.AssertEqualsString @Expected = N'1.1.0', @Actual = @Version;
 END;
 GO
+
+CREATE PROCEDURE Test_Readers.[test the review queue search finds a deposit by order number and by email and leaves out the rest]
+AS
+BEGIN
+    DECLARE @First INT, @FirstPayment INT, @Second INT, @SecondPayment INT;
+    EXEC Test_Readers.UnderReview @Email = N'ana@shopcart.test', @Key = N'key-1', @Hash = '0000000000000000000000000000000000000000000000000000000000000001', @Reference = N'REF-1', @IDOrder = @First OUTPUT, @IDPayment = @FirstPayment OUTPUT;
+    EXEC Test_Readers.UnderReview @Email = N'luis@shopcart.test', @Key = N'key-2', @Hash = '0000000000000000000000000000000000000000000000000000000000000002', @Reference = N'REF-2', @IDOrder = @Second OUTPUT, @IDPayment = @SecondPayment OUTPUT;
+    DECLARE @Number NVARCHAR(20) = (SELECT OrderNumber FROM dbo.Orders WHERE IDOrder = @First);
+
+    CREATE TABLE #Found (IDPayment INT, IDOrder INT, OrderNumber NVARCHAR(20), CustomerName NVARCHAR(120), CustomerEmail NVARCHAR(256), Amount VARCHAR(25),
+                         IDPaymentStatus TINYINT, StatusName NVARCHAR(30), BankName NVARCHAR(80), ReferenceNumber NVARCHAR(40), DepositDate DATE,
+                         DepositedAmount VARCHAR(25), RejectionReason NVARCHAR(250), IDPaymentProof INT, SubmittedAt DATETIME2(3), AgeHours INT, TotalCount INT);
+    INSERT INTO #Found EXEC dbo.SP_Payments_ListPendingDeposits @Search = @Number;
+    DECLARE @ByNumber INT = (SELECT COUNT(*) FROM #Found), @ByNumberId INT = (SELECT MIN(IDPayment) FROM #Found), @Total INT = (SELECT MIN(TotalCount) FROM #Found);
+    DELETE FROM #Found;
+    INSERT INTO #Found EXEC dbo.SP_Payments_ListPendingDeposits @Search = N'  luis@shopcart.test ';
+    DECLARE @ByEmail INT = (SELECT COUNT(*) FROM #Found), @ByEmailId INT = (SELECT MIN(IDPayment) FROM #Found);
+    DELETE FROM #Found;
+    -- El texto es literal: un comodín no coincide con todo
+    INSERT INTO #Found EXEC dbo.SP_Payments_ListPendingDeposits @Search = N'%';
+    DECLARE @Wildcard INT = (SELECT COUNT(*) FROM #Found);
+    DELETE FROM #Found;
+    INSERT INTO #Found EXEC dbo.SP_Payments_ListPendingDeposits @Search = N'nobody-has-this-text';
+    DECLARE @Unknown INT = (SELECT COUNT(*) FROM #Found);
+
+    EXEC tSQLt.AssertEquals @Expected = 1, @Actual = @ByNumber;
+    EXEC tSQLt.AssertEquals @Expected = @FirstPayment, @Actual = @ByNumberId;
+    EXEC tSQLt.AssertEquals @Expected = 1, @Actual = @Total;
+    EXEC tSQLt.AssertEquals @Expected = 1, @Actual = @ByEmail;
+    EXEC tSQLt.AssertEquals @Expected = @SecondPayment, @Actual = @ByEmailId;
+    EXEC tSQLt.AssertEquals @Expected = 0, @Actual = @Wildcard;
+    EXEC tSQLt.AssertEquals @Expected = 0, @Actual = @Unknown;
+END;
+GO

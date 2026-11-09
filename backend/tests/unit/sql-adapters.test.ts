@@ -530,11 +530,19 @@ const cases: Case[] = [
         statusId: 2,
         from: null,
         to: null,
+        search: null,
         page: 1,
         size: 20,
       }),
     'dbo.SP_Payments_ListPendingDeposits',
-    ['IDPaymentStatus', 'From', 'To', 'PageNumber', 'PageSize'],
+    ['IDPaymentStatus', 'From', 'To', 'PageNumber', 'PageSize', 'Search'],
+  ],
+  [
+    'listCash',
+    (e) =>
+      createSqlPaymentsRepository(e).listCash({ statusId: 1, search: 'PED-1', page: 1, size: 20 }),
+    'dbo.SP_Payments_ListCash',
+    ['IDPaymentStatus', 'Search', 'PageNumber', 'PageSize'],
   ],
   [
     'approve',

@@ -17,6 +17,16 @@ export interface NavItem {
 export const NAV_ITEMS: readonly NavItem[] = [
   { labelKey: 'nav.catalogue', to: '/catalogue' },
   { labelKey: 'nav.orders', accountLabelKey: 'nav.myOrders', to: '/orders' },
+  {
+    labelKey: 'nav.depositReview',
+    to: '/admin/payments/deposits',
+    roles: ['Operator', 'Administrator'],
+  },
+  {
+    labelKey: 'nav.cashPayments',
+    to: '/admin/payments/cash',
+    roles: ['Operator', 'Administrator'],
+  },
   { labelKey: 'nav.branches', to: '/admin/branches', roles: ['Administrator'] },
   { labelKey: 'nav.paymentMethods', to: '/admin/payment-methods', roles: ['Administrator'] },
 ];
