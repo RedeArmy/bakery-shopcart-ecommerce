@@ -38,10 +38,14 @@ export function useCancelOrder(idOrder: number) {
       key.renew();
       return order;
     },
+    // El personal cancela con la misma operación: también se vuelve a pedir lo que ve en su administración
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['order'] });
       await queryClient.invalidateQueries({ queryKey: ['orders'] });
       await queryClient.invalidateQueries({ queryKey: ['order-payments'] });
+      await queryClient.invalidateQueries({ queryKey: ['staff-order'] });
+      await queryClient.invalidateQueries({ queryKey: ['staff-orders'] });
+      await queryClient.invalidateQueries({ queryKey: ['staff-order-payments'] });
     },
   });
 }

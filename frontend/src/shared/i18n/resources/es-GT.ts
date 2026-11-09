@@ -13,6 +13,7 @@ export const esGT = {
     pageOf: 'Página {{page}} de {{pages}}',
     optional: 'opcional',
     mainNavigation: 'Navegación principal',
+    adminNavigation: 'Administración',
     pagination: 'Paginación',
   },
   announcement: {
@@ -24,6 +25,7 @@ export const esGT = {
     myOrders: 'Mis pedidos',
     branches: 'Sucursales',
     paymentMethods: 'Métodos de pago',
+    staffOrders: 'Gestión de pedidos',
     depositReview: 'Depósitos',
     cashPayments: 'Cobros en efectivo',
     cart: 'Carrito',
@@ -363,6 +365,56 @@ export const esGT = {
       phoneInvalid: 'Use solo números, espacios, guiones o paréntesis (de 6 a 20 caracteres).',
     },
   },
+  staffOrders: {
+    title: 'Gestión de pedidos',
+    intro:
+      'Los pedidos de todos los clientes. Búsquelos por número de pedido o por correo, y desde cada uno dé el siguiente paso, cancélelo o registre una devolución.',
+    search: 'Buscar pedido',
+    searchHint: 'Número de pedido o correo',
+    searchSubmit: 'Buscar',
+    emptyTitle: 'No hay pedidos con esos datos',
+    emptyText: 'Pruebe con otro estado o con otro texto de búsqueda.',
+    back: 'Volver a los pedidos',
+    notFoundTitle: 'Este pedido no existe',
+    notFoundText: 'Revise la dirección o busque el pedido por su número.',
+    steps: {
+      InPreparation: 'Pasar a preparación',
+      Dispatched: 'Marcar como despachado',
+      Delivered: 'Marcar como entregado',
+    },
+    payments: {
+      title: 'Pagos',
+      none: 'Este pedido todavía no tiene pagos.',
+      failed: 'No se pudieron cargar los pagos.',
+      kinds: { Card: 'Tarjeta', Deposit: 'Depósito bancario', Cash: 'Efectivo en sucursal' },
+      statuses: {
+        Pending: 'Pendiente',
+        UnderReview: 'En revisión',
+        Approved: 'Aprobado',
+        Rejected: 'Rechazado',
+        Expired: 'Vencido',
+      },
+    },
+    return: {
+      open: 'Registrar una devolución',
+      title: 'Devolución',
+      intro:
+        'Escriba cuántas unidades de cada producto se devuelven. El reembolso lo calcula el sistema.',
+      pending_one: 'Se puede devolver {{count}} unidad',
+      pending_other: 'Se pueden devolver {{count}} unidades',
+      reason: 'Motivo de la devolución',
+      confirm: 'Registrar devolución',
+      close: 'Cerrar',
+      done: 'Devolución registrada. Reembolso:',
+      problems: {
+        reasonRequired: 'Escriba el motivo de la devolución.',
+        reasonTooLong: 'El motivo es demasiado largo.',
+        nothingSelected: 'Indique al menos una unidad para devolver.',
+        quantityInvalid:
+          'Las unidades deben ser un número entero que no pase de lo que se puede devolver.',
+      },
+    },
+  },
   depositReview: {
     title: 'Revisión de depósitos',
     intro:
@@ -541,6 +593,8 @@ export const esGT = {
     lines: 'Productos',
     quantity_one: '{{count}} unidad',
     quantity_other: '{{count}} unidades',
+    returnedQuantity_one: 'Se devolvió {{count}} unidad',
+    returnedQuantity_other: 'Se devolvieron {{count}} unidades',
     inscription: 'Mensaje: {{text}}',
     delivery: 'Entrega',
     history: 'Historial',

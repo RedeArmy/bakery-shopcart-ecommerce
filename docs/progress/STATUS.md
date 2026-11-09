@@ -1,6 +1,6 @@
 # Status
 
-_Last updated: Friday 6 November 2026 (end of the checkout and deposit payment session)._
+_Last updated: Monday 9 November 2026 (order administration for the staff)._
 
 ## Current stage
 
@@ -8,6 +8,8 @@ _Last updated: Friday 6 November 2026 (end of the checkout and deposit payment s
 
 ## Done since the last update
 
+- **Order administration for the staff** (9 November). `/admin/orders` lists the orders of every customer with a status filter and a search by order number or email (status, text and page live in the address); `/admin/orders/:id` shows the customer, the lines (with the units already returned), how it is received, the payment attempts and the history, and offers what the status allows: the next step (`Paid` to `InPreparation` to `Dispatched` to `Delivered`), the cancellation with its own confirmation, and a partial or full return of the units still pending, with the refund the server calculates. No new endpoint, procedure or migration: the API was complete. The pieces the customer detail and the staff detail share (lines, fulfilment, summary) were extracted into `features/orders/components`. The administration links moved to a second row of the header (seven links did not fit next to the logo); the mobile menu is unchanged. The return runs from the page, not from its form, because a fully returned order removes the form and a mutation of an unmounted component loses its notice (found by the end-to-end run). Verified: frontend 366 unit tests (39 new), type check and lint clean, and the end-to-end suite 11 of 11 on a fresh stack, whose purchase scenario now also takes the cash order through preparation, dispatch and delivery and registers a return.
+- **`audit` is a required check** of the `Protect main` ruleset (9 November), after it passed on pull request 61. `integration` is still not required.
 - **Payment review for the staff** (8 November). The cash confirmation and the deposit review queue are on screen: `/admin/payments/cash` and `/admin/payments/deposits`, for operators and administrators. New `GET /admin/payments/cash` (procedure `SP_Payments_ListCash`, 88 operations, 96 procedures) so the person in the branch can find the order a customer comes to pay; both lists can be searched by order number, name or email (`SP_Payments_ListPendingDeposits` 1.3.0). The search takes its own branch with `HASH JOIN` after the first plan read 104,647 and 180,192 pages with 50,000 orders (now 3,569 and 3,390); `sql:bench` has the new cases. Verified: tSQLt 630, backend unit 384 and integration 22, frontend 327, e2e (the guest buys, the staff approves the deposit and confirms the cash, the customer sees both orders paid). The e2e now shares one staff session per run (`tests/e2e/fixtures.ts`): the edge allows 10 `/auth` calls a minute and three separate administrator logins plus the guest and the registration went over it.
 - **The guest recovery is removed** (8 November, migration V0018). `/recover`, its link on the sign-in page, `POST /auth/guest/recovery-code`, `POST /auth/guest/recover`, `SP_Users_SetRecoveryCode`, `SP_Users_FindGuestsByEmail` and the column `Users.GuestRecoveryHash` are gone; the contract has 87 operations, the database 95 procedures and 624 tSQLt tests. The migration also marks the two procedures as no longer current in `ObjectVersions`, so `db:verify` stays clean. The order tracking keeps asking for the number and the email. Verified: backend unit 383, integration 22, tSQLt 624, frontend 304, `db:verify` clean from scratch and on a populated database (50,000 orders).
 - **The payment status says it is cash** (8 November). The order detail does too (`PaymentNotice`). On the payment page a cash payment reads "waiting for your cash payment" and "your order is reserved until you arrive at the branch and pay in cash" (then "payment received" or "time ran out"), instead of the deposit wording.
@@ -46,10 +48,9 @@ _Last updated: Friday 6 November 2026 (end of the checkout and deposit payment s
 
 ## Next
 
-1. **Add `audit` to the required checks of the ruleset in GitHub** (owner action), after the job has passed once on a pull request.
-2. **Make the `integration` job a required check** after it has been stable for a few pull requests, together with `audit`.
-3. **The screens, in the order of the frontend design:** the order confirmation with the recovery code, the deposit review queue, staff orders, the dashboard, then the rest of the administration (authentication, the shell, the catalogue, the cart, the checkout, the deposit payment and my orders are done). Use one small pull request per block.
-4. **Housekeeping:** update the primary checkout (`git pull --ff-only`). Merged branches are deleted by hand, by the owner's decision.
+1. **Make the `integration` job a required check** after it has been stable for a few pull requests (owner action; `audit` already is).
+2. **The screens, in the order of the frontend design:** the dashboard, then the rest of the administration: inventory, catalogue maintenance, coupons, users and the audit log (authentication, the shell, the catalogue, the cart, the checkout, the deposit payment, my orders, the payment review and the order administration are done). Use one small pull request per block.
+3. **Housekeeping:** merged branches are deleted by hand, by the owner's decision; `feat/frontend-nyc-bakery-design` is parked on purpose.
 
 ## Spike results
 

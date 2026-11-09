@@ -17,6 +17,9 @@ export function Header() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const items = visibleNavItems(session.user?.role ?? null);
+  // Los enlaces de administración son muchos y no caben junto al logo: van en una segunda fila, solo para el personal
+  const publicItems = items.filter((item) => item.roles === undefined);
+  const staffItems = items.filter((item) => item.roles !== undefined);
   const inAccount = hasAccount(session);
 
   // Al cambiar de página el menú del teléfono se cierra solo
@@ -61,7 +64,7 @@ export function Header() {
     <header className="sticky top-0 z-30 border-b border-stone-200 bg-stone-50/95 backdrop-blur">
       <div className="mx-auto grid h-16 max-w-[1200px] grid-cols-[1fr_auto_1fr] items-center px-4 md:px-6">
         <nav className="hidden gap-6 md:flex" aria-label={t('common.mainNavigation')}>
-          {items.map((item) => (
+          {publicItems.map((item) => (
             <NavLink key={item.to} to={item.to} className={LINK}>
               {t(navLabelKey(item, inAccount))}
             </NavLink>
@@ -91,6 +94,19 @@ export function Header() {
           {account}
         </div>
       </div>
+
+      {staffItems.length === 0 ? null : (
+        <nav
+          className="mx-auto hidden max-w-[1200px] flex-wrap gap-x-6 gap-y-1 border-t border-stone-200 px-6 py-2 md:flex"
+          aria-label={t('common.adminNavigation')}
+        >
+          {staffItems.map((item) => (
+            <NavLink key={item.to} to={item.to} className={LINK}>
+              {t(navLabelKey(item, inAccount))}
+            </NavLink>
+          ))}
+        </nav>
+      )}
 
       <nav
         id="mobile-menu"
