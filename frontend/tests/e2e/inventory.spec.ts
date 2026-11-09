@@ -10,10 +10,11 @@ test('the administrator picks a category, creates a product with starting stock 
   await expect(page.getByRole('heading', { level: 1, name: 'Inventario' })).toBeVisible();
   const main = page.getByRole('main');
 
-  // Las categorías salen en orden alfabético; se elige la primera
+  // Las categorías salen en orden alfabético. Se elige la última: el producto de la prueba se queda en el catálogo compartido y así
+  // no altera las cuentas de las categorías que usan las otras pruebas (Cupcakes, Pasteles)
   const categories = page.getByLabel('Categoría');
-  await expect(categories.locator('option')).not.toHaveCount(1);
-  await categories.selectOption({ index: 1 });
+  await expect(categories.locator('option')).not.toHaveCount(1, { timeout: 30_000 });
+  await categories.selectOption({ index: (await categories.locator('option').count()) - 1 });
   await expect(page).toHaveURL(/category=\d+/);
   await expect(
     main.getByRole('listitem').first().or(main.getByText('Esta categoría aún no tiene productos')),

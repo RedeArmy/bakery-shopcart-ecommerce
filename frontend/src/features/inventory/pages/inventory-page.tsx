@@ -5,6 +5,7 @@ import { useSession } from '../../../shared/auth';
 import { Button } from '../../../shared/ui/button';
 import { SelectField } from '../../../shared/ui/fields';
 import { PagedResults } from '../../../shared/ui/paged-results';
+import { ErrorState } from '../../../shared/ui/states';
 import { useCategories } from '../../catalogue/hooks/use-catalogue-queries';
 import { categoryChoices, choiceLabel } from '../../catalogue/model/categories';
 import { CreateProductDialog } from '../components/create-product-dialog';
@@ -49,6 +50,9 @@ export function InventoryPage() {
         ) : null}
       </header>
 
+      {categories.isError ? (
+        <ErrorState error={categories.error} onRetry={() => void categories.refetch()} />
+      ) : null}
       <div className="w-full sm:w-80">
         <SelectField
           label={t('inventory.category')}

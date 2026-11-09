@@ -5,7 +5,7 @@ import { useSession } from '../../../shared/auth';
 import { useIdempotencyKey } from '../../checkout/hooks/use-checkout';
 import { PAGE_SIZE, PRODUCT_LIST_SIZE } from '../model/inventory';
 import { productBody, variantBody } from '../model/new-product';
-import type { NewProductValues } from '../model/new-product';
+import type { NewProductValues, NewVariantValues } from '../model/new-product';
 
 /** Una página del libro de movimientos de la variante, el más reciente primero. La clave lleva la sesión. */
 export function useLedger(idVariant: number | null, page: number) {
@@ -122,7 +122,8 @@ export function useCreateProduct() {
         setCreatedProduct(created.idProduct);
       }
       const idProduct = done.productId;
-      for (const [index, variant] of input.values.variants.entries()) {
+      // Una variante tras otra, en el orden escrito: así quedan en ese orden y, si una falla, las anteriores ya están hechas
+      const createVariant = async (index: number, variant: NewVariantValues): Promise<void> => {
         let idVariant = done.variants.get(index);
         if (idVariant === undefined) {
           const created = unwrap(
@@ -147,7 +148,11 @@ export function useCreateProduct() {
           );
           done.stocked.add(index);
         }
-      }
+      };
+      await input.values.variants.reduce<Promise<void>>(async (previous, variant, index) => {
+        await previous;
+        await createVariant(index, variant);
+      }, Promise.resolve());
       return idProduct;
     },
     // También si falla a medias: el producto ya existe y la lista debe mostrarlo

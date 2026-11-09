@@ -74,7 +74,7 @@ describe('choosing the category', () => {
 
     expect(await screen.findByText('Elija una categoría para ver sus productos.')).toBeDefined();
     await waitFor(() => {
-      expect(screen.getAllByRole('option').length).toBe(5);
+      expect(screen.getAllByRole('option')).toHaveLength(5);
     });
     const names = screen.getAllByRole('option').map((option) => option.textContent.trim());
     expect(names).toEqual(['Elija una categoría', 'Bebidas', 'Panes', 'Tartas', '↳ Frutales']);
