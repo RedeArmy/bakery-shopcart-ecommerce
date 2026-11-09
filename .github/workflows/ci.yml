@@ -249,6 +249,45 @@ jobs:
           DB_APP_USER: shopcart_app
           APP_PUBLIC_URL: http://localhost:8080
 
+  # Recorre la aplicación completa como lo hace quien la revisa: el stack de docker compose y un navegador real. No es una
+  # comprobación obligatoria (tarda y depende de un navegador), pero deja a la vista si el flujo de compra funciona de punta a punta
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [unit]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --ignore-scripts
+      # Crea el .env con secretos generados en esta ejecución, construye las imágenes y levanta todo con los datos de demostración
+      - name: Start the stack
+        run: npm run up
+      - name: Install the browser
+        run: npm exec --workspace=@shopcart/frontend -- playwright install --with-deps chromium
+      - name: Run the end-to-end suite
+        run: |
+          password="$(grep '^SEED_ADMIN_PASSWORD=' .env | cut -d= -f2-)"
+          echo "::add-mask::$password"
+          E2E_ADMIN_PASSWORD="$password" E2E_BASE_URL=http://localhost:8080 npm run test:e2e
+      - name: Keep the traces and the report of a failure
+        if: failure()
+        uses: actions/upload-artifact@v7 # spelling-ignore: nombre de la acción de terceros
+        with:
+          name: e2e-failure
+          path: |
+            frontend/test-results
+            frontend/playwright-report
+          retention-days: 7
+      - name: Logs of the stack
+        if: failure()
+        run: docker compose logs --no-color --tail 200 # spelling-ignore: opción de docker compose
+      - name: Stop the stack
+        if: always()
+        run: docker compose down --volumes
+
   # Humo en Windows: dependencias nativas (argon2) y checksum con fin de línea CRLF
   windows-smoke:
     runs-on: windows-latest

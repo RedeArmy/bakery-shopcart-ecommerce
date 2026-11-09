@@ -13,6 +13,7 @@ GitHub Actions on Linux, plus one Windows job for native dependencies and checks
 | `secrets` | `gitleaks` over the full history | Stage 0 |
 | `sql-lint` | `npm run sql:lint` | Stage 0 |
 | `compose-validate` | `docker compose config` for the default and all profiles | Stage 0 |
+| `e2e` | Starts the whole stack (`npm run up`) and runs the Playwright suite in a real browser: catalogue, session, the guest purchase with its deposit, the staff work on the order, the dashboards. **Not a required check** (it takes minutes and depends on a browser); a failure keeps the traces and the report as an artefact and prints the logs of the stack. A failed scenario is retried once and shows as flaky | Phase 2 |
 | `windows-smoke` | Install, unit tests and `sql:lint` on Windows; the runner tests and the migration register check cover the CRLF checksum | Stage 0 |
 | `sql-tests` | Migrate `ShopCart_CI` from scratch, `db:verify`, tSQLt, procedure coverage | Stage 2 (enabled and required) |
 | `images` | Build the backend, frontend and runner Dockerfiles | Stage 2 audit (not yet required) |
