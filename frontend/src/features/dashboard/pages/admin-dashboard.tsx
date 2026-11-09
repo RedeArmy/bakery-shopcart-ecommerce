@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { CategorySalesList } from '../components/category-sales';
+import { DashboardHeader } from '../components/dashboard-header';
 import { PeriodFilter } from '../components/period-filter';
 import { RecentOrders } from '../components/recent-orders';
 import { ReportSection } from '../components/report-section';
@@ -32,10 +33,7 @@ export function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-4xl text-stone-900">{t('dashboard.title')}</h1>
-        <p className="mt-1 max-w-2xl text-stone-600">{t('dashboard.adminIntro')}</p>
-      </header>
+      <DashboardHeader intro={t('dashboard.adminIntro')} />
       <PeriodFilter
         query={query}
         onChange={(next) => {

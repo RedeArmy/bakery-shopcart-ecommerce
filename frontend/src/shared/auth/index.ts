@@ -1,4 +1,11 @@
 export { auth } from './instance';
 export { useSession } from './use-session';
-export { hasAccount, hasContact, isGuestSession } from './accounts';
+export {
+  STAFF_ROLES,
+  hasAccount,
+  hasContact,
+  isGuestSession,
+  isStaffRole,
+  landingPath,
+} from './accounts';
 export type { Role, SessionState, SessionUser } from './session-store';

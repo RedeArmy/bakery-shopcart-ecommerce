@@ -22,6 +22,8 @@ export const test = base.extend<{ staff: Page }, { staffSession: Page | null }>(
       await page.getByLabel('Correo electrónico').fill('admin@shopcart.test');
       await page.getByLabel('Contraseña').fill(password);
       await page.getByRole('button', { name: 'Iniciar sesión' }).click();
+      // El personal entra a su panel y no a la tienda
+      await expect(page).toHaveURL(/\/admin$/);
       await expect(
         page.getByRole('banner').getByRole('link', { name: 'Sucursales' }),
       ).toBeVisible();

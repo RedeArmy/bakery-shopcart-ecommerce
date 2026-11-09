@@ -4,6 +4,7 @@ import type { ORDER_STATUSES } from '../../orders/model/order-status';
 import { useCashQueue, useDepositQueue } from '../../payment-review/hooks/use-payment-review';
 import { useStaffOrders } from '../../staff-orders/hooks/use-staff-orders';
 import type { StaffOrdersQuery } from '../../staff-orders/model/staff-orders';
+import { DashboardHeader } from '../components/dashboard-header';
 import { KpiCard } from '../components/kpi-card';
 import { OrderQueue } from '../components/order-queue';
 import { statusId } from '../model/dashboard';
@@ -35,10 +36,7 @@ export function OperatorDashboard() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-4xl text-stone-900">{t('dashboard.title')}</h1>
-        <p className="mt-1 max-w-2xl text-stone-600">{t('dashboard.operatorIntro')}</p>
-      </header>
+      <DashboardHeader intro={t('dashboard.operatorIntro')} />
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <KpiCard
           label={t('dashboard.queue.toPrepare')}

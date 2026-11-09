@@ -1,6 +1,7 @@
 import { createBrowserRouter } from 'react-router-dom';
 import type { RouteObject } from 'react-router-dom';
-import { HomePage } from '../features/catalogue/pages/home-page';
+import { HomeRoute } from './pages/home-route';
+import { ShopOnly } from './pages/shop-only';
 import { Layout } from './layout';
 import { ProtectedRoute } from './protected-route';
 import { NotFoundPage } from './pages/not-found-page';
@@ -15,31 +16,37 @@ export const routes: RouteObject[] = [
     // Sin esto, entrar directo a una pantalla de carga diferida dejaría la página en blanco hasta que llegue su código
     HydrateFallback: Splash,
     children: [
-      { index: true, element: <HomePage /> },
+      { index: true, element: <HomeRoute /> },
       {
-        path: 'catalogue',
-        lazy: async () => ({
-          Component: (await import('../features/catalogue/pages/catalogue-page')).CataloguePage,
-        }),
-      },
-      {
-        path: 'catalogue/:id',
-        lazy: async () => ({
-          Component: (await import('../features/catalogue/pages/product-page')).ProductPage,
-        }),
-      },
-      {
-        path: 'cart',
-        lazy: async () => ({
-          Component: (await import('../features/cart/pages/cart-page')).CartPage,
-        }),
-      },
-      {
-        // El pago no exige cuenta: quien no tiene sesión compra como invitado o entra, y la pantalla lo resuelve (ADR-0027)
-        path: 'checkout',
-        lazy: async () => ({
-          Component: (await import('../features/checkout/pages/checkout-page')).CheckoutPage,
-        }),
+        // Comprar es del visitante y del cliente: el personal vuelve a su panel
+        element: <ShopOnly />,
+        children: [
+          {
+            path: 'catalogue',
+            lazy: async () => ({
+              Component: (await import('../features/catalogue/pages/catalogue-page')).CataloguePage,
+            }),
+          },
+          {
+            path: 'catalogue/:id',
+            lazy: async () => ({
+              Component: (await import('../features/catalogue/pages/product-page')).ProductPage,
+            }),
+          },
+          {
+            path: 'cart',
+            lazy: async () => ({
+              Component: (await import('../features/cart/pages/cart-page')).CartPage,
+            }),
+          },
+          {
+            // El pago no exige cuenta: quien no tiene sesión compra como invitado o entra, y la pantalla lo resuelve (ADR-0027)
+            path: 'checkout',
+            lazy: async () => ({
+              Component: (await import('../features/checkout/pages/checkout-page')).CheckoutPage,
+            }),
+          },
+        ],
       },
       {
         path: 'login',

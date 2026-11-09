@@ -1,12 +1,18 @@
 // cspell:disable
 import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import '../../src/shared/i18n';
 import { apiError, installFakeApi, json } from './support/fake-api';
 import type { Call } from './support/fake-api';
 import { getGuestToken } from '../../src/features/cart/model/guest-token';
 import { renderApp, resetSession, signInAs } from './support/render';
+
+// El personal que llega al pago vuelve a su panel, una ruta que se carga bajo demanda y trae la librería de gráficas: se precarga
+// para que la prueba no espere la primera importación
+beforeAll(async () => {
+  await import('../../src/features/dashboard/pages/dashboard-page');
+}, 60_000);
 
 beforeEach(async () => {
   await resetSession();
@@ -67,12 +73,18 @@ describe('checkout access', () => {
     expect(main.getByText('La personalización necesita una cuenta')).toBeDefined();
   });
 
-  it('does not open the payment to staff accounts', async () => {
+  it('does not open the payment to staff accounts: they do not buy, so they go back to their dashboard', async () => {
     await signInAs('Administrator');
-    installFakeApi({});
-    renderApp('/checkout');
-    expect(await screen.findByText('No tiene acceso a esta página')).toBeDefined();
-  });
+    const { calls } = installFakeApi({});
+    const { router } = renderApp('/checkout');
+    await waitFor(
+      () => {
+        expect(router.state.location.pathname).toBe('/admin');
+      },
+      { timeout: 10_000 },
+    );
+    expect(calls.some((call) => call.path.startsWith('/api/v1/checkout/'))).toBe(false);
+  }, 30_000);
 });
 
 describe('checkout personalisation', () => {

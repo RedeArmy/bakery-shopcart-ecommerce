@@ -1,3 +1,4 @@
+import { STAFF_ROLES } from '../shared/auth';
 import type { Role } from '../shared/auth';
 
 export interface NavItem {
@@ -8,6 +9,8 @@ export interface NavItem {
   to: string;
   /** Sin `roles` el enlace es público; con `roles` solo lo ven esos roles */
   roles?: readonly Role[];
+  /** Roles que no ven este enlace aunque sea público: el personal no compra, así que no tiene tienda ni «Mis pedidos» */
+  hiddenFor?: readonly Role[];
 }
 
 /**
@@ -15,8 +18,13 @@ export interface NavItem {
  * añade aquí su entrada con los roles que pueden verla.
  */
 export const NAV_ITEMS: readonly NavItem[] = [
-  { labelKey: 'nav.catalogue', to: '/catalogue' },
-  { labelKey: 'nav.orders', accountLabelKey: 'nav.myOrders', to: '/orders' },
+  { labelKey: 'nav.catalogue', to: '/catalogue', hiddenFor: STAFF_ROLES },
+  {
+    labelKey: 'nav.orders',
+    accountLabelKey: 'nav.myOrders',
+    to: '/orders',
+    hiddenFor: STAFF_ROLES,
+  },
   { labelKey: 'nav.dashboard', to: '/admin', roles: ['Operator', 'Administrator'] },
   { labelKey: 'nav.staffOrders', to: '/admin/orders', roles: ['Operator', 'Administrator'] },
   {
@@ -41,7 +49,8 @@ export function visibleNavItems(
   role: Role | null,
   items: readonly NavItem[] = NAV_ITEMS,
 ): NavItem[] {
-  return items.filter(
-    (item) => item.roles === undefined || (role !== null && item.roles.includes(role)),
-  );
+  return items.filter((item) => {
+    if (role !== null && item.hiddenFor?.includes(role) === true) return false;
+    return item.roles === undefined || (role !== null && item.roles.includes(role));
+  });
 }
