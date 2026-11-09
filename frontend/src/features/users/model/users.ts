@@ -26,12 +26,11 @@ export interface UsersQuery {
  */
 export function parseUsersQuery(params: URLSearchParams): UsersQuery {
   const role = Number(params.get('role') ?? '');
-  const active = params.get('active');
   const page = Number(params.get('page') ?? '1');
   return {
     search: (params.get('q') ?? '').trim().slice(0, 100),
     role: ROLES.some((item) => item.id === role) ? role : null,
-    active: active === 'true' ? true : active === 'false' ? false : null,
+    active: activeFromValue(params.get('active') ?? ''),
     page: Number.isInteger(page) && page >= 1 ? page : 1,
   };
 }
