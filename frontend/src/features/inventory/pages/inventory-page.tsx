@@ -1,166 +1,124 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
-import { errorMessage } from '../../../shared/api';
+import { useSession } from '../../../shared/auth';
 import { Button } from '../../../shared/ui/button';
+import { SelectField } from '../../../shared/ui/fields';
 import { PagedResults } from '../../../shared/ui/paged-results';
-import { EmptyState, ErrorState, LoadingSkeleton } from '../../../shared/ui/states';
-import { DEFAULT_QUERY } from '../../catalogue/model/catalogue-query';
-import { useProduct, useProducts } from '../../catalogue/hooks/use-catalogue-queries';
-import { SearchForm } from '../../payment-review/components/search-form';
-import { LedgerEntry } from '../components/ledger-entry';
-import { StockForm } from '../components/stock-form';
-import { VariantList, variantLabel } from '../components/variant-list';
-import { useLedger } from '../hooks/use-inventory';
-import {
-  PAGE_SIZE,
-  PRODUCT_CHOICES,
-  inventoryParams,
-  parseInventoryQuery,
-} from '../model/inventory';
+import { ErrorState } from '../../../shared/ui/states';
+import { useCategories } from '../../catalogue/hooks/use-catalogue-queries';
+import { categoryChoices, choiceLabel } from '../../catalogue/model/categories';
+import { CreateProductDialog } from '../components/create-product-dialog';
+import { ProductRow } from '../components/product-row';
+import { useCategoryProducts } from '../hooks/use-inventory';
+import { PRODUCT_LIST_SIZE, inventoryParams, parseInventoryQuery } from '../model/inventory';
 import type { InventoryQuery } from '../model/inventory';
 
-/** Los productos que coinciden con la búsqueda, para elegir uno. */
-function ProductChoices({
-  search,
-  onChoose,
-}: Readonly<{ search: string; onChoose: (id: number) => void }>) {
-  const { t } = useTranslation();
-  const { data, isPending, isError, error, refetch } = useProducts(
-    { ...DEFAULT_QUERY, q: search },
-    PRODUCT_CHOICES,
-  );
-  if (search === '') return <p className="text-stone-600">{t('inventory.searchFirst')}</p>;
-  if (isPending) return <LoadingSkeleton count={3} />;
-  if (isError) return <ErrorState error={error} onRetry={() => void refetch()} />;
-  if (data.items.length === 0) {
-    return (
-      <EmptyState title={t('inventory.noProductsTitle')} text={t('inventory.noProductsText')} />
-    );
-  }
-  return (
-    <ul className="space-y-3">
-      {data.items.map((product) => (
-        <li
-          key={product.idProduct}
-          className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-stone-200 bg-white p-4"
-        >
-          <div>
-            <p className="text-lg text-stone-900">{product.name}</p>
-            {product.categoryName ? (
-              <p className="text-sm text-stone-600">{product.categoryName}</p>
-            ) : null}
-          </div>
-          <Button
-            variant="secondary"
-            onClick={() => {
-              onChoose(product.idProduct);
-            }}
-          >
-            {t('inventory.chooseProduct')}
-          </Button>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 /**
- * El inventario (RF-05), para el operador y el administrador: se busca el producto, se elige una de sus variantes y se ve su libro
- * de movimientos (el más reciente primero) con quién movió qué y por qué. El stock se mueve de dos formas, las dos con motivo:
- * registrando unidades que llegaron o dejándolo en lo que se contó. El producto, la variante y la página viven en la dirección.
+ * El inventario (RF-05), para el operador y el administrador: se elige una categoría (en orden alfabético), se ven sus productos y
+ * de cada uno se abre todo lo necesario para mover su stock: las variantes, su libro de movimientos y las dos formas de moverlo
+ * (una entrada o un ajuste por conteo), las dos con motivo. Solo el administrador crea productos, en una ventana. La categoría, el
+ * producto, la variante y las páginas viven en la dirección, así un enlace lleva al mismo lugar.
  */
 export function InventoryPage() {
   const { t } = useTranslation();
+  const { user } = useSession();
   const [params, setParams] = useSearchParams();
+  const [creating, setCreating] = useState(false);
   const query = parseInventoryQuery(params);
+  const categories = useCategories();
+  const products = useCategoryProducts(query.category, query.list);
   const go = (next: Partial<InventoryQuery>): void => {
     setParams(inventoryParams({ ...query, ...next }));
   };
-  const product = useProduct(query.product);
-  const ledger = useLedger(query.variant, query.page);
-  const variant = product.data?.variants.find((item) => item.idVariant === query.variant);
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-4xl text-stone-900">{t('inventory.title')}</h1>
-        <p className="mt-1 max-w-2xl text-stone-600">{t('inventory.intro')}</p>
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-4xl text-stone-900">{t('inventory.title')}</h1>
+          <p className="mt-1 max-w-2xl text-stone-600">{t('inventory.intro')}</p>
+        </div>
+        {user?.role === 'Administrator' ? (
+          <Button
+            onClick={() => {
+              setCreating(true);
+            }}
+          >
+            {t('inventory.create.open')}
+          </Button>
+        ) : null}
       </header>
-      <SearchForm
-        id="inventory-search"
-        label={t('inventory.search')}
-        placeholder={t('inventory.searchHint')}
-        submitLabel={t('inventory.searchSubmit')}
-        value={query.search}
-        onSearch={(search) => {
-          go({ search, product: null, variant: null, page: 1 });
-        }}
-      />
-      {query.product === null ? (
-        <ProductChoices
-          search={query.search}
-          onChoose={(id) => {
-            go({ product: id, variant: null, page: 1 });
+
+      {categories.isError ? (
+        <ErrorState error={categories.error} onRetry={() => void categories.refetch()} />
+      ) : null}
+      <div className="w-full sm:w-80">
+        <SelectField
+          label={t('inventory.category')}
+          value={query.category === null ? '' : String(query.category)}
+          onChange={(event) => {
+            const id = Number(event.target.value);
+            go({ category: id > 0 ? id : null, list: 1, product: null, variant: null, page: 1 });
+          }}
+        >
+          <option value="">{t('inventory.chooseCategory')}</option>
+          {categoryChoices(categories.data ?? []).map((choice) => (
+            <option key={choice.id} value={choice.id}>
+              {choiceLabel(choice)}
+            </option>
+          ))}
+        </SelectField>
+      </div>
+
+      {query.category === null ? (
+        <p className="text-stone-600">{t('inventory.chooseCategoryFirst')}</p>
+      ) : (
+        <PagedResults
+          prefix="inventory.products"
+          result={products}
+          page={query.list}
+          pageSize={PRODUCT_LIST_SIZE}
+          onPage={(list) => {
+            go({ list, product: null, variant: null, page: 1 });
+          }}
+          renderItem={(product) => (
+            <ProductRow
+              key={product.idProduct}
+              product={product}
+              open={query.product === product.idProduct}
+              idVariant={query.product === product.idProduct ? query.variant : null}
+              page={query.page}
+              onToggle={() => {
+                go({
+                  product: query.product === product.idProduct ? null : product.idProduct,
+                  variant: null,
+                  page: 1,
+                });
+              }}
+              onVariant={(variant) => {
+                go({ variant, page: 1 });
+              }}
+              onPage={(page) => {
+                go({ page });
+              }}
+            />
+          )}
+        />
+      )}
+
+      {creating ? (
+        <CreateProductDialog
+          category={query.category}
+          onClose={() => {
+            setCreating(false);
+          }}
+          onCreated={(idProduct, idCategory) => {
+            setCreating(false);
+            // Se muestra el producto recién creado, abierto, para poder mover su stock enseguida
+            go({ category: idCategory, list: 1, product: idProduct, variant: null, page: 1 });
           }}
         />
-      ) : (
-        <section className="space-y-4" aria-label={t('inventory.variants')}>
-          {product.isPending ? <LoadingSkeleton count={2} /> : null}
-          {product.isError ? (
-            <p role="alert" className="rounded-control bg-red-50 px-4 py-3 text-sm text-red-900">
-              {errorMessage(product.error)}
-            </p>
-          ) : null}
-          {product.data ? (
-            <>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-2xl text-stone-900">{product.data.name}</h2>
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    go({ product: null, variant: null, page: 1 });
-                  }}
-                >
-                  {t('inventory.changeProduct')}
-                </Button>
-              </div>
-              <VariantList
-                variants={product.data.variants}
-                selected={query.variant}
-                onSelect={(id) => {
-                  go({ variant: id, page: 1 });
-                }}
-              />
-            </>
-          ) : null}
-        </section>
-      )}
-      {query.variant !== null && variant ? (
-        <section
-          className="space-y-4"
-          aria-label={t('inventory.ledgerOf', { name: variantLabel(variant) })}
-        >
-          <h2 className="text-2xl text-stone-900">
-            {t('inventory.ledgerOf', { name: variantLabel(variant) })}
-          </h2>
-          <p className="text-stone-700">
-            {t('inventory.onHand', { count: variant.onHandStock ?? 0 })}
-          </p>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <StockForm kind="entry" idVariant={variant.idVariant} />
-            <StockForm kind="adjustment" idVariant={variant.idVariant} />
-          </div>
-          <PagedResults
-            prefix="inventory"
-            result={ledger}
-            page={query.page}
-            pageSize={PAGE_SIZE}
-            onPage={(page) => {
-              go({ page });
-            }}
-            renderItem={(entry) => <LedgerEntry key={entry.idInventoryMovement} entry={entry} />}
-          />
-        </section>
       ) : null}
     </div>
   );
