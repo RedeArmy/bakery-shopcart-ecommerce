@@ -39,6 +39,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   },
   { labelKey: 'nav.branches', to: '/admin/branches', roles: ['Administrator'] },
   { labelKey: 'nav.paymentMethods', to: '/admin/payment-methods', roles: ['Administrator'] },
+  { labelKey: 'nav.audit', to: '/admin/audit', roles: ['Administrator'] },
 ];
 
 /** El texto del enlace: quien está dentro de su cuenta lee «Mis pedidos»; el visitante y el invitado, «Pedidos». */

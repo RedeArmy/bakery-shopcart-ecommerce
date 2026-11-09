@@ -1,0 +1,232 @@
+// cspell:disable
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import '../../src/shared/i18n';
+import { apiError, installFakeApi, json } from './support/fake-api';
+import type { Call } from './support/fake-api';
+import { renderApp, resetSession, signInAs } from './support/render';
+
+beforeEach(async () => {
+  await resetSession();
+});
+
+afterEach(async () => {
+  cleanup();
+  await resetSession();
+  vi.unstubAllGlobals();
+});
+
+const entry = (extra = {}) => ({
+  idAuditLog: '41',
+  module: 'Users',
+  entityName: 'User',
+  entityKey: '7',
+  action: 'StatusChange',
+  previousValue: '{"IsActive":true}',
+  newValue: '{"IsActive":false}',
+  idUser: 1,
+  userName: 'Ana Pérez',
+  createdAt: '2030-06-01T15:00:00Z',
+  ...extra,
+});
+
+const page = (items: unknown[], total = items.length) => ({ items, page: 1, size: 20, total });
+
+const lastQuery = (calls: Call[]): URLSearchParams =>
+  new URLSearchParams(
+    calls.filter((call) => call.path === '/api/v1/admin/audit-log').at(-1)?.search,
+  );
+
+describe('the audit log', () => {
+  it('lists the records with what was done, on what, by whom, when and what changed', async () => {
+    await signInAs('Administrator');
+    installFakeApi({
+      'GET /api/v1/admin/audit-log': json(
+        page([
+          entry(),
+          entry({
+            idAuditLog: '40',
+            module: 'Coupons',
+            entityName: 'Coupon',
+            entityKey: '3',
+            action: 'Create',
+            previousValue: null,
+            newValue: '{"Code":"VERANO","Percent":"10"}',
+            userName: null,
+          }),
+        ]),
+      ),
+    });
+    renderApp('/admin/audit');
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Bitácora' })).toBeDefined();
+    const items = await screen.findAllByRole('listitem');
+    const first = items[0] as HTMLElement;
+    expect(within(first).getByText('Cambio de estado')).toBeDefined();
+    expect(within(first).getByText('Usuarios')).toBeDefined();
+    expect(within(first).getByText('User 7')).toBeDefined();
+    expect(within(first).getByText(/Por Ana Pérez/)).toBeDefined();
+    // Campo por campo: el nombre, el valor anterior y el nuevo
+    expect(within(first).getByText('IsActive')).toBeDefined();
+    expect(within(first).getByText('true')).toBeDefined();
+    expect(within(first).getByText('false')).toBeDefined();
+
+    // Una creación no trae valor anterior; el que la hizo no se conoce y se dice
+    const second = items[1] as HTMLElement;
+    expect(within(second).getByText('Creación')).toBeDefined();
+    expect(within(second).getByText('Cupones')).toBeDefined();
+    expect(within(second).getByText('VERANO')).toBeDefined();
+    expect(within(second).getAllByText('—').length).toBeGreaterThan(0);
+    expect(within(second).getByText(/Lo hizo el sistema/)).toBeDefined();
+    expect(screen.getByText('2 registros')).toBeDefined();
+  });
+
+  it('shows the saved texts as they are when they are not JSON', async () => {
+    await signInAs('Administrator');
+    installFakeApi({
+      'GET /api/v1/admin/audit-log': json(
+        page([entry({ previousValue: 'Pending', newValue: 'Paid' })]),
+      ),
+    });
+    renderApp('/admin/audit');
+
+    expect(await screen.findByText('Pending')).toBeDefined();
+    expect(screen.getByText('Paid')).toBeDefined();
+    expect(screen.queryByRole('table')).toBeNull();
+  });
+
+  it('filters by module and starts again from the first page', async () => {
+    await signInAs('Administrator');
+    const user = userEvent.setup();
+    const { calls } = installFakeApi({
+      'GET /api/v1/admin/audit-log': json(page([entry()], 45)),
+    });
+    renderApp('/admin/audit?page=2');
+    await screen.findByText('IsActive');
+    expect(lastQuery(calls).get('page')).toBe('2');
+
+    await user.selectOptions(screen.getByLabelText('Módulo'), 'Cupones');
+
+    await waitFor(() => {
+      expect(lastQuery(calls).get('module')).toBe('Coupons');
+    });
+    expect(lastQuery(calls).get('page')).toBe('1');
+  });
+
+  it('searches by the identifier of the entity', async () => {
+    await signInAs('Administrator');
+    const user = userEvent.setup();
+    const { calls } = installFakeApi({ 'GET /api/v1/admin/audit-log': json(page([entry()])) });
+    renderApp('/admin/audit');
+    await screen.findByText('IsActive');
+
+    await user.type(screen.getByLabelText('Identificador'), 'PED-2030-000007');
+    await user.click(screen.getByRole('button', { name: 'Buscar' }));
+
+    await waitFor(() => {
+      expect(lastQuery(calls).get('entityKey')).toBe('PED-2030-000007');
+    });
+  });
+
+  it('filters by the first and the last day, the last one counted whole', async () => {
+    await signInAs('Administrator');
+    const { calls } = installFakeApi({ 'GET /api/v1/admin/audit-log': json(page([entry()])) });
+    renderApp('/admin/audit');
+    await screen.findByText('IsActive');
+
+    fireEvent.change(screen.getByLabelText('Desde'), { target: { value: '2030-06-01' } });
+    fireEvent.change(screen.getByLabelText('Hasta'), { target: { value: '2030-06-30' } });
+
+    await waitFor(() => {
+      const query = lastQuery(calls);
+      expect(query.get('from')).toBe('2030-06-01T00:00:00-06:00');
+      expect(query.get('to')).toBe('2030-07-01T06:00:00.000Z');
+    });
+  });
+
+  it('reads the filters from the address and explains a range that is reversed', async () => {
+    await signInAs('Administrator');
+    const { calls } = installFakeApi({ 'GET /api/v1/admin/audit-log': json(page([entry()])) });
+    renderApp('/admin/audit?module=Orders&from=2030-06-10&to=2030-06-01');
+
+    expect(
+      await screen.findByText('La fecha «Desde» no puede ser posterior a «Hasta».'),
+    ).toBeDefined();
+    expect(screen.getByLabelText<HTMLSelectElement>('Módulo').value).toBe('Orders');
+    expect(calls.some((call) => call.path === '/api/v1/admin/audit-log')).toBe(false);
+  });
+
+  it('pages on the server', async () => {
+    await signInAs('Administrator');
+    const user = userEvent.setup();
+    const { calls } = installFakeApi({
+      'GET /api/v1/admin/audit-log': json(page([entry()], 45)),
+    });
+    renderApp('/admin/audit');
+    expect(await screen.findByText('Página 1 de 3')).toBeDefined();
+    expect(lastQuery(calls).get('size')).toBe('20');
+
+    await user.click(screen.getByRole('button', { name: 'Siguiente' }));
+
+    await waitFor(() => {
+      expect(lastQuery(calls).get('page')).toBe('2');
+    });
+    expect(await screen.findByText('Página 2 de 3')).toBeDefined();
+  });
+
+  it('says so when nothing matches', async () => {
+    await signInAs('Administrator');
+    installFakeApi({ 'GET /api/v1/admin/audit-log': json(page([])) });
+    renderApp('/admin/audit?module=Branches');
+
+    expect(await screen.findByText('No hay registros con esos datos')).toBeDefined();
+  });
+
+  it('shows the error of the server and lets it retry', async () => {
+    await signInAs('Administrator');
+    const user = userEvent.setup();
+    let failing = true;
+    installFakeApi({
+      'GET /api/v1/admin/audit-log': () => {
+        if (failing) return apiError(500, 'INTERNAL_ERROR');
+        return json(page([entry()]));
+      },
+    });
+    renderApp('/admin/audit');
+
+    expect(await screen.findByRole('alert')).toBeDefined();
+    failing = false;
+    await user.click(screen.getByRole('button', { name: 'Reintentar' }));
+
+    expect(await screen.findByText('IsActive')).toBeDefined();
+  });
+
+  it.each(['Operator', 'Customer'] as const)('keeps the log away from the %s', async (role) => {
+    await signInAs(role);
+    const { calls } = installFakeApi({ 'GET /api/v1/admin/audit-log': json(page([entry()])) });
+    renderApp('/admin/audit');
+
+    expect(await screen.findByText('No tiene acceso a esta página')).toBeDefined();
+    expect(calls.some((call) => call.path === '/api/v1/admin/audit-log')).toBe(false);
+  });
+});
+
+describe('the audit log in the menu', () => {
+  it('is offered to the administrator and not to the operator', async () => {
+    await signInAs('Administrator');
+    installFakeApi({ 'GET /api/v1/admin/audit-log': json(page([])) });
+    const administrator = renderApp('/admin/audit');
+    const header = (await screen.findAllByRole('banner'))[0] as HTMLElement;
+    expect(within(header).getByRole('link', { name: 'Bitácora' })).toBeDefined();
+    administrator.unmount();
+    cleanup();
+    await resetSession();
+
+    await signInAs('Operator');
+    installFakeApi({});
+    renderApp('/admin');
+    const operatorHeader = (await screen.findAllByRole('banner'))[0] as HTMLElement;
+    expect(within(operatorHeader).queryByRole('link', { name: 'Bitácora' })).toBeNull();
+  });
+});

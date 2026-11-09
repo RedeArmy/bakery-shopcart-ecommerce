@@ -96,6 +96,13 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // La bitácora la consulta solo el administrador (RF-09)
+            path: 'admin/audit',
+            lazy: async () => ({
+              Component: (await import('../features/audit/pages/audit-log-page')).AuditLogPage,
+            }),
+          },
+          {
             path: 'admin/payment-methods',
             lazy: async () => ({
               Component: (await import('../features/payment-methods/pages/payment-methods-page'))
