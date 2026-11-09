@@ -63,6 +63,15 @@ describe('visibleNavItems', () => {
     expect(visibleNavItems(null, NAV_ITEMS).map((item) => item.to)).toContain('/catalogue');
   });
 
+  it('gives the order administration to the staff and keeps it away from customers and visitors', () => {
+    const of = (role: Parameters<typeof visibleNavItems>[0]) =>
+      visibleNavItems(role, NAV_ITEMS).map((item) => item.to);
+    expect(of('Operator')).toContain('/admin/orders');
+    expect(of('Administrator')).toContain('/admin/orders');
+    expect(of('Customer')).not.toContain('/admin/orders');
+    expect(of(null)).not.toContain('/admin/orders');
+  });
+
   it('gives the payment review to the staff and keeps it away from customers and visitors', () => {
     const reviewPaths = ['/admin/payments/deposits', '/admin/payments/cash'];
     const of = (role: Parameters<typeof visibleNavItems>[0]) =>

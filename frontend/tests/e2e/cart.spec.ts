@@ -6,10 +6,13 @@ import { expect, test } from './fixtures';
 // El borde deja pasar 10 llamadas por minuto a /auth (ráfaga de 5): esta prueba usa 1 (la sesión de invitado) y la de la
 // sesión, que además cubre al cliente con cuenta (productos por encargo, personalización), otras 4.
 
-test('a visitor buys as a guest, with the coupon, the made-to-order products and the personalisation locked, sends the proof, and the staff approves the deposit and confirms the cash', async ({
+test('a visitor buys as a guest, with the coupon, the made-to-order products and the personalisation locked, sends the proof, the staff approves the deposit, confirms the cash, delivers the order and registers a return', async ({
   page,
   staffSession: staff,
 }) => {
+  // Es un recorrido largo: la compra del invitado y el trabajo del personal sobre sus pedidos. Los 30 s de cada prueba no alcanzan
+  test.setTimeout(90_000);
+
   const header = page.getByRole('banner');
 
   // Un producto por encargo no se pide sin cuenta: se explica en lugar de ofrecer el botón
@@ -223,4 +226,24 @@ test('a visitor buys as a guest, with the coupon, the made-to-order products and
     await expect(page.getByRole('heading', { level: 3, name: `Pedido ${number}` })).toBeVisible();
     await expect(page.getByText('Pagado').first()).toBeVisible();
   }
+
+  // El personal lleva el pedido pagado en efectivo hasta la entrega y registra la devolución de una unidad. Se busca por el número,
+  // como todo lo demás, y se navega con el menú para no renovar la sesión
+  await staff.getByRole('banner').getByRole('link', { name: 'Gestión de pedidos' }).click();
+  await expect(staff.getByRole('heading', { level: 1, name: 'Gestión de pedidos' })).toBeVisible();
+  await staff.getByLabel('Buscar pedido').fill(cashNumber);
+  await staff.getByRole('button', { name: 'Buscar' }).click();
+  await staff.getByRole('link', { name: new RegExp(cashNumber) }).click();
+  await expect(
+    staff.getByRole('heading', { level: 1, name: `Pedido ${cashNumber}` }),
+  ).toBeVisible();
+  // Cada paso aparece cuando el anterior se guardó: el botón de la pantalla es el único que el estado permite
+  for (const step of ['Pasar a preparación', 'Marcar como despachado', 'Marcar como entregado']) {
+    await staff.getByRole('button', { name: step }).click();
+  }
+  await staff.getByRole('button', { name: 'Registrar una devolución' }).click();
+  await staff.getByRole('spinbutton').first().fill('1');
+  await staff.getByLabel('Motivo de la devolución').fill('Llegó aplastado');
+  await staff.getByRole('button', { name: 'Registrar devolución' }).click();
+  await expect(staff.getByText(/Devolución registrada/)).toBeVisible();
 });

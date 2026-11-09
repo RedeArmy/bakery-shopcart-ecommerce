@@ -4,14 +4,14 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { formatDateOnly, formatDateTime } from '../../../shared/lib/date';
 import { hasAccount, useSession } from '../../../shared/auth';
 import { ButtonLink } from '../../../shared/ui/button';
-import { SelectField } from '../../../shared/ui/fields';
 import { Pagination } from '../../../shared/ui/pagination';
 import { Price } from '../../../shared/ui/price';
 import { EmptyState, ErrorState, LoadingSkeleton } from '../../../shared/ui/states';
 import { OrderStatusBadge } from '../components/order-status-badge';
+import { StatusFilter } from '../components/status-filter';
 import { TrackOrder } from '../components/track-order';
 import { useOrders } from '../hooks/use-orders';
-import { ORDER_STATUSES, PAGE_SIZE, displayStatus, parseOrdersQuery } from '../model/order-status';
+import { PAGE_SIZE, displayStatus, parseOrdersQuery } from '../model/order-status';
 
 /**
  * Los pedidos del cliente, en el orden que da el servidor, con filtro por estado y la página en la dirección. Dentro de una cuenta
@@ -103,22 +103,12 @@ function MyOrders({ inAccount }: Readonly<{ inAccount: boolean }>) {
             {t('orders.yours')}
           </h2>
         )}
-        <div className="w-full sm:w-64">
-          <SelectField
-            label={t('orders.filter')}
-            value={status === null ? '' : String(status)}
-            onChange={(event) => {
-              change({ status: event.target.value === '' ? null : Number(event.target.value) });
-            }}
-          >
-            <option value="">{t('orders.allStatuses')}</option>
-            {ORDER_STATUSES.map((name, index) => (
-              <option key={name} value={index + 1}>
-                {t(`orders.status.${name}`)}
-              </option>
-            ))}
-          </SelectField>
-        </div>
+        <StatusFilter
+          status={status}
+          onChange={(next) => {
+            change({ status: next });
+          }}
+        />
       </header>
       {content}
     </section>

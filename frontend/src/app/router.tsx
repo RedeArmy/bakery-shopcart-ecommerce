@@ -102,6 +102,20 @@ export const routes: RouteObject[] = [
         element: <ProtectedRoute roles={['Operator', 'Administrator']} />,
         children: [
           {
+            path: 'admin/orders',
+            lazy: async () => ({
+              Component: (await import('../features/staff-orders/pages/staff-orders-page'))
+                .StaffOrdersPage,
+            }),
+          },
+          {
+            path: 'admin/orders/:id',
+            lazy: async () => ({
+              Component: (await import('../features/staff-orders/pages/staff-order-page'))
+                .StaffOrderPage,
+            }),
+          },
+          {
             path: 'admin/payments/deposits',
             lazy: async () => ({
               Component: (await import('../features/payment-review/pages/deposit-review-page'))
