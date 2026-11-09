@@ -63,6 +63,27 @@ describe('visibleNavItems', () => {
     expect(visibleNavItems(null, NAV_ITEMS).map((item) => item.to)).toContain('/catalogue');
   });
 
+  it('keeps the shop and the orders away from the staff, who do not buy', () => {
+    const of = (role: Parameters<typeof visibleNavItems>[0]) =>
+      visibleNavItems(role, NAV_ITEMS).map((item) => item.to);
+    for (const role of ['Operator', 'Administrator'] as const) {
+      expect(of(role)).not.toContain('/catalogue');
+      expect(of(role)).not.toContain('/orders');
+    }
+    expect(of('Customer')).toEqual(expect.arrayContaining(['/catalogue', '/orders']));
+    expect(of(null)).toEqual(expect.arrayContaining(['/catalogue', '/orders']));
+  });
+
+  it('hides a link from the roles it lists in hiddenFor', () => {
+    const items: NavItem[] = [
+      { labelKey: 'a', to: '/a', hiddenFor: ['Operator'] },
+      { labelKey: 'b', to: '/b' },
+    ];
+    expect(visibleNavItems('Operator', items).map((item) => item.to)).toEqual(['/b']);
+    expect(visibleNavItems('Customer', items).map((item) => item.to)).toEqual(['/a', '/b']);
+    expect(visibleNavItems(null, items).map((item) => item.to)).toEqual(['/a', '/b']);
+  });
+
   it('gives each staff role the dashboard first, and no one else', () => {
     const of = (role: Parameters<typeof visibleNavItems>[0]) =>
       visibleNavItems(role, NAV_ITEMS).map((item) => item.to);
@@ -99,6 +120,19 @@ describe('visibleNavItems', () => {
 describe('redirectTarget', () => {
   it('goes back to where the customer was heading', () => {
     expect(redirectTarget({ from: '/orders/5?tab=payment' })).toBe('/orders/5?tab=payment');
+  });
+
+  it('takes the staff to the dashboard when they came without a destination, and the rest to the shop', () => {
+    expect(redirectTarget(undefined, 'Operator')).toBe('/admin');
+    expect(redirectTarget(null, 'Administrator')).toBe('/admin');
+    expect(redirectTarget(undefined, 'Customer')).toBe('/');
+    expect(redirectTarget(undefined, null)).toBe('/');
+    // Un destino propio se respeta, y uno peligroso o sin sentido vuelve al inicio de su rol
+    expect(redirectTarget({ from: '/admin/orders?status=2' }, 'Operator')).toBe(
+      '/admin/orders?status=2',
+    );
+    expect(redirectTarget({ from: '//evil.example' }, 'Administrator')).toBe('/admin');
+    expect(redirectTarget({ from: '/login' }, 'Operator')).toBe('/admin');
   });
 
   it.each([

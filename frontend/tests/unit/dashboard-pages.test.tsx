@@ -95,10 +95,11 @@ describe('the administrator dashboard', () => {
     const { calls } = adminApi();
     renderApp('/admin');
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Panel' })).toBeDefined();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Hola Ana' })).toBeDefined();
 
     const summarySection = await screen.findByRole('region', { name: 'Resumen del período' });
-    expect(within(summarySection).getByText('Q2,250.00')).toBeDefined();
+    // La sección aparece con su título mientras llegan los datos: se espera la primera cifra
+    expect(await within(summarySection).findByText('Q2,250.00')).toBeDefined();
     expect(within(summarySection).getByText('Q2,500.00')).toBeDefined();
     expect(within(summarySection).getByText('Q250.00')).toBeDefined();
     expect(within(summarySection).getByText('Q187.50')).toBeDefined();
@@ -277,7 +278,7 @@ describe('the operator dashboard', () => {
     operatorApi();
     renderApp('/admin');
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Panel' })).toBeDefined();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Hola Ana' })).toBeDefined();
 
     const toPrepare = await screen.findByRole('link', { name: /Por preparar/ });
     await waitFor(() => {

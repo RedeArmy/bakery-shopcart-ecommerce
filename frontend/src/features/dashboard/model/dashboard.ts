@@ -65,6 +65,9 @@ export function activePreset(range: DashboardRange, now: Date = new Date()): num
   return PRESET_DAYS.find((days) => lastDays(days, now).from === range.from) ?? null;
 }
 
+/** El primer nombre de quien entra, para saludarlo. Sin nombre se devuelve vacío y el saludo queda sin él. */
+export const firstName = (fullName: string): string => fullName.trim().split(/\s+/)[0] ?? '';
+
 /** Un importe del API como número, solo para dibujar su altura: lo que se lee en pantalla sigue siendo el texto del API. */
 export const plotValue = (amount: string): number => {
   const value = Number(amount);

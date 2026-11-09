@@ -367,7 +367,7 @@ export const esGT = {
     },
   },
   dashboard: {
-    title: 'Panel',
+    greeting: 'Hola {{name}}',
     adminIntro: 'Las ventas de la tienda y lo que está pendiente de atender.',
     operatorIntro: 'Lo que hay que atender ahora: pedidos, pagos y entregas.',
     period: {

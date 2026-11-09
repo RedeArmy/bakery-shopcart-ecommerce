@@ -6,6 +6,7 @@ import {
   isReversed,
   lastDays,
   parseDashboardQuery,
+  firstName,
   periodLabel,
   plotValue,
   rangeParams,
@@ -83,6 +84,13 @@ describe('what the charts show', () => {
   it('turns an amount into a height without touching the text', () => {
     expect(plotValue('1234.50')).toBe(1234.5);
     expect(plotValue('no es un monto')).toBe(0);
+  });
+
+  it('greets by the first name', () => {
+    expect(firstName('Eder Yafeth Garcia Quiroa')).toBe('Eder');
+    expect(firstName('  Ana   López ')).toBe('Ana');
+    expect(firstName('Operador')).toBe('Operador');
+    expect(firstName('')).toBe('');
   });
 
   it('knows the numbers of the order states', () => {

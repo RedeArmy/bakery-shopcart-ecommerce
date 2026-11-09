@@ -7,7 +7,13 @@ test('the administrator opens the dashboard from the menu, reads the reports and
   staff: page,
 }) => {
   await page.getByRole('banner').getByRole('link', { name: 'Panel', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: 'Panel' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: /^Hola / })).toBeVisible();
+
+  // El personal no compra: sin tienda, sin carrito y sin el aviso de los pasteles por encargo
+  const header = page.getByRole('banner');
+  await expect(header.getByRole('link', { name: 'Catálogo' })).toHaveCount(0);
+  await expect(header.getByRole('link', { name: /Carrito/ })).toHaveCount(0);
+  await expect(page.getByText(/Pasteles por encargo: cada producto indica/)).toHaveCount(0);
 
   // Cada reporte resuelve su estado: con datos o vacío, pero siempre a la vista
   for (const name of [

@@ -44,15 +44,16 @@ export function LoginPage() {
   });
 
   const arrival: unknown = location.state;
-  const target = redirectTarget(arrival);
+  const target = redirectTarget(arrival, session.user?.role);
   // Un invitado tiene sesión pero no cuenta: puede entrar o crear una cuenta desde aquí
   if (hasAccount(session)) return <Navigate to={target} replace />;
 
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
     try {
-      await auth.login(values.email, values.password);
-      void navigate(target, { replace: true });
+      const user = await auth.login(values.email, values.password);
+      // El personal entra a su panel y no a la tienda: el destino depende del rol de quien acaba de entrar
+      void navigate(redirectTarget(arrival, user.role), { replace: true });
     } catch (error) {
       setFormError(signInError(error, t));
     }

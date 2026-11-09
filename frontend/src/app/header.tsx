@@ -2,7 +2,14 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { CartLink } from '../features/cart/components/cart-link';
-import { auth, hasAccount, isGuestSession, useSession } from '../shared/auth';
+import {
+  auth,
+  hasAccount,
+  isGuestSession,
+  isStaffRole,
+  landingPath,
+  useSession,
+} from '../shared/auth';
 import { Button, ButtonLink } from '../shared/ui/button';
 import { CloseIcon, MenuIcon, UserIcon } from '../shared/ui/icons';
 import { navLabelKey, visibleNavItems } from './navigation';
@@ -85,12 +92,15 @@ export function Header() {
           </button>
         </div>
 
-        <Link to="/" className="font-display text-2xl tracking-tight text-stone-900">
+        <Link
+          to={landingPath(session.user?.role)}
+          className="font-display text-2xl tracking-tight text-stone-900"
+        >
           {t('common.appName')}
         </Link>
 
         <div className="flex items-center justify-end gap-1">
-          <CartLink />
+          {isStaffRole(session.user?.role) ? null : <CartLink />}
           {account}
         </div>
       </div>
