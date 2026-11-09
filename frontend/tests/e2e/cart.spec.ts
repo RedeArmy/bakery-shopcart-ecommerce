@@ -10,8 +10,9 @@ test('a visitor buys as a guest, with the coupon, the made-to-order products and
   page,
   staffSession: staff,
 }) => {
-  // Es un recorrido largo: la compra del invitado y el trabajo del personal sobre sus pedidos. Los 30 s de cada prueba no alcanzan
-  test.setTimeout(90_000);
+  // Es un recorrido largo: la compra del invitado y el trabajo del personal sobre sus pedidos. Con la base de datos fría una sola
+  // llamada llegó a tardar 6 s, y el recorrido tiene más de veinte: el tiempo de una prueba normal no alcanza
+  test.setTimeout(180_000);
 
   const header = page.getByRole('banner');
 
