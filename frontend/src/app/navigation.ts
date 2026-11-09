@@ -37,6 +37,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     to: '/admin/payments/cash',
     roles: ['Operator', 'Administrator'],
   },
+  { labelKey: 'nav.inventory', to: '/admin/inventory', roles: ['Operator', 'Administrator'] },
   { labelKey: 'nav.branches', to: '/admin/branches', roles: ['Administrator'] },
   { labelKey: 'nav.paymentMethods', to: '/admin/payment-methods', roles: ['Administrator'] },
   { labelKey: 'nav.users', to: '/admin/users', roles: ['Administrator'] },
