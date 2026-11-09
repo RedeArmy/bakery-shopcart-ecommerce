@@ -111,7 +111,8 @@ Fixed on 5 November, with four days left before Delivery Phase 2. The order prot
 | 3 | Catalogue administration | Categories, products, variants and prices | `/admin/categories`, `/admin/products`, `/admin/variants` |
 | 3 | Inventory | Ledger, entries, adjustments with a mandatory reason | `GET /admin/inventory/ledger`; `POST /admin/inventory/entries`, `/adjustments` |
 | 3 | Audit log (done) | `/admin/audit`, administrator only (RF-09): the records newest first, filtered by module (the eleven that the database writes), by identifier and by days, paged on the server, each with what was done, on what, by whom, when and what changed field by field. It only reads: a record cannot be edited or deleted | `GET /admin/audit-log` |
-| 3 | Coupons, users, refunds | One table each, with create and edit where the API allows | `/admin/coupons`, `/admin/users`, `/admin/refunds` |
+| 3 | Users (done) | `/admin/users`, administrator only (RF-01): the accounts (guests excluded) searched by name or email, filtered by role and by status, paged on the server, each with role, status, contact data, since when and the lock after failed sign-ins. An account is never deleted: it is deactivated after a confirmation (its sessions are closed) and reactivated in one click. The own account of the administrator is not offered for deactivation, as the server refuses it | `GET /admin/users`, `PATCH /admin/users/{id}` |
+| 3 | Coupons, refunds | One table each, with create and edit where the API allows | `/admin/coupons`, `/admin/refunds` |
 
 Not built: the card selector and its result page, the gateway status screen and the switch of payment method. The system screens (`/admin/system/*`) and the health probes are not part of the interface.
 
