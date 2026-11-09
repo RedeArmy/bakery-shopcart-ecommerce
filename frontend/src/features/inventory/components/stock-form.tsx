@@ -77,9 +77,9 @@ export function StockForm({
         </p>
       ) : null}
       {mutation.isSuccess ? (
-        <p role="status" className="text-sm text-emerald-900">
+        <output className="block text-sm text-emerald-900">
           {mutation.data.idMovement === null ? t('inventory.nothingChanged') : t('inventory.saved')}
-        </p>
+        </output>
       ) : null}
       <Button type="submit" loading={mutation.isPending}>
         {t(`inventory.${kind}.submit`)}
