@@ -96,6 +96,13 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // Las cuentas las administra solo el administrador (RF-01)
+            path: 'admin/users',
+            lazy: async () => ({
+              Component: (await import('../features/users/pages/users-page')).UsersPage,
+            }),
+          },
+          {
             // La bitácora la consulta solo el administrador (RF-09)
             path: 'admin/audit',
             lazy: async () => ({
