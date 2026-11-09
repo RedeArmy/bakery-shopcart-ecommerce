@@ -56,6 +56,21 @@ This deletes the SQL Server data and the payment proofs volumes.
 | Port 8080 in use | Change `EDGE_PORT` in `.env` |
 | Card payments missing | Expected without Recurrente credentials; only bank deposit is offered ([availability rule](../payments/availability-rule.md)) |
 
+## Reading the log
+
+The backend writes one JSON line per request when it ends, with the message `request`:
+
+| Field | Meaning |
+|---|---|
+| `method`, `route` | The route as a module declared it (`/api/v1/orders/:id`), never the real address: identifiers and the query string do not reach the log, and every call of one route groups together. An address that no route attended is `unmatched` |
+| `status`, `durationMs` | The answer and how long it took. A `5xx` is logged at `error`, a `4xx` at `warn` and the rest at `info`; the health probes are at `debug` so they do not fill the log |
+| `requestId` | The same value as the `X-Request-Id` header of the response and the `requestId` of an error body: it ties the three together |
+| `userId` | Who made the call, when there was a session |
+
+To find the slow calls: `docker compose logs backend | grep '"msg":"request"'` and look at `durationMs`. The first calls after the database starts are slow by nature (SQL Server compiles each procedure the first time and loads the time zone data); a few seconds there is normal, the same route staying slow is not.
+
+The backend warms the database up with a trivial query when it connects and again every minute, so that restarting SQL Server does not leave the first customer paying for the time zone data (`Database warm-up finished` at `info`, `Database warm-up failed` at `warn` while the database is unreachable).
+
 ## Jobs and locks
 
 Jobs run inside the API process. Each `SP_Jobs_*` procedure takes a session `sp_getapplock`, so running two replicas is safe: the second one answers `Skipped`. A request stuck `InProgress` for more than 60 seconds is considered abandoned.
