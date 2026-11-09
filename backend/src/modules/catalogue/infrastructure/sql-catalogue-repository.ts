@@ -121,7 +121,7 @@ export function createSqlCatalogueRepository(execute: ProcedureExecutor): Catalo
     async createVariant(
       actor: number,
       productId: number,
-      input: VariantInput & { price: string },
+      input: VariantInput & { price: string; unitsPerPack: number; stockVariantId: number | null },
     ): Promise<number> {
       const result = await execute(
         'dbo.SP_Variants_Create',
@@ -135,6 +135,8 @@ export function createSqlCatalogueRepository(execute: ProcedureExecutor): Catalo
             type: sql.NVarChar(sql.MAX),
             value: attributesJson(input.attributes),
           },
+          { name: 'UnitsPerPack', type: sql.Int, value: input.unitsPerPack },
+          { name: 'IDStockVariant', type: sql.Int, value: input.stockVariantId },
         ],
         [{ name: 'IDVariant', type: sql.Int }],
       );

@@ -1,7 +1,8 @@
 /* =====================================================================
    Objeto   : dbo.SP_Returns_Register
-   Version  : 1.2.0
-   Cambio   : 1.2.0: el estado desde el que se puede devolver sale de dbo.FU_Orders_AllowedActions y no de una lista fija. Mismo error.
+   Version  : 1.3.0
+   Cambio   : 1.3.0: las variantes de un producto comparten una existencia medida en unidades (V0019); las cantidades de las líneas son paquetes; las unidades devueltas vuelven a la variante que guarda la existencia
+              Antes: 1.2.0: el estado desde el que se puede devolver sale de dbo.FU_Orders_AllowedActions y no de una lista fija. Mismo error.
               1.1.0: Devuelve también el importe como texto exacto (@RefundAmountText) para la API, que no usa números con coma flotante
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Compatible: el parámetro de salida nuevo es opcional. @Lines es un arreglo JSON [{"idOrderLine":1,"quantity":2}]; una línea no puede repetirse. El reembolso de cada
@@ -97,7 +98,8 @@ BEGIN
 
   -- Las unidades vuelven a la existencia física. Las variantes se bloquean en orden ascendente, igual que en el resto de procedimientos.
   DECLARE @ToLock TABLE (IDVariant INT PRIMARY KEY);
-  INSERT INTO @ToLock (IDVariant) SELECT DISTINCT IDVariant FROM @Computed;
+  INSERT INTO @ToLock (IDVariant)
+  SELECT DISTINCT sv.IDStockHolder FROM @Computed AS c JOIN dbo.Variants AS sv ON sv.IDVariant = c.IDVariant;
   DECLARE @IDVariant INT = 0, @Locked INT;
   WHILE 1 = 1
   BEGIN
@@ -111,7 +113,9 @@ BEGIN
   SET OnHandStock = v.OnHandStock + c.Quantity
   OUTPUT inserted.IDVariant, c.Quantity, inserted.OnHandStock INTO @Entries (IDVariant, Quantity, ResultingBalance)
   FROM dbo.Variants AS v WITH (UPDLOCK, ROWLOCK)
-  JOIN (SELECT IDVariant, Quantity = SUM(Quantity) FROM @Computed GROUP BY IDVariant) AS c ON c.IDVariant = v.IDVariant;
+  JOIN (SELECT sv.IDStockHolder, Quantity = SUM(cc.Quantity * sv.UnitsPerPack)
+        FROM @Computed AS cc JOIN dbo.Variants AS sv ON sv.IDVariant = cc.IDVariant
+        GROUP BY sv.IDStockHolder) AS c ON c.IDStockHolder = v.IDVariant;
 
   INSERT INTO dbo.InventoryMovements (IDVariant, IDInventoryMovementType, Quantity, ResultingBalance, Reason, IDUser, IDOrder, CreatedAt)
   SELECT IDVariant, 4, Quantity, ResultingBalance, CONCAT(N'Return of order ', @OrderNumber), @IDActor, @IDOrder, @Now FROM @Entries;

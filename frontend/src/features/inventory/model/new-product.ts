@@ -30,7 +30,9 @@ const variantSchema = z
       .string()
       .trim()
       .max(100, { error: `${V}.tooLong` }),
-    /** Unidades con las que empieza; vacío es sin stock todavía */
+    /** Unidades que trae el empaque; solo cuenta cuando el producto comparte una existencia entre sus empaques */
+    unitsPerPack: z.string().trim(),
+    /** Unidades con las que empieza; vacío es sin stock todavía (si se comparte la existencia, se pide una sola vez en el producto) */
     stock: z
       .string()
       .trim()
@@ -67,9 +69,28 @@ export const newProductSchema = z
       .refine((value) => /^\d{1,3}$/.test(value) && Number(value) <= 255, {
         error: `${V}.leadTime`,
       }),
+    /** Los empaques (bolsa de 6, docena…) comparten una sola existencia medida en unidades; si no, cada variante guarda la suya */
+    sharedStock: z.boolean(),
+    /** Unidades con las que empieza la existencia compartida; vacío es sin stock todavía */
+    initialUnits: z
+      .string()
+      .trim()
+      .refine((value) => value === '' || /^[1-9]\d{0,5}$/.test(value), { error: `${V}.stock` }),
     variants: z.array(variantSchema).min(1, { error: `${V}.variantsRequired` }),
   })
   .superRefine((product, context) => {
+    if (product.sharedStock) {
+      product.variants.forEach((variant, index) => {
+        const units = Number(variant.unitsPerPack);
+        if (!/^\d{1,4}$/.test(variant.unitsPerPack) || units < 1 || units > 1000) {
+          context.addIssue({
+            code: 'custom',
+            path: ['variants', index, 'unitsPerPack'],
+            message: `${V}.units`,
+          });
+        }
+      });
+    }
     const seen = new Set<string>();
     product.variants.forEach((variant, index) => {
       const key = variant.sku.toLowerCase();
@@ -92,6 +113,8 @@ export const EMPTY_VARIANT: NewVariantValues = {
   price: '',
   attributeName: '',
   attributeValue: '',
+  // Vacío a propósito: solo se pide cuando los empaques comparten la existencia, y un valor por omisión se mezclaría con lo que se escribe
+  unitsPerPack: '',
   stock: '',
 };
 
@@ -101,6 +124,8 @@ export const emptyProduct = (category: number | null): NewProductValues => ({
   name: '',
   description: '',
   leadTimeDays: '0',
+  sharedStock: false,
+  initialUnits: '',
   variants: [{ ...EMPTY_VARIANT }],
 });
 
@@ -112,11 +137,26 @@ export const productBody = (values: NewProductValues) => ({
   leadTimeDays: Number(values.leadTimeDays),
 });
 
+/** Cómo entra una variante a la existencia: cuántas unidades trae y de qué variante toma las unidades (ninguna: guarda las suyas). */
+export interface Packaging {
+  unitsPerPack: number;
+  stockVariantId: number | null;
+}
+
+/** Una variante que guarda su propia existencia y trae una unidad: lo de siempre. */
+const OWN_STOCK: Packaging = { unitsPerPack: 1, stockVariantId: null };
+
 /** El cuerpo de una variante: el precio como texto con dos decimales (ADR-0020) y el atributo solo si se escribió. */
-export const variantBody = (idProduct: number, variant: NewVariantValues) => ({
+export const variantBody = (
+  idProduct: number,
+  variant: NewVariantValues,
+  packaging: Packaging = OWN_STOCK,
+) => ({
   productId: idProduct,
   sku: variant.sku,
   price: toMoneyText(variant.price) ?? variant.price,
+  unitsPerPack: packaging.unitsPerPack,
+  stockVariantId: packaging.stockVariantId,
   ...(variant.attributeName === ''
     ? {}
     : { attributes: [{ name: variant.attributeName, value: variant.attributeValue }] }),

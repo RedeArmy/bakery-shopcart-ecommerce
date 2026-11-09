@@ -203,12 +203,17 @@ export function createSqlDemoStore(pool: sql.ConnectionPool): DemoStore {
         .input('IDProduct', sql.Int, idProduct)
         .input('SKU', sql.NVarChar(40), variant.sku)
         .input('PriceText', sql.VarChar(20), variant.price)
-        .input('Attributes', sql.NVarChar(sql.MAX), variantAttributes(variant)).query<{
+        .input('Attributes', sql.NVarChar(sql.MAX), variantAttributes(variant))
+        .input('UnitsPerPack', sql.Int, variant.unitsPerPack ?? 1)
+        .input('StockSku', sql.NVarChar(40), variant.sharesStockWith ?? null).query<{
         Id: number;
       }>(`
           DECLARE @IDVariant INT, @Price DECIMAL(18,2) = CAST(@PriceText AS DECIMAL(18,2));
+          -- A packaging that shares the stock draws it from the variant that holds it, which already exists (it is created first)
+          DECLARE @IDStockVariant INT = (SELECT IDVariant FROM dbo.Variants WHERE SKU = @StockSku);
           EXEC dbo.SP_Variants_Create @IDActor = @IDActor, @IDProduct = @IDProduct, @SKU = @SKU, @Price = @Price,
-                                      @Attributes = @Attributes, @IDVariant = @IDVariant OUTPUT;
+                                      @Attributes = @Attributes, @UnitsPerPack = @UnitsPerPack,
+                                      @IDStockVariant = @IDStockVariant, @IDVariant = @IDVariant OUTPUT;
           SELECT @IDVariant AS Id;`);
       return result.recordset[0]?.Id as number;
     },

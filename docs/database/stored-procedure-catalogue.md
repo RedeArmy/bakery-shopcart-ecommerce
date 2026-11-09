@@ -26,7 +26,7 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 
 | Object | Purpose |
 |---|---|
-| `VW_Inventory_Availability` | Built. Available stock per variant (`OnHandStock − ReservedStock`) |
+| `VW_Inventory_Availability` | Built. Stock shared by the packagings of a variant, in units (`OnHandStock`, `ReservedStock`, `AvailableStock`) and the packs of the variant that can be bought now (`AvailablePacks`) |
 | `VW_Inventory_Reconciliation` | Built. Two checks, one row per discrepancy with its cause in `Issue`: `OnHandStock` against `SUM(Quantity)` of the ledger (`OnHandVsLedger`) and `ReservedStock` against the lines of the active reservations (`ReservedVsReservations`). Must return no rows |
 | `VW_Orders_History` | Order with its status history |
 | `VW_Payments_PendingDeposits` | Review queue with age in hours |
@@ -204,6 +204,17 @@ Sources: `R0120` (audit), `R0130` to `R0138` (accounts and tokens), `R0140` to `
 - **Catalogue.** Every write needs an active administrator (`FU_Users_ActiveAdministrator`) and writes `SP_Audit_Record` in the same transaction; saving identical data leaves no entry. Categories cannot form cycles and cannot be deactivated while they hold active products or subcategories. A product update accepts the `RowVer` the panel read and answers 409 if it changed. Deactivating a product deactivates its variants, so `SP_Inventory_ReserveStock` stops reserving them. A variant is created without stock: units only enter through the inventory ledger, so the counter and the ledger never disagree. Prices travel as two-decimal text and are audited as text (module `Prices`).
 - **Reading.** `SP_Products_Get` returns one row with `Images` and `Variants` as JSON arrays. `SP_Products_Search` searches with `CHARINDEX` (a `%` typed by the user is text, not a wildcard), includes subcategories when filtering by category, and chooses the order among four fixed expressions, never a dynamic `ORDER BY`.
 - **Addresses.** The ownership condition is part of the `UPDATE` itself, so another customer's address answers 404 and is never modified, even under a race.
+
+### Packagings: one stock in units (built, V0019, [ADR-0031](../adr/0031-packagings-share-one-stock-measured-in-units.md))
+
+The variants of a product can draw from one stock measured in units. `Variants.UnitsPerPack` says how many units a pack holds, `IDStockVariant` says which variant of the same product holds the stock (NULL: this one holds its own) and `IDStockHolder` is the persisted `COALESCE(IDStockVariant, IDVariant)` that every procedure below joins. A variant that draws from another holds no stock or reservation of its own.
+
+- **Packs and units.** Cart, reservation and order lines count **packs** of a variant; `OnHandStock`, `ReservedStock`, the ledger, the entries and the counts are **units** of the holder. Packs available are the free units divided by `UnitsPerPack`, rounded down (54 units: 9 bags of 6 and 4 dozens; 50 units: 8 bags and 2 loose units).
+- **`SP_Variants_Create`** takes `@UnitsPerPack` (1 to 1000, default 1) and `@IDStockVariant`, which must be a variant of the same product that holds its own stock (`50422`). Deactivating a variant never touches the stock, not even the holder's.
+- **`SP_Inventory_ReserveStock`, `SP_Inventory_ReleaseCartReservation`, `SP_Inventory_ReleaseExpiredReservations`, `SP_Orders_CancelPending`, `SP_Payments_ConfirmPayment`, `SP_Orders_Cancel` and `SP_Returns_Register`** add the units of every line (`Quantity * UnitsPerPack`) per holder, lock the **holder** rows in ascending order and write the ledger on the holder. Lines of two packagings of the same product add their units before they are compared with the stock.
+- **`SP_Inventory_RegisterEntry`, `SP_Inventory_AdjustStock` and `SP_Inventory_GetLedger`** accept any variant of the product and act on its holder; quantities are units.
+- **`FU_Cart_AvailableStock`, `SP_Cart_Get`, `SP_Products_Get` and `SP_Products_Search`** answer in packs; the detail also gives `OnHandStock` (units), `OnHandPacks`, `LooseUnits`, `UnitsPerPack` and `IDStockHolder`. The search reports the most packs of one active variant, not the sum.
+- **`VW_Inventory_Reconciliation`** compares the reservations of every holder, in units, with its `ReservedStock`.
 
 ### `SP_Inventory_ReserveStock`: anti-oversell (built)
 

@@ -1,7 +1,8 @@
 /* =====================================================================
    Objeto   : dbo.SP_Inventory_ReserveStock
-   Version  : 1.1.0
-   Cambio   : Un invitado no reserva productos por encargo ni personalización
+   Version  : 1.2.0
+   Cambio   : 1.2.0: las variantes de un producto comparten una existencia medida en unidades (V0019); las cantidades de las líneas son paquetes
+              Antes: Un invitado no reserva productos por encargo ni personalización
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Nueva. Errores: 50400 parámetro inválido, 50404 carrito inexistente o ajeno, 50409 unidades agotadas,
               50422 carrito vacío o ventana de reserva sin configurar. Depende de R0110.
@@ -57,12 +58,14 @@ BEGIN
   --    orden no pueden esperarse en círculo, que era un deadlock real (60 carritos cruzados perdían 44). Incluye las de la
   --    reserva anterior del carrito, que se libera a continuación y tocaría variantes que quizá ya no están en el carrito.
   DECLARE @ToLock TABLE (IDVariant INT PRIMARY KEY);
+  -- Se bloquean las variantes que GUARDAN la existencia (los empaques de un producto comparten una)
   INSERT INTO @ToLock (IDVariant)
-  SELECT IDVariant FROM dbo.CartItems WHERE IDCart = @IDCart
+  SELECT sv.IDStockHolder FROM dbo.CartItems AS ci JOIN dbo.Variants AS sv ON sv.IDVariant = ci.IDVariant WHERE ci.IDCart = @IDCart
   UNION
-  SELECT rl.IDVariant
+  SELECT sv.IDStockHolder
   FROM dbo.ReservationLines AS rl
   JOIN dbo.Reservations AS r ON r.IDReservation = rl.IDReservation
+  JOIN dbo.Variants AS sv ON sv.IDVariant = rl.IDVariant
   WHERE r.IDCart = @IDCart AND r.IDOrder IS NULL AND r.Status = N'Active';
   DECLARE @IDVariant INT = 0, @Locked INT;
   WHILE 1 = 1
@@ -78,16 +81,29 @@ BEGIN
   -- 4. Un solo UPDATE condicional: o se aparta todo o no se aparta nada. UPDLOCK serializa a quienes compiten por la
   --    misma variante y el segundo evalúa la condición con el valor ya actualizado, así que no hay lectura obsoleta.
   --    CK_Variants_ReservedVsOnHand es la red de seguridad si algún procedimiento futuro se equivoca.
+  --    La existencia se aparta en unidades y por variante que la guarda: varias líneas del mismo producto (una docena y
+  --    una bolsa de 6) suman sus unidades antes de compararlas con lo que hay.
+  IF EXISTS (SELECT 1 FROM dbo.CartItems AS ci JOIN dbo.Variants AS sv ON sv.IDVariant = ci.IDVariant
+             WHERE ci.IDCart = @IDCart AND sv.IsActive = 0)
+    THROW 50409, 'One or more units are no longer available.', 1;
+
+  DECLARE @Pools INT = (SELECT COUNT(DISTINCT sv.IDStockHolder) FROM dbo.CartItems AS ci
+                        JOIN dbo.Variants AS sv ON sv.IDVariant = ci.IDVariant WHERE ci.IDCart = @IDCart);
+
   UPDATE v
-  SET ReservedStock = v.ReservedStock + ci.Quantity
+  SET ReservedStock = v.ReservedStock + u.Units
   FROM dbo.Variants AS v WITH (UPDLOCK, ROWLOCK)
-  JOIN dbo.CartItems AS ci ON ci.IDVariant = v.IDVariant
-  WHERE ci.IDCart = @IDCart
-    AND v.IsActive = 1
-    AND v.OnHandStock - v.ReservedStock >= ci.Quantity;
+  JOIN (
+    SELECT sv.IDStockHolder, Units = SUM(ci.Quantity * sv.UnitsPerPack)
+    FROM dbo.CartItems AS ci
+    JOIN dbo.Variants AS sv ON sv.IDVariant = ci.IDVariant
+    WHERE ci.IDCart = @IDCart
+    GROUP BY sv.IDStockHolder
+  ) AS u ON u.IDStockHolder = v.IDVariant
+  WHERE v.OnHandStock - v.ReservedStock >= u.Units;
 
   DECLARE @Reserved INT = @@ROWCOUNT;
-  IF @Reserved <> @Lines
+  IF @Reserved <> @Pools
     THROW 50409, 'One or more units are no longer available.', 1;   -- XACT_ABORT deshace también las líneas ya apartadas
 
   SET @ExpiresAt = DATEADD(MINUTE, @Minutes, @Now);

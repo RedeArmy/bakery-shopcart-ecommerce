@@ -128,8 +128,17 @@ describe('the new product form', () => {
     name: 'Pastel de zanahoria',
     description: '',
     leadTimeDays: '2',
+    sharedStock: false,
+    initialUnits: '',
     variants: [
-      { sku: 'ZAN-M', price: '95', attributeName: 'Tamaño', attributeValue: 'Mediano', stock: '' },
+      {
+        sku: 'ZAN-M',
+        price: '95',
+        attributeName: 'Tamaño',
+        attributeValue: 'Mediano',
+        unitsPerPack: '1',
+        stock: '',
+      },
     ],
   });
 
@@ -219,8 +228,17 @@ describe('the new product form', () => {
       productId: 9,
       sku: 'ZAN-M',
       price: '95.00',
+      unitsPerPack: 1,
+      stockVariantId: null,
       attributes: [{ name: 'Tamaño', value: 'Mediano' }],
     });
+    // Un empaque que comparte la existencia lleva sus unidades y la variante de la que las toma
+    expect(
+      variantBody(9, values.variants[0] as NewVariantValues, {
+        unitsPerPack: 6,
+        stockVariantId: 4,
+      }),
+    ).toMatchObject({ unitsPerPack: 6, stockVariantId: 4 });
     expect(
       variantBody(9, {
         ...(values.variants[0] as NewVariantValues),
@@ -228,5 +246,44 @@ describe('the new product form', () => {
         attributeValue: '',
       }),
     ).not.toHaveProperty('attributes');
+  });
+  describe('with the packagings sharing one stock', () => {
+    const shared = (): NewProductValues => ({
+      ...valid(),
+      sharedStock: true,
+      initialUnits: '600',
+      variants: [
+        { ...(valid().variants[0] as NewVariantValues), sku: 'CHA-12', unitsPerPack: '12' },
+        { ...(valid().variants[0] as NewVariantValues), sku: 'CHA-06', unitsPerPack: '6' },
+      ],
+    });
+
+    it('accepts the units of each packaging and the units the stock starts with', () => {
+      expect(problems(shared())).toEqual([]);
+    });
+
+    it('asks for the units of every packaging, between 1 and 1000', () => {
+      const [first, second] = shared().variants as [NewVariantValues, NewVariantValues];
+      expect(
+        problems({ ...shared(), variants: [{ ...first, unitsPerPack: '' }, second] }),
+      ).toContain('variants.0.unitsPerPack');
+      expect(
+        problems({ ...shared(), variants: [first, { ...second, unitsPerPack: '0' }] }),
+      ).toContain('variants.1.unitsPerPack');
+      expect(
+        problems({ ...shared(), variants: [first, { ...second, unitsPerPack: '1001' }] }),
+      ).toContain('variants.1.unitsPerPack');
+    });
+
+    it('does not ask for the units per pack when the variants keep their own stock', () => {
+      const [base] = valid().variants as [NewVariantValues];
+      expect(problems({ ...valid(), variants: [{ ...base, unitsPerPack: '' }] })).toEqual([]);
+    });
+
+    it('checks the starting units of the shared stock', () => {
+      expect(problems({ ...shared(), initialUnits: '' })).toEqual([]);
+      expect(problems({ ...shared(), initialUnits: '0' })).toContain('initialUnits');
+      expect(problems({ ...shared(), initialUnits: '2.5' })).toContain('initialUnits');
+    });
   });
 });

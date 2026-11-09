@@ -66,6 +66,7 @@ erDiagram
 | `V0017` | `PaymentMethods.Kind`, `Title`, `Description`, `AppliesToDelivery`, `AppliesToPickup`, `IsActive`: the methods an administrator maintains; `PaymentDeposits.IDBankAccount` allows NULL (the accounts are shown, not chosen) |
 | `R*` | Functions, views and procedures with a version header |
 | `S*` | Idempotent seeds |
+| `V0019` | `Variants`: `UnitsPerPack`, `IDStockVariant`, `IDStockHolder` (packagings share one stock in units) |
 
 ## Key tables
 
@@ -82,6 +83,12 @@ CREATE TABLE dbo.Variants (
   RowVer        ROWVERSION,
   CONSTRAINT CK_Variants_ReservedVsOnHand CHECK (ReservedStock <= OnHandStock)           -- red de seguridad anti-sobreventa
 );
+
+-- V0019 · Packagings: several variants of a product draw from one stock measured in units (ADR-0031)
+ALTER TABLE dbo.Variants ADD
+  UnitsPerPack   INT NOT NULL CONSTRAINT DF_Variants_UnitsPerPack DEFAULT 1 CONSTRAINT CK_Variants_UnitsPerPack CHECK (UnitsPerPack BETWEEN 1 AND 1000),
+  IDStockVariant INT NULL CONSTRAINT FK_Variants_StockVariant REFERENCES dbo.Variants(IDVariant),   -- who holds the stock; NULL: this one holds its own
+  IDStockHolder  AS COALESCE(IDStockVariant, IDVariant) PERSISTED;                                  -- the join of every stock procedure
 ```
 
 ```sql

@@ -49,7 +49,7 @@ export interface CatalogueRepository {
   createVariant(
     actor: number,
     productId: number,
-    input: VariantInput & { price: string },
+    input: VariantInput & { price: string; unitsPerPack: number; stockVariantId: number | null },
   ): Promise<number>;
   updateVariant(
     actor: number,

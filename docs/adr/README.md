@@ -31,3 +31,4 @@ One decision per file, written from [the template](0000-template.md). New decisi
 | [0025](0025-database-collation.md) | Database collation Latin1_General_100_CI_AS_SC | Accepted |
 | [0026](0026-refresh-token-in-an-httponly-cookie.md) | Refresh token in an HttpOnly cookie | Accepted |
 | [0027](0027-guest-accounts-for-checkout-without-registering.md) | Guest accounts for checking out without registering | Accepted |
+| [0031](0031-packagings-share-one-stock-measured-in-units.md) | Packagings share one stock measured in units | Accepted |

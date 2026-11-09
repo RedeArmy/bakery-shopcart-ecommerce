@@ -1,7 +1,8 @@
 /* =====================================================================
    Objeto   : dbo.SP_Inventory_GetLedger
-   Version  : 1.1.0
-   Cambio   : El total ya no se calcula con COUNT(*) OVER () (un Window Spool que escribía cada fila en tempdb); se cuenta aparte y solo se leen las filas de la página; OPTION (RECOMPILE) por los filtros opcionales
+   Version  : 1.2.0
+   Cambio   : 1.2.0: el libro es de la existencia compartida del producto, en unidades: se lee por la variante que la guarda, se indique la variante que se indique
+              Antes: El total ya no se calcula con COUNT(*) OVER () (un Window Spool que escribía cada fila en tempdb); se cuenta aparte y solo se leen las filas de la página; OPTION (RECOMPILE) por los filtros opcionales
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Mismas columnas y mismo orden que 1.0.0. Errores: 50400 paginación o rango inválidos, 50404 variante inexistente.
    ===================================================================== */
@@ -23,7 +24,8 @@ BEGIN
   IF @From IS NOT NULL AND @To IS NOT NULL AND @From >= @To
     THROW 50400, 'From must be before To.', 1;
 
-  IF NOT EXISTS (SELECT 1 FROM dbo.Variants WHERE IDVariant = @IDVariant)
+  DECLARE @IDHolder INT = (SELECT IDStockHolder FROM dbo.Variants WHERE IDVariant = @IDVariant);
+  IF @IDHolder IS NULL
     THROW 50404, 'Variant not found.', 1;
 
   -- Se ordena por el identificador y no por la fecha: dos movimientos pueden compartir el mismo milisegundo, y el
@@ -33,7 +35,7 @@ BEGIN
   ;WITH f AS (
     SELECT m.IDInventoryMovement
     FROM dbo.InventoryMovements AS m
-    WHERE m.IDVariant = @IDVariant
+    WHERE m.IDVariant = @IDHolder
       AND (@From IS NULL OR m.CreatedAt >= @From)
       AND (@To IS NULL OR m.CreatedAt < @To)
   ), pg AS (

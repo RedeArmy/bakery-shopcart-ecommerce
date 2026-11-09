@@ -35,15 +35,24 @@ function VariantSummary({ variant }: Readonly<{ variant: Variant }>) {
   const { t } = useTranslation();
   const available = variant.available;
   const state = available === undefined ? 'ok' : stockState(available);
+  // Un empaque de varias unidades (bolsa de 6, docena) cuenta paquetes, no piezas
+  const perPack = variant.unitsPerPack ?? 1;
   return (
     <div className="space-y-2">
       <p className="text-3xl text-stone-900">
         <Price amount={variant.price} />
       </p>
+      {perPack > 1 ? (
+        <p className="text-sm text-stone-700">{t('product.unitsPerPack', { count: perPack })}</p>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
         {state === 'soldOut' ? <Badge tone="danger">{t('product.soldOut')}</Badge> : null}
         {state === 'low' ? (
-          <Badge tone="warning">{t('product.available', { count: available ?? 0 })}</Badge>
+          <Badge tone="warning">
+            {t(perPack > 1 ? 'product.availablePacks' : 'product.available', {
+              count: available ?? 0,
+            })}
+          </Badge>
         ) : null}
         <span className="text-xs text-stone-500">{t('product.sku', { sku: variant.sku })}</span>
       </div>
