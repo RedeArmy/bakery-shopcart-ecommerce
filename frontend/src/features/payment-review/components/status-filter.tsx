@@ -13,7 +13,9 @@ export function StatusFilter<T extends string>({
   onChange: (option: T) => void;
 }>) {
   return (
-    <div role="group" aria-label={label} className="flex flex-wrap gap-2">
+    // El grupo es un fieldset con su leyenda: lo anuncian igual los lectores de pantalla y no hace falta un rol
+    <fieldset className="m-0 flex min-w-0 flex-wrap gap-2 border-0 p-0">
+      <legend className="sr-only">{label}</legend>
       {options.map((option) => (
         <button
           key={option}
@@ -31,6 +33,6 @@ export function StatusFilter<T extends string>({
           {labelOf(option)}
         </button>
       ))}
-    </div>
+    </fieldset>
   );
 }

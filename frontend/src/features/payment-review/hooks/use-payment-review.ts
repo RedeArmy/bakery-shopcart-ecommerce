@@ -12,41 +12,59 @@ export type CashItem = components['schemas']['CashQueueItem'];
 /** Cada cuánto se vuelve a pedir la cola de trabajo, para ver los comprobantes y las reservas que van llegando. */
 const REFRESH_MS = 30_000;
 
-/** La cola de depósitos, con el texto que el personal busca. En revisión se renueva sola: es la que atiende el personal. */
-export function useDepositQueue(status: DepositStatus, search: string, page: number) {
+interface QueueQuery<S extends string> {
+  status: S;
+  page: number;
+  size: number;
+  search?: string;
+}
+
+/**
+ * Una cola de trabajo del personal: el estado que se mira, el texto que se busca y la página. La cola con trabajo por hacer
+ * (`workStatus`) se renueva sola; las demás son historial y no cambian.
+ */
+function useReviewQueue<S extends string, T>(options: {
+  name: string;
+  status: S;
+  workStatus: S;
+  search: string;
+  page: number;
+  fetch: (query: QueueQuery<S>, signal: AbortSignal) => Promise<T>;
+}) {
   const { user } = useSession();
+  const { name, status, workStatus, search, page, fetch } = options;
   return useQuery({
-    queryKey: ['review', 'deposits', user?.idUser ?? null, status, search, page],
+    queryKey: ['review', name, user?.idUser ?? null, status, search, page],
     enabled: user !== null,
-    refetchInterval: status === 'UnderReview' ? REFRESH_MS : false,
-    queryFn: async ({ signal }) =>
-      unwrap(
-        await api.GET('/api/v1/admin/payments/deposits', {
-          params: {
-            query: { status, page, size: PAGE_SIZE, ...(search === '' ? {} : { search }) },
-          },
-          signal,
-        }),
-      ),
+    refetchInterval: status === workStatus ? REFRESH_MS : false,
+    queryFn: ({ signal }) =>
+      fetch({ status, page, size: PAGE_SIZE, ...(search === '' ? {} : { search }) }, signal),
   });
 }
 
-/** Los cobros en efectivo, con el texto que el personal busca (número de pedido, nombre o correo). */
+/** La cola de depósitos, con el texto que el personal busca. En revisión se renueva sola. */
+export function useDepositQueue(status: DepositStatus, search: string, page: number) {
+  return useReviewQueue({
+    name: 'deposits',
+    status,
+    workStatus: 'UnderReview',
+    search,
+    page,
+    fetch: async (query, signal) =>
+      unwrap(await api.GET('/api/v1/admin/payments/deposits', { params: { query }, signal })),
+  });
+}
+
+/** Los cobros en efectivo, con el texto que el personal busca (número de pedido, nombre o correo). Los pendientes se renuevan solos. */
 export function useCashQueue(status: CashStatus, search: string, page: number) {
-  const { user } = useSession();
-  return useQuery({
-    queryKey: ['review', 'cash', user?.idUser ?? null, status, search, page],
-    enabled: user !== null,
-    refetchInterval: status === 'Pending' ? REFRESH_MS : false,
-    queryFn: async ({ signal }) =>
-      unwrap(
-        await api.GET('/api/v1/admin/payments/cash', {
-          params: {
-            query: { status, page, size: PAGE_SIZE, ...(search === '' ? {} : { search }) },
-          },
-          signal,
-        }),
-      ),
+  return useReviewQueue({
+    name: 'cash',
+    status,
+    workStatus: 'Pending',
+    search,
+    page,
+    fetch: async (query, signal) =>
+      unwrap(await api.GET('/api/v1/admin/payments/cash', { params: { query }, signal })),
   });
 }
 
@@ -69,12 +87,18 @@ function useReviewAction<V>(send: (key: string, variables: V) => Promise<{ outco
   });
 }
 
+/** El pago de la ruta y la llave de idempotencia, que llevan todas las acciones de revisión. */
+const actionParams = (idPayment: number, key: string) => ({
+  path: { id: idPayment },
+  header: { 'Idempotency-Key': key },
+});
+
 /** Aprueba un depósito en revisión; si el monto no coincide con el del pedido, el servidor lo rechaza. */
 export function useApproveDeposit(idPayment: number) {
   return useReviewAction<undefined>(async (key) =>
     unwrap(
       await api.POST('/api/v1/admin/payments/{id}/approve', {
-        params: { path: { id: idPayment }, header: { 'Idempotency-Key': key } },
+        params: actionParams(idPayment, key),
       }),
     ),
   );
@@ -85,7 +109,7 @@ export function useRejectDeposit(idPayment: number) {
   return useReviewAction<string>(async (key, reason) =>
     unwrap(
       await api.POST('/api/v1/admin/payments/{id}/reject', {
-        params: { path: { id: idPayment }, header: { 'Idempotency-Key': key } },
+        params: actionParams(idPayment, key),
         body: { reason },
       }),
     ),
@@ -97,7 +121,7 @@ export function useConfirmCash(idPayment: number) {
   return useReviewAction<undefined>(async (key) =>
     unwrap(
       await api.POST('/api/v1/admin/payments/{id}/confirm-cash', {
-        params: { path: { id: idPayment }, header: { 'Idempotency-Key': key } },
+        params: actionParams(idPayment, key),
       }),
     ),
   );

@@ -69,9 +69,10 @@ export function ReviewList<T>({
       </header>
       {toolbar}
       {outcome === null ? null : (
-        <p role="status" className="rounded-card bg-emerald-50 p-3 text-sm text-emerald-900">
+        // <output> es la región «status» nativa: se anuncia sola cuando cambia el resultado de la última acción
+        <output className="block rounded-card bg-emerald-50 p-3 text-sm text-emerald-900">
           {i18n.exists(outcomeKey) ? t(outcomeKey) : outcome}
-        </p>
+        </output>
       )}
       {content}
     </div>
