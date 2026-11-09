@@ -1,6 +1,9 @@
 /* =====================================================================
    Objeto   : dbo.SP_Orders_GetDetail
-   Version  : 1.3.0
+   Version  : 1.4.0
+   Cambio 1.4.0: agrega AllowedActions (lo que quien pide el detalle puede hacer ahora con el pedido) y OperatorOnlyActions (lo que el
+              estado permite pero está reservado a los operadores), ambos arreglos JSON de dbo.FU_Orders_AllowedActions, la fuente
+              única de esas reglas.
    Cambio   : Primera versión: detalle de un pedido con sus líneas y su historial de estados
    Cambio 1.1.0: agrega FulfilmentType (Delivery o Pickup) y la sucursal de recogida; la dirección de entrega es NULL en una recogida.
    Cambio 1.2.0: agrega DeliveryNotes, las notas de entrega del cliente (NULL si no escribió ninguna).
@@ -24,6 +27,8 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM dbo.Orders WHERE IDOrder = @IDOrder AND (@AsStaff = 1 OR IDUser = @IDActor))
     THROW 50404, 'Order not found.', 1;
 
+  DECLARE @ActorRole TINYINT = (SELECT IDRole FROM dbo.Users WHERE IDUser = @IDActor);
+
   SELECT o.IDOrder, o.OrderNumber, o.IDUser, CustomerName = u.FullName, CustomerEmail = u.Email,
          o.IDOrderStatus, StatusName = s.Name,
          PaymentStatusName = (SELECT ps.StatusName FROM dbo.FU_Orders_CurrentPaymentStatus(o.IDOrder) AS ps), o.CouponCode,
@@ -45,7 +50,13 @@ BEGIN
                                  WHERE h.IDOrder = o.IDOrder
                                  UNION ALL
                                  SELECT NULL, NULL, e.NewStatusName, e.CreatedAt, NULL FROM dbo.FU_Orders_PaymentEvents(o.IDOrder) AS e) AS x
-                           ORDER BY x.CreatedAt FOR JSON PATH), N'[]')
+                           ORDER BY x.CreatedAt FOR JSON PATH), N'[]'),
+         AllowedActions = N'[' + ISNULL((SELECT STRING_AGG(CONCAT(N'"', x.Action, N'"'), N',') WITHIN GROUP (ORDER BY x.Action)
+                                         FROM dbo.FU_Orders_AllowedActions(o.IDOrderStatus, o.FulfilmentType, @ActorRole) AS x
+                                         WHERE x.Allowed = 1), N'') + N']',
+         OperatorOnlyActions = N'[' + ISNULL((SELECT STRING_AGG(CONCAT(N'"', x.Action, N'"'), N',') WITHIN GROUP (ORDER BY x.Action)
+                                              FROM dbo.FU_Orders_AllowedActions(o.IDOrderStatus, o.FulfilmentType, @ActorRole) AS x
+                                              WHERE x.Allowed = 0 AND x.OperatorOnly = 1 AND @ActorRole IN (2, 3)), N'') + N']'
   FROM dbo.Orders AS o
   JOIN dbo.Users AS u ON u.IDUser = o.IDUser
   JOIN dbo.OrderStatuses AS s ON s.IDOrderStatus = o.IDOrderStatus

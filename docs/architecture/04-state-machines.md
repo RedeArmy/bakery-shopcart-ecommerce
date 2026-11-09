@@ -17,14 +17,14 @@ Both machines are stored as data (`OrderStatusTransitions`, `PaymentStatusTransi
 
 Allowed transitions: `1→2`, `1→6`, `2→3`, `2→6`, `3→4`, `3→5`, `3→6`, `4→5`, `5→7`, `5→8`, `7→7`, `7→8`.
 
-The path depends on how the order is received. `SP_Orders_ChangeStatus` applies these rules on top of the table, because the table does not know the fulfilment type:
+The path depends on how the order is received, and what each role can do depends on the state. The table does not know the fulfilment type or the role, so these rules live in **one function, `dbo.FU_Orders_AllowedActions(status, fulfilment, role)`**: it lists the actions that apply to the state of an order (`Prepare`, `Dispatch`, `Deliver`, `Cancel`, `Return`), whether the role can take each one, and whether it is reserved to operators. `SP_Orders_ChangeStatus`, `SP_Orders_Cancel` and `SP_Returns_Register` use it to decide, and `SP_Orders_GetDetail` hands it to the API as `allowedActions` and `operatorOnlyActions`, so the frontend never works a rule out by itself. A tSQLt test checks that every action the function offers is an edge of the transition table above, and that no edge of the table is left without an action:
 
 | Fulfilment | Path | Who can take each step |
 |---|---|---|
 | `Delivery` (home) | `Paid → InPreparation → Dispatched → Delivered` | Operator or administrator prepare and dispatch; **only an operator marks it as delivered** |
 | `Pickup` (branch) | `Paid → InPreparation → Delivered` (`3→5`; never `Dispatched`) | Operator or administrator, every step |
 
-A delivery order cannot go from `InPreparation` straight to `Delivered`, and a pickup order cannot be dispatched. The trigger only checks the transition graph, so these two rules and the role rule are enforced by the procedure alone.
+A delivery order cannot go from `InPreparation` straight to `Delivered`, and a pickup order cannot be dispatched. The trigger only checks the transition graph; the fulfilment and role rules are enforced by the procedures, through the function. The customer can only `Cancel`, and only until the order is dispatched; `Return` is for the staff once the order is delivered.
 
 ```mermaid
 stateDiagram-v2

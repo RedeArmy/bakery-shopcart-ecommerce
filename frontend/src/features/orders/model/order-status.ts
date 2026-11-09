@@ -1,3 +1,5 @@
+import type { components } from '../../../shared/api/generated/schema';
+
 /** Los estados de un pedido tal como los nombra el API, en el orden de su identificador (1 a 8). */
 export const ORDER_STATUSES = [
   'PendingPayment',
@@ -62,9 +64,17 @@ export const displayStatus = (statusName: string, paymentStatusName?: string | n
     ? 'PaymentUnderReview'
     : statusName;
 
-/** Hasta que se despacha un pedido el cliente puede cancelarlo; el servidor tiene la última palabra. */
-export const canCancel = (status: string): boolean =>
-  status === 'PendingPayment' || status === 'Paid' || status === 'InPreparation';
+/** Lo que se puede hacer con un pedido: preparar, despachar, entregar, cancelar o devolver. */
+export type OrderAction = components['schemas']['OrderAction'];
+
+/**
+ * ¿El servidor ofrece esta acción sobre el pedido a quien lo consulta? La regla (qué estado, cómo se recibe, qué rol) vive en
+ * la base de datos, que es también quien la exige; aquí solo se lee la respuesta y no se vuelve a calcular.
+ */
+export const allows = (
+  order: { allowedActions: readonly OrderAction[] },
+  action: OrderAction,
+): boolean => order.allowedActions.includes(action);
 
 export const PAGE_SIZE = 10;
 

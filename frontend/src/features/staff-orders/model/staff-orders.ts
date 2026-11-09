@@ -1,5 +1,6 @@
 import { isDateOnly } from '../../../shared/lib/date';
 import { parseOrdersQuery } from '../../orders/model/order-status';
+import type { OrderAction } from '../../orders/model/order-status';
 
 /** Cuántos pedidos se ven por página en la administración. */
 export const PAGE_SIZE = 10;
@@ -46,28 +47,24 @@ export function staffOrdersParams(query: StaffOrdersQuery): URLSearchParams {
 
 export type NextStep = 'InPreparation' | 'Dispatched' | 'Delivered';
 
+// El API recibe el nombre del estado al que se pasa; el servidor ofrece el nombre de la acción
+const STEP_OF_ACTION: Partial<Record<OrderAction, NextStep>> = {
+  Prepare: 'InPreparation',
+  Dispatch: 'Dispatched',
+  Deliver: 'Delivered',
+};
+
 /**
- * El único paso que el personal puede dar desde este estado, o `null` si ya no hay ninguno. El pedido avanza de uno en uno y
- * cancelar y devolver tienen su propio camino. Lo que se recoge en sucursal no se despacha: de la preparación pasa a la entrega.
- * Un pedido a domicilio se prepara, se despacha y se entrega. El servidor tiene la última palabra.
+ * El paso que quien consulta puede dar ahora, o `null` si ninguno, a partir de las acciones que ofrece el servidor. No decide
+ * qué paso toca (si se despacha o se entrega, si lo da un operador o un administrador): eso lo dice la base de datos.
  */
-export function nextStep(status: string, fulfilmentType: string | undefined): NextStep | null {
-  if (status === 'Paid') return 'InPreparation';
-  if (status === 'InPreparation') return fulfilmentType === 'Pickup' ? 'Delivered' : 'Dispatched';
-  if (status === 'Dispatched') return 'Delivered';
+export function stepToTake(allowed: readonly OrderAction[]): NextStep | null {
+  for (const action of allowed) {
+    const step = STEP_OF_ACTION[action];
+    if (step !== undefined) return step;
+  }
   return null;
 }
-
-/** Quien entrega un pedido a domicilio es el operador; el administrador lo prepara y lo despacha, pero no lo reparte. */
-export const canTakeStep = (
-  step: NextStep,
-  fulfilmentType: string | undefined,
-  role: string | undefined,
-): boolean => step !== 'Delivered' || fulfilmentType === 'Pickup' || role === 'Operator';
-
-/** Solo un pedido entregado se devuelve, y mientras le queden unidades por devolver. */
-export const canReturn = (status: string): boolean =>
-  status === 'Delivered' || status === 'PartiallyReturned';
 
 export interface ReturnableLine {
   idOrderLine: number;

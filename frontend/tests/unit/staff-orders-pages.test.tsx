@@ -30,8 +30,12 @@ const summary = (extra = {}) => ({
   ...extra,
 });
 
+// Lo que el servidor ofrece a quien consulta: un pedido pagado se prepara o se cancela. Cada prueba lo cambia con el estado que
+// finge, porque la pantalla no lo calcula: lo lee
 const detail = (extra = {}) => ({
   ...summary(),
+  allowedActions: ['Cancel', 'Prepare'],
+  operatorOnlyActions: [],
   subtotal: '145.00',
   discount: '0.00',
   vat: '15.54',
@@ -182,13 +186,14 @@ describe('the staff order detail', () => {
   it('offers only the step the status allows and sends it with an idempotency key', async () => {
     await signInAs('Operator');
     const user = userEvent.setup();
-    let status = 'Paid';
+    // Lo que el servidor ofrece en cada estado de un pedido que se recoge: pagado se prepara; en preparación se entrega
+    let current = detail({ statusName: 'Paid', allowedActions: ['Cancel', 'Prepare'] });
     const { calls } = installFakeApi({
-      'GET /api/v1/admin/orders/7': () => json(detail({ statusName: status })),
+      'GET /api/v1/admin/orders/7': () => json(current),
       'GET /api/v1/admin/orders/7/payment': json([payment()]),
       'PATCH /api/v1/admin/orders/7/status': () => {
-        status = 'InPreparation';
-        return json(detail({ statusName: status }));
+        current = detail({ statusName: 'InPreparation', allowedActions: ['Cancel', 'Deliver'] });
+        return json(current);
       },
     });
     renderApp('/admin/orders/7');
@@ -204,7 +209,13 @@ describe('the staff order detail', () => {
 
   it('dispatches a home delivery order before it is delivered', async () => {
     await signInAs('Administrator');
-    open(detail({ statusName: 'InPreparation', fulfilmentType: 'Delivery' }));
+    open(
+      detail({
+        statusName: 'InPreparation',
+        fulfilmentType: 'Delivery',
+        allowedActions: ['Cancel', 'Dispatch'],
+      }),
+    );
     renderApp('/admin/orders/7');
 
     expect(await screen.findByRole('button', { name: 'Marcar como despachado' })).toBeDefined();
@@ -213,7 +224,14 @@ describe('the staff order detail', () => {
 
   it('leaves the delivery of a home order to the operators', async () => {
     await signInAs('Administrator');
-    open(detail({ statusName: 'Dispatched', fulfilmentType: 'Delivery' }));
+    open(
+      detail({
+        statusName: 'Dispatched',
+        fulfilmentType: 'Delivery',
+        allowedActions: [],
+        operatorOnlyActions: ['Deliver'],
+      }),
+    );
     renderApp('/admin/orders/7');
 
     expect(
@@ -224,7 +242,9 @@ describe('the staff order detail', () => {
 
   it('lets an operator mark a home delivery order as delivered', async () => {
     await signInAs('Operator');
-    open(detail({ statusName: 'Dispatched', fulfilmentType: 'Delivery' }));
+    open(
+      detail({ statusName: 'Dispatched', fulfilmentType: 'Delivery', allowedActions: ['Deliver'] }),
+    );
     renderApp('/admin/orders/7');
 
     expect(await screen.findByRole('button', { name: 'Marcar como entregado' })).toBeDefined();
@@ -232,7 +252,13 @@ describe('the staff order detail', () => {
 
   it('lets an administrator deliver an order that is collected at a branch', async () => {
     await signInAs('Administrator');
-    open(detail({ statusName: 'InPreparation', fulfilmentType: 'Pickup' }));
+    open(
+      detail({
+        statusName: 'InPreparation',
+        fulfilmentType: 'Pickup',
+        allowedActions: ['Cancel', 'Deliver'],
+      }),
+    );
     renderApp('/admin/orders/7');
 
     expect(await screen.findByRole('button', { name: 'Marcar como entregado' })).toBeDefined();
@@ -255,7 +281,7 @@ describe('the staff order detail', () => {
     await signInAs('Operator');
     const user = userEvent.setup();
     const { calls } = open(detail(), [payment()], {
-      'POST /api/v1/orders/7/cancel': json(detail({ statusName: 'Cancelled' })),
+      'POST /api/v1/orders/7/cancel': json(detail({ statusName: 'Cancelled', allowedActions: [] })),
     });
     renderApp('/admin/orders/7');
 
@@ -273,7 +299,7 @@ describe('the staff order detail', () => {
 
   it('offers neither step nor cancellation once the order is delivered, only the return', async () => {
     await signInAs('Operator');
-    open(detail({ statusName: 'Delivered' }));
+    open(detail({ statusName: 'Delivered', allowedActions: ['Return'] }));
     renderApp('/admin/orders/7');
 
     expect(await screen.findByRole('button', { name: 'Registrar una devolución' })).toBeDefined();
@@ -284,12 +310,16 @@ describe('the staff order detail', () => {
   it('registers a partial return of what is still pending and shows the refund', async () => {
     await signInAs('Operator');
     const user = userEvent.setup();
-    const { calls } = open(detail({ statusName: 'Delivered' }), [payment()], {
-      'POST /api/v1/admin/orders/7/returns': json(
-        { idReturn: 1, idRefund: 2, refundAmount: '48.33' },
-        { status: 201 },
-      ),
-    });
+    const { calls } = open(
+      detail({ statusName: 'Delivered', allowedActions: ['Return'] }),
+      [payment()],
+      {
+        'POST /api/v1/admin/orders/7/returns': json(
+          { idReturn: 1, idRefund: 2, refundAmount: '48.33' },
+          { status: 201 },
+        ),
+      },
+    );
     renderApp('/admin/orders/7');
 
     await user.click(await screen.findByRole('button', { name: 'Registrar una devolución' }));
@@ -334,8 +364,8 @@ describe('the staff order detail', () => {
       'GET /api/v1/admin/orders/7': () =>
         json(
           returned
-            ? detail({ statusName: 'Returned', lines: [line(3)] })
-            : detail({ statusName: 'Delivered', lines: [line(1)] }),
+            ? detail({ statusName: 'Returned', allowedActions: [], lines: [line(3)] })
+            : detail({ statusName: 'Delivered', allowedActions: ['Return'], lines: [line(1)] }),
         ),
       'GET /api/v1/admin/orders/7/payment': json([payment()]),
       'POST /api/v1/admin/orders/7/returns': () => {
@@ -360,7 +390,7 @@ describe('the staff order detail', () => {
   it('does not let more units than the pending ones be returned', async () => {
     await signInAs('Operator');
     const user = userEvent.setup();
-    const { calls } = open(detail({ statusName: 'Delivered' }));
+    const { calls } = open(detail({ statusName: 'Delivered', allowedActions: ['Return'] }));
     renderApp('/admin/orders/7');
 
     await user.click(await screen.findByRole('button', { name: 'Registrar una devolución' }));
@@ -377,6 +407,7 @@ describe('the staff order detail', () => {
     open(
       detail({
         statusName: 'Returned',
+        allowedActions: [],
         lines: [
           {
             idOrderLine: 1,

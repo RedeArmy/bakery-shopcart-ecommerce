@@ -1,7 +1,8 @@
 /* =====================================================================
    Objeto   : dbo.SP_Returns_Register
-   Version  : 1.1.0
-   Cambio   : Devuelve también el importe como texto exacto (@RefundAmountText) para la API, que no usa números con coma flotante
+   Version  : 1.2.0
+   Cambio   : 1.2.0: el estado desde el que se puede devolver sale de dbo.FU_Orders_AllowedActions y no de una lista fija. Mismo error.
+              1.1.0: Devuelve también el importe como texto exacto (@RefundAmountText) para la API, que no usa números con coma flotante
    Autor    : Equipo ShopCart   Fecha: 2026-10-30
    Compat   : Compatible: el parámetro de salida nuevo es opcional. @Lines es un arreglo JSON [{"idOrderLine":1,"quantity":2}]; una línea no puede repetirse. El reembolso de cada
               línea sale de FU_Orders_RefundableAmount, que cierra exacto en la última unidad. Devuelve las unidades al libro de
@@ -44,15 +45,16 @@ BEGIN
   IF @OwnsTransaction = 1 BEGIN TRANSACTION;
 
   -- Una devolución pasa por la mano de quien recibe la mercadería, no del cliente
-  IF NOT EXISTS (SELECT 1 FROM dbo.Users WHERE IDUser = @IDActor AND IDRole IN (2, 3) AND IsActive = 1)
+  DECLARE @ActorRole TINYINT = (SELECT IDRole FROM dbo.Users WHERE IDUser = @IDActor AND IDRole IN (2, 3) AND IsActive = 1);
+  IF @ActorRole IS NULL
     THROW 50422, 'Only an active operator or administrator can register a return.', 1;
 
   -- El bloqueo del pedido serializa dos devoluciones simultáneas de la misma línea: la segunda ve lo ya devuelto
-  DECLARE @Status TINYINT, @OrderNumber NVARCHAR(20);
-  SELECT @Status = IDOrderStatus, @OrderNumber = OrderNumber FROM dbo.Orders WITH (UPDLOCK, ROWLOCK) WHERE IDOrder = @IDOrder;
+  DECLARE @Status TINYINT, @OrderNumber NVARCHAR(20), @Fulfilment NVARCHAR(10);
+  SELECT @Status = IDOrderStatus, @OrderNumber = OrderNumber, @Fulfilment = FulfilmentType FROM dbo.Orders WITH (UPDLOCK, ROWLOCK) WHERE IDOrder = @IDOrder;
   IF @Status IS NULL
     THROW 50404, 'Order not found.', 1;
-  IF @Status NOT IN (5, 7)
+  IF NOT EXISTS (SELECT 1 FROM dbo.FU_Orders_AllowedActions(@Status, @Fulfilment, @ActorRole) WHERE Action = N'Return' AND Allowed = 1)
     THROW 50422, 'INVALID_STATE_TRANSITION: Only a delivered order can be returned.', 1;
 
   IF EXISTS (SELECT 1 FROM @Requested AS r WHERE NOT EXISTS (SELECT 1 FROM dbo.OrderLines WHERE IDOrderLine = r.IDOrderLine AND IDOrder = @IDOrder))

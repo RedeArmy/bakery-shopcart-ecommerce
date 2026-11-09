@@ -1824,7 +1824,16 @@ export interface components {
             paidAt?: string | null;
             lines: components["schemas"]["OrderLine"][];
             history: components["schemas"]["OrderHistoryEntry"][];
+            /** @description What the caller can do with the order right now. It is decided by the database (dbo.FU_Orders_AllowedActions), the same place that enforces it, so a client shows a button when the action is listed and never works the rule out by itself. */
+            allowedActions: components["schemas"]["OrderAction"][];
+            /** @description Actions that the status allows but that only an operator can take (an administrator does not deliver a home delivery order). Empty for a customer and for an operator. It lets a screen explain why an action is missing instead of hiding it without a word. */
+            operatorOnlyActions: components["schemas"]["OrderAction"][];
         };
+        /**
+         * @description Prepare (to InPreparation), Dispatch (to Dispatched, home delivery only), Deliver (to Delivered), Cancel and Return.
+         * @enum {string}
+         */
+        OrderAction: "Prepare" | "Dispatch" | "Deliver" | "Cancel" | "Return";
         CancelRequest: {
             reason?: string | null;
         };
