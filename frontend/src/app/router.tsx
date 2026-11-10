@@ -110,6 +110,13 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // Los reembolsos los marca solo el administrador (RF-06)
+            path: 'admin/refunds',
+            lazy: async () => ({
+              Component: (await import('../features/refunds/pages/refunds-page')).RefundsPage,
+            }),
+          },
+          {
             // La bitácora la consulta solo el administrador (RF-09)
             path: 'admin/audit',
             lazy: async () => ({
