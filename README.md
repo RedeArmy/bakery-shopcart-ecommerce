@@ -6,7 +6,7 @@ Plataforma de comercio electrónico de nivel productivo para una pastelería, co
 
 Stack obligatorio: **SQL Server 2019+ (solo procedimientos almacenados) · Node 26 + TypeScript `strict` + Express · React 18 + TypeScript**. Fechas de entrega: **Fase 1 (base de datos y backend) lunes 2 de noviembre de 2026, 23:59** y **Fase 2 (frontend y proyecto completo) lunes 9 de noviembre de 2026, 23:59**.
 
-**Estado:** la Fase 1 está completa y se puede verificar en minutos con una colección de Postman (sección 8). El frontend es de la Fase 2 y todavía no está hecho (sección 14).
+**Estado:** las dos fases están completas. La Fase 1 se puede verificar en minutos con una colección de Postman (sección 8) y la Fase 2, el frontend, cubre la tienda y la administración por rol (sección 14).
 
 ## 1. El escenario
 
@@ -25,7 +25,7 @@ El negocio tiene seis preocupaciones concretas y cada una tiene un mecanismo:
 
 ## 2. Cobertura de requisitos
 
-Los nueve módulos del enunciado están construidos en la base de datos y el backend. Lo que falta de cada uno es solo su pantalla, que pertenece a la Fase 2.
+Los nueve módulos del enunciado están construidos de punta a punta: la base de datos, el backend y su pantalla en el frontend. La columna de la tabla dice qué cubre la base de datos y el API; las pantallas por rol están en la sección 14.
 
 | Requisito | Fase 1 (base de datos y API) | Dónde se resuelve |
 |---|---|---|
@@ -36,7 +36,7 @@ Los nueve módulos del enunciado están construidos en la base de datos y el bac
 | RF-05 Cupones | Completo | [Catálogo de procedimientos](docs/database/stored-procedure-catalogue.md) |
 | RF-06 Checkout y pago | Completo (pago simulado) | [Pagos](docs/payments/overview.md) |
 | RF-07 Pedidos y devoluciones | Completo | [Máquinas de estado](docs/architecture/04-state-machines.md) |
-| RF-08 Tablero y reportes | Completo (las gráficas son de la Fase 2) | [ADR-0009](docs/adr/0009-definition-of-completed-order-for-reports.md) |
+| RF-08 Tablero y reportes | Completo, con sus gráficas en el frontend | [ADR-0009](docs/adr/0009-definition-of-completed-order-for-reports.md) |
 | RF-09 Bitácora | Completo | [Modelo de datos](docs/database/er-diagram.md) |
 
 Los 21 criterios de aceptación del enunciado están en el [mapa de criterios](docs/quality/acceptance-criteria-map.md): para cada uno dice qué lo hace cumplir y qué prueba lo demuestra. Las pruebas son 676 de base de datos (tSQLt), 16 escenarios de concurrencia con conexiones reales, 24 flujos HTTP contra SQL Server y más de 550 pruebas unitarias.
@@ -183,7 +183,7 @@ Crea `.env` con secretos locales generados si no existe, construye las imágenes
 |---|---|
 | `http://localhost:8080/health/ready` | 200: la base de datos responde y el esquema está al día |
 | `http://localhost:8080/api/v1/categories` | 200: lista pública, vacía hasta que se cree el catálogo |
-| `http://localhost:8080/` | El marcador de la tienda (la interfaz llega en la Fase 2) |
+| `http://localhost:8080/` | La tienda, con el catálogo de demostración |
 
 `/api/v1` por sí sola no existe y responde 404 `ROUTE_NOT_FOUND`: la API tiene solo rutas concretas.
 
@@ -248,7 +248,7 @@ Para empezar de cero, incluida la base de datos, use `docker compose down --volu
 | `npm run sql:lint` / `sql:test` / `sql:coverage` | Lint SQL, pruebas tSQLt y cobertura de procedimientos |
 | `npm run sql:test:up` / `sql:test:down` | Levanta y apaga el SQL Server desechable de las pruebas |
 | `npm run sql:concurrency` / `sql:bench` | Escenarios de concurrencia y banco de rendimiento |
-| `npm run api:generate` / `sonar` | Cliente TypeScript desde OpenAPI (Fase 2) y análisis de calidad opcional; aún no implementados |
+| `npm run api:generate` / `api:check` | Genera el cliente TypeScript del frontend desde OpenAPI y comprueba que no quedó desactualizado |
 
 ## 10. Credenciales de prueba
 
@@ -295,6 +295,8 @@ La regla de cuándo se ofrece el depósito según la fecha de entrega está en [
 
 **Fase 1, base de datos y backend: completa.** 19 migraciones, 97 procedimientos, la API de 88 operaciones, la autenticación con rotación de tokens, el pago simulado, los trabajos de fondo (vencimiento de reservas y pagos, purga de datos, conciliación de importes y existencias) y las pruebas descritas en la sección 8. El historial de cambios y las decisiones están en [STATUS](docs/progress/STATUS.md) y [ROADMAP](docs/progress/ROADMAP.md).
 
-**Datos de demostración.** Al levantar el entorno existen las cuatro cuentas de prueba y una tienda pequeña: 60 productos en 6 categorías (97 variantes y 2 230 unidades, tres agotadas a propósito), los cupones `WELCOME10`, `CAKES25`, `SOLDOUT` y `EXPIRED`, dos cuentas bancarias ficticias y dos sucursales para recoger pedidos. Se crean por los procedimientos reales y repetir el paso no duplica nada ([detalle y cómo ver cada mensaje de cupón](docs/operations/demo-data.md)). La colección de Postman sigue creando sus propios datos.
+**Datos de demostración.** Al levantar el entorno existen las cuatro cuentas de prueba y una tienda pequeña: 60 productos en 6 categorías (98 variantes y 6 070 unidades, tres agotadas a propósito; las bolsas de 6 y las docenas del pan dulce comparten una existencia en unidades), los cupones `WELCOME10`, `CAKES25`, `SOLDOUT` y `EXPIRED`, dos cuentas bancarias ficticias y dos sucursales para recoger pedidos. Se crean por los procedimientos reales y repetir el paso no duplica nada ([detalle y cómo ver cada mensaje de cupón](docs/operations/demo-data.md)). La colección de Postman sigue creando sus propios datos.
 
-**Fase 2, frontend: pendiente.** Rutas protegidas y menús por rol, formularios con validación, tablas con paginación y filtros del lado del servidor, gráficas del tablero, estados de carga, vacío y error, renovación transparente del token e interfaz responsive, con pruebas de extremo a extremo.
+**Fase 2, frontend: completa.** La tienda: catálogo con búsqueda y filtros del lado del servidor, producto con sus variantes y empaques, carrito con cupón, checkout con reserva de existencias, pago por depósito con comprobante y mis pedidos. La administración, por rol: el **operador** revisa depósitos y cobros en efectivo, atiende pedidos y devoluciones y mueve el inventario por categoría; el **administrador**, además, ve el tablero con sus gráficas, mantiene el catálogo, los cupones, las sucursales, los métodos de pago y los usuarios, marca los reembolsos y consulta la bitácora. Rutas protegidas y menús por rol, formularios con validación en español, tablas con paginación y filtros del lado del servidor (guardados en la dirección), estados de carga, vacío y error en cada vista, renovación transparente del token e interfaz responsive. Las pruebas son unitarias (Vitest) y de extremo a extremo (Playwright, `npm run test:e2e` con `E2E_ADMIN_PASSWORD`). El diseño está en [el diseño del frontend](docs/architecture/06-frontend-lld.md).
+
+**Mejoras conocidas.** Lo que no se hizo o se hizo a medias: la edición de un producto no envía la versión de la fila porque el API todavía no la expone (dos administradores que editen el mismo producto a la vez se pisarían); un producto desactivado no tiene una operación para reactivarlo; la lista de reembolsos llega entera (hasta 100) y no se pagina; las unidades por paquete de un empaque no se editan una vez creado (un tamaño distinto es un empaque nuevo); los invitados se acumulan sin una regla de retención; y los extras opcionales del enunciado (caché, exportación y tiempo real) no están hechos.

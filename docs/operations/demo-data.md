@@ -7,8 +7,8 @@
 | Data | Content |
 |---|---|
 | Categories | Pasteles, Cupcakes, Galletas, Pan dulce, Postres fríos and Temporada (the six of the design) | <!-- spelling-ignore -->
-| Products | 60, with 97 variants and attributes `Tamaño` and `Sabor`; the four example products of the design keep their SKUs and prices (`PAS-3L-06` Q145.00, `PAS-CHO-12` Q275.00, `CUP-RV-06` Q90.00, `GAL-AVE-12` Q45.00) | <!-- spelling-ignore -->
-| Stock | 2,230 units in total, entered through the inventory ledger. Three variants are out of stock on purpose (`PAS-MOK-24`, `CUP-FRE-06`, `TEM-SVA-06`) to see that state |
+| Products | 60, with 98 variants and attributes `Tamaño` and `Sabor`; the four example products of the design keep their SKUs and prices (`PAS-3L-06` Q145.00, `PAS-CHO-12` Q275.00, `CUP-RV-06` Q90.00, `GAL-AVE-12` Q45.00) | <!-- spelling-ignore -->
+| Stock | 6,070 units in total, entered through the inventory ledger. The bags of 6 and the dozens of the sweet bread (and the champurradas, by the dozen and by the bag of 6) are packagings that share one stock in units ([ADR-0031](../adr/0031-packagings-share-one-stock-measured-in-units.md)). Three variants are out of stock on purpose (`PAS-MOK-24`, `CUP-FRE-06`, `TEM-SVA-06`) to see that state |
 | Coupons | `WELCOME10`, `CAKES25`, `SOLDOUT` and `EXPIRED` (see below) |
 | Bank accounts | Two fictitious accounts, one checking and one savings, of "Banco de Ejemplo", marked in their instructions as not real | <!-- spelling-ignore -->
 
