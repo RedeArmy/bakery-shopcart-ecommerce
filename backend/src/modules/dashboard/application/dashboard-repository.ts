@@ -18,4 +18,9 @@ export interface DashboardRepository {
   salesByCategory(range: DateRange): Promise<Row[]>;
   topProducts(range: DateRange, top: number): Promise<Row[]>;
   abandonedCarts(page: number, size: number): Promise<Page<Row>>;
+  /**
+   * Una marca de lo que cambió en los datos de los reportes (pedidos, pagos, devoluciones, catálogo): mientras no cambie, un
+   * reporte ya calculado sigue valiendo. Es una lectura barata, no recorre pedidos.
+   */
+  dataVersion(): Promise<string>;
 }

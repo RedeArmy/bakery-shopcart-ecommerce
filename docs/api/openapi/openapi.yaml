@@ -3326,6 +3326,71 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/dashboard/export:
+    get:
+      tags:
+        - Dashboard
+      summary: The sales report as an Excel or PDF file
+      description: >-
+        The same four reports as the dashboard (summary, sales per period, sales by category and best sellers) for the range, as a
+        file to download: an Excel workbook with one sheet per report, or a PDF document. It reads through the same cache as the
+        dashboard, so exporting does not calculate again what the screen already calculated.
+      operationId: adminDashboardExport
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: format
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - xlsx
+              - pdf
+        - *a2
+        - *a3
+        - name: granularity
+          in: query
+          schema:
+            type: string
+            enum:
+              - day
+              - week
+              - month
+            default: day
+        - name: limit
+          in: query
+          description: How many best sellers the file lists
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        '200':
+          description: The file, as an attachment
+          headers:
+            Content-Disposition:
+              description: attachment; filename="reporte-ventas-<from>_<to>.<format>"
+              schema:
+                type: string
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /api/v1/admin/dashboard/abandoned-carts:
     get:
       tags:

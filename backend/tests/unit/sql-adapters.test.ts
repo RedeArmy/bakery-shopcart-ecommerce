@@ -438,6 +438,12 @@ const cases: Case[] = [
     'dbo.SP_Dashboard_AbandonedCarts',
     ['PageNumber', 'PageSize'],
   ],
+  [
+    'dashboard data version',
+    (e) => createSqlDashboardRepository(e).dataVersion(),
+    'dbo.SP_Dashboard_DataVersion',
+    [],
+  ],
   // Pedidos
   [
     'orders list',
