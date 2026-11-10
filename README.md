@@ -39,7 +39,7 @@ Los nueve módulos del enunciado están construidos de punta a punta: la base de
 | RF-08 Tablero y reportes | Completo, con sus gráficas en el frontend | [ADR-0009](docs/adr/0009-definition-of-completed-order-for-reports.md) |
 | RF-09 Bitácora | Completo | [Modelo de datos](docs/database/er-diagram.md) |
 
-Los 21 criterios de aceptación del enunciado están en el [mapa de criterios](docs/quality/acceptance-criteria-map.md): para cada uno dice qué lo hace cumplir y qué prueba lo demuestra. Las pruebas son 692 de base de datos (tSQLt), 16 escenarios de concurrencia con conexiones reales, 25 flujos HTTP contra SQL Server y más de 550 pruebas unitarias.
+Los 21 criterios de aceptación del enunciado están en el [mapa de criterios](docs/quality/acceptance-criteria-map.md): para cada uno dice qué lo hace cumplir y qué prueba lo demuestra. Las pruebas son 693 de base de datos (tSQLt), 16 escenarios de concurrencia con conexiones reales, 25 flujos HTTP contra SQL Server y más de 550 pruebas unitarias.
 
 ## 3. Arquitectura
 
@@ -229,7 +229,7 @@ Para empezar de cero, incluida la base de datos, use `docker compose down --volu
 | Qué se prueba | Comando |
 |---|---|
 | Unitarias del backend, del runner y de los scripts | `npm test` |
-| 692 pruebas de base de datos (tSQLt) | `npm run sql:test:up` y después `npm run sql:test` |
+| 693 pruebas de base de datos (tSQLt) | `npm run sql:test:up` y después `npm run sql:test` |
 | 16 escenarios de concurrencia con conexiones reales | `npm run sql:concurrency` |
 | Flujos HTTP contra SQL Server (25) | `npm run test:integration -w backend`, con el servidor de pruebas migrado ([comandos](docs/quality/sql-testing-tsqlt.md#concurrency-http-and-performance-suites)) |
 | Cobertura de procedimientos por pruebas (99 de 99) | `npm run sql:coverage` |

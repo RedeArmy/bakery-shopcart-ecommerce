@@ -12,6 +12,7 @@ import { OrderHeader } from '../../orders/components/order-header';
 import { OrderSummary } from '../../orders/components/order-summary';
 import { OrderTimeline } from '../../orders/components/order-timeline';
 import { allows } from '../../orders/model/order-status';
+import { ManageOrder } from '../components/manage-order';
 import { OrderPayments } from '../components/order-payments';
 import { OrderStep } from '../components/order-step';
 import { RegisterReturn } from '../components/register-return';
@@ -78,9 +79,12 @@ export function StaffOrderPage() {
             allowed={data.allowedActions}
             operatorOnly={data.operatorOnlyActions}
           />
-          {allows(data, 'Cancel') ? (
-            <CancelOrder idOrder={idOrder} paid={data.statusName !== 'PendingPayment'} />
-          ) : null}
+          <div className="flex flex-wrap items-start gap-3">
+            {allows(data, 'Cancel') ? (
+              <CancelOrder idOrder={idOrder} paid={data.statusName !== 'PendingPayment'} />
+            ) : null}
+            <ManageOrder idOrder={idOrder} />
+          </div>
           {allows(data, 'Return') ? (
             <RegisterReturn lines={data.lines} register={register} />
           ) : null}

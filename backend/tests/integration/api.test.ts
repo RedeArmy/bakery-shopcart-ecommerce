@@ -791,7 +791,8 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
     expect(again.status).toBe(404);
 
     // Un estado que no existe se rechaza
-    expect((await get(administrator, '/admin/coupons?status=Expired')).status).toBe(400);
+    expect((await get(administrator, '/admin/coupons?status=Bogus')).status).toBe(400);
+    expect((await get(administrator, '/admin/coupons?status=Expired')).status).toBe(200);
   });
 
   it('lets the administrator manage coupons, accounts and read the audit log and the system version', async () => {

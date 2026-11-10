@@ -135,6 +135,11 @@ describe('the coupons screen', () => {
       expect(lastQuery(calls).get('status')).toBe('Inactive');
     });
 
+    await user.click(screen.getByRole('button', { name: 'Vencidos' }));
+    await waitFor(() => {
+      expect(lastQuery(calls).get('status')).toBe('Expired');
+    });
+
     await user.click(screen.getByRole('button', { name: 'Todos' }));
     await waitFor(() => {
       expect(lastQuery(calls).get('status')).toBe('All');

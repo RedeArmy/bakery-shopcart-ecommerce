@@ -26,8 +26,9 @@ describe('the coupons query', () => {
 
   it('falls back to the default for what it does not understand', () => {
     expect(parse('status=Active&page=0')).toEqual({ filter: 'all', page: 1 });
-    expect(parse('status=expired')).toEqual({ filter: 'all', page: 1 });
+    expect(parse('status=bogus')).toEqual({ filter: 'all', page: 1 });
     expect(parse('page=1.5').page).toBe(1);
+    expect(parse('status=expired')).toEqual({ filter: 'expired', page: 1 });
   });
 
   it('writes only what differs from the default', () => {

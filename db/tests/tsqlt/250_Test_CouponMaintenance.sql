@@ -100,8 +100,22 @@ GO
 CREATE PROCEDURE Test_CouponMaintenance.[test the list rejects a state it does not know]
 AS
 BEGIN
-    EXEC tSQLt.ExpectException @ExpectedMessagePattern = N'%Status must be All, Active or Inactive%', @ExpectedErrorNumber = 50400;
-    EXEC dbo.SP_Coupons_List @Status = 'Expired';
+    EXEC tSQLt.ExpectException @ExpectedMessagePattern = N'%Status must be All, Active, Inactive or Expired%', @ExpectedErrorNumber = 50400;
+    EXEC dbo.SP_Coupons_List @Status = 'Bogus';
+END;
+GO
+
+CREATE PROCEDURE Test_CouponMaintenance.[test the list of expired coupons shows only the active ones past their end date]
+AS
+BEGIN
+    DECLARE @Admin INT = Test_Shop.UserId(N'admin@shopcart.test');
+    DECLARE @IdFIXED10 INT = Test_CouponMaintenance.CouponId(N'FIXED10');
+    EXEC dbo.SP_Coupons_Deactivate @IDActor = @Admin, @IDCoupon = @IdFIXED10;
+
+    DECLARE @Codes NVARCHAR(200);
+    EXEC Test_CouponMaintenance.Codes @Status = 'Expired', @Codes = @Codes OUTPUT;
+
+    EXEC tSQLt.AssertEqualsString @Expected = N'EXPIRED', @Actual = @Codes;
 END;
 GO
 

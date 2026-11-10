@@ -11,7 +11,7 @@ test('the administrator opens the dashboard from the menu, reads the reports and
 
   // El personal no compra: sin tienda, sin carrito y sin el aviso de los pasteles por encargo
   const header = page.getByRole('banner');
-  await expect(header.getByRole('link', { name: 'Catálogo' })).toHaveCount(0);
+  await expect(header.getByRole('link', { name: 'Catálogo', exact: true })).toHaveCount(0);
   await expect(header.getByRole('link', { name: /Carrito/ })).toHaveCount(0);
   await expect(page.getByText(/Pasteles por encargo: cada producto indica/)).toHaveCount(0);
 
