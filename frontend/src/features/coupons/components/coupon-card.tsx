@@ -1,10 +1,12 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { errorMessage } from '../../../shared/api';
 import { formatDateOnly } from '../../../shared/lib/date';
 import { formatMoney } from '../../../shared/lib/money/money';
 import { Badge } from '../../../shared/ui/badge';
 import { Button } from '../../../shared/ui/button';
 import { RemoveConfirmation, useCardMode } from '../../../shared/ui/remove-confirmation';
-import { useDeactivateCoupon } from '../hooks/use-coupons';
+import { useDeactivateCoupon, useDeleteCoupon, useReactivateCoupon } from '../hooks/use-coupons';
 import { dayOf } from '../model/coupons';
 import type { Coupon } from '../model/coupons';
 import { CouponForm } from './coupon-form';
@@ -28,7 +30,10 @@ export function CouponCard({
 }: Readonly<{ coupon: Coupon; categoryName: string | undefined }>) {
   const { t } = useTranslation();
   const deactivate = useDeactivateCoupon(coupon.idCoupon);
+  const reactivate = useReactivateCoupon(coupon.idCoupon);
+  const deleteCoupon = useDeleteCoupon(coupon.idCoupon);
   const { mode, edit, remove, close } = useCardMode();
+  const [deleting, setDeleting] = useState(false);
 
   if (mode === 'edit') {
     return (
@@ -93,6 +98,46 @@ export function CouponCard({
       {mode === 'remove' ? (
         <RemoveConfirmation prefix="coupons" deactivation={deactivate} onClose={close} />
       ) : null}
+
+      {/* Un cupón desactivado se puede volver a activar o, solo entonces, borrar por completo */}
+      {coupon.isActive ? null : (
+        <>
+          {deleting ? null : (
+            <div className="flex flex-wrap gap-3">
+              <Button
+                loading={reactivate.isPending}
+                onClick={() => {
+                  reactivate.mutate();
+                }}
+              >
+                {t('coupons.activate')}
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setDeleting(true);
+                }}
+              >
+                {t('coupons.delete')}
+              </Button>
+            </div>
+          )}
+          {reactivate.isError ? (
+            <p role="alert" className="text-sm text-red-900">
+              {errorMessage(reactivate.error)}
+            </p>
+          ) : null}
+          {deleting ? (
+            <RemoveConfirmation
+              prefix="coupons.deletion"
+              deactivation={deleteCoupon}
+              onClose={() => {
+                setDeleting(false);
+              }}
+            />
+          ) : null}
+        </>
+      )}
     </li>
   );
 }

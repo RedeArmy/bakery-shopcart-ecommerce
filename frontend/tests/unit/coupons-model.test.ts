@@ -15,22 +15,27 @@ import type { Coupon, CouponValues } from '../../src/features/coupons/model/coup
 const parse = (search: string) => parseCouponsQuery(new URLSearchParams(search));
 
 describe('the coupons query', () => {
-  it('starts without the deactivated ones, on the first page', () => {
-    expect(parse('')).toEqual({ inactive: false, page: 1 });
+  it('starts with all the coupons, on the first page', () => {
+    expect(parse('')).toEqual({ filter: 'all', page: 1 });
   });
 
   it('reads the filter and the page from the address', () => {
-    expect(parse('inactive=true&page=3')).toEqual({ inactive: true, page: 3 });
+    expect(parse('status=inactive&page=3')).toEqual({ filter: 'inactive', page: 3 });
+    expect(parse('status=active')).toEqual({ filter: 'active', page: 1 });
   });
 
   it('falls back to the default for what it does not understand', () => {
-    expect(parse('inactive=yes&page=0')).toEqual({ inactive: false, page: 1 });
+    expect(parse('status=Active&page=0')).toEqual({ filter: 'all', page: 1 });
+    expect(parse('status=expired')).toEqual({ filter: 'all', page: 1 });
     expect(parse('page=1.5').page).toBe(1);
   });
 
   it('writes only what differs from the default', () => {
-    expect(couponsParams({ inactive: false, page: 1 }).toString()).toBe('');
-    expect(couponsParams({ inactive: true, page: 2 }).toString()).toBe('inactive=true&page=2');
+    expect(couponsParams({ filter: 'all', page: 1 }).toString()).toBe('');
+    expect(couponsParams({ filter: 'inactive', page: 2 }).toString()).toBe(
+      'status=inactive&page=2',
+    );
+    expect(couponsParams({ filter: 'active', page: 1 }).toString()).toBe('status=active');
   });
 });
 

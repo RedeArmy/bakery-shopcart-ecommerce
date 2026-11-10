@@ -2695,6 +2695,17 @@ paths:
           in: query
           schema:
             type: boolean
+        - name: status
+          in: query
+          description: >-
+            Which coupons to list. All lists every coupon, Active only the ones that can be applied now (active, started, not
+            expired and not exhausted) and Inactive only the deactivated ones. When it is not sent, includeInactive decides.
+          schema:
+            type: string
+            enum:
+              - All
+              - Active
+              - Inactive
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Size'
       responses:
@@ -2845,6 +2856,85 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/coupons/{id}/reactivate:
+    post:
+      tags:
+        - Coupons
+      summary: Reactivate a deactivated coupon
+      description: >-
+        Idempotent: reactivating an active coupon changes nothing. Its dates and uses are not touched, so a coupon whose validity
+        has passed stays expired until it is edited.
+      operationId: adminReactivateCoupon
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idCoupon:
+                    $ref: '#/components/schemas/Id'
+                  isActive:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/admin/coupons/{id}/permanent:
+    delete:
+      tags:
+        - Coupons
+      summary: Delete a deactivated coupon for good
+      description: >-
+        The only operation that deletes a row of the business. It is refused with 422 when the coupon is still active and when an
+        order used it or cites it (it stays deactivated, because the order keeps its history). Carts that still held the coupon
+        lose it. The audit log keeps the coupon as it was, with the action Deactivate and the new value Deleted.
+      operationId: adminDeleteCoupon
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idCoupon:
+                    $ref: '#/components/schemas/Id'
+                  deleted:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorised'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /api/v1/admin/users:

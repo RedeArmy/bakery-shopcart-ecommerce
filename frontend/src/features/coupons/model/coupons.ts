@@ -11,17 +11,23 @@ export const PAGE_SIZE = 20;
 
 export const COUPON_TYPES = ['Percentage', 'FixedAmount'] as const;
 
+/** Qué cupones se ven: todos, solo los vigentes ahora o solo los desactivados. */
+export const FILTERS = ['all', 'active', 'inactive'] as const;
+export type CouponFilter = (typeof FILTERS)[number];
+
+export const DEFAULT_FILTER: CouponFilter = 'all';
+
 export interface CouponsQuery {
-  /** También los desactivados */
-  inactive: boolean;
+  filter: CouponFilter;
   page: number;
 }
 
-/** Lo que dice la dirección: si se ven también los desactivados y la página. */
+/** Lo que dice la dirección: el filtro y la página. Lo que no se entiende vuelve a «todos» en lugar de romper la pantalla. */
 export function parseCouponsQuery(params: URLSearchParams): CouponsQuery {
+  const status = params.get('status');
   const page = Number(params.get('page') ?? '1');
   return {
-    inactive: params.get('inactive') === 'true',
+    filter: FILTERS.find((candidate) => candidate === status) ?? DEFAULT_FILTER,
     page: Number.isInteger(page) && page >= 1 ? page : 1,
   };
 }
@@ -29,10 +35,13 @@ export function parseCouponsQuery(params: URLSearchParams): CouponsQuery {
 /** La dirección para una consulta: solo lleva lo que se aparta del valor por omisión. */
 export function couponsParams(query: CouponsQuery): URLSearchParams {
   const params = new URLSearchParams();
-  if (query.inactive) params.set('inactive', 'true');
+  if (query.filter !== DEFAULT_FILTER) params.set('status', query.filter);
   if (query.page > 1) params.set('page', String(query.page));
   return params;
 }
+
+/** El estado que se pide al API para cada filtro. */
+export const API_STATUS = { all: 'All', active: 'Active', inactive: 'Inactive' } as const;
 
 // Los mensajes son claves de i18n; las reglas repiten las del servidor (SP_Coupons_Create): el servidor sigue decidiendo.
 const limit = z

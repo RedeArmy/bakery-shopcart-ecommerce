@@ -308,9 +308,21 @@ const cases: Case[] = [
   // Cupones
   [
     'coupons list',
-    (e) => createSqlCouponsRepository(e).list(false, 1, 20),
+    (e) => createSqlCouponsRepository(e).list(false, 'Active', 1, 20),
     'dbo.SP_Coupons_List',
-    ['IncludeInactive', 'PageNumber', 'PageSize'],
+    ['IncludeInactive', 'Status', 'PageNumber', 'PageSize'],
+  ],
+  [
+    'coupons reactivate',
+    (e) => createSqlCouponsRepository(e).reactivate(1, 2),
+    'dbo.SP_Coupons_Reactivate',
+    ['IDActor', 'IDCoupon'],
+  ],
+  [
+    'coupons delete',
+    (e) => createSqlCouponsRepository(e).delete(1, 2),
+    'dbo.SP_Coupons_Delete',
+    ['IDActor', 'IDCoupon'],
   ],
   [
     'coupons create',

@@ -10,7 +10,7 @@ Planned objects, grouped by module. Procedures marked **critical** need a tSQLt 
 | Catalogue (RF-02) | **Built:** `SP_Categories_Create/Update/Deactivate/List`, `SP_Products_Create/Update/Deactivate/Get/Search`, `SP_Variants_Create/Update`, `SP_Variants_ChangePrice`, `SP_Variants_SetAttributes` (internal), `SP_Addresses_List/Save` |
 | Inventory (RF-03) | **Built:** `SP_Inventory_RegisterEntry`, `SP_Inventory_AdjustStock`, **`SP_Inventory_ReserveStock`**, `SP_Inventory_ReleaseCartReservation`, **`SP_Inventory_ReleaseExpiredReservations`**, `SP_Inventory_GetLedger` |
 | Cart (RF-04) | **Built:** `SP_Cart_Get`, `SP_Cart_SetItemQuantity`, `SP_Cart_RemoveItem`, `SP_Cart_MergeGuest`, `SP_Cart_ApplyCoupon`, `SP_Cart_RemoveCoupon` |
-| Coupons (RF-05) | **Built:** `SP_Coupons_Create/Update/Deactivate/List`, `SP_Coupons_Validate` |
+| Coupons (RF-05) | **Built:** `SP_Coupons_Create/Update/Deactivate/Reactivate/Delete/List` (the list filters by state: all, current or deactivated; the delete only removes a deactivated coupon that no order used), `SP_Coupons_Validate` |
 | Branches (pickup) | **Built:** `SP_Branches_List`, `SP_Branches_Create`, `SP_Branches_Update`, `SP_Branches_Deactivate` (V0015; "removing" a branch deactivates it) |
 | Payment methods (maintenance) | **Built:** `SP_PaymentMethods_List`, `SP_PaymentMethods_Create`, `SP_PaymentMethods_Update`, `SP_PaymentMethods_Deactivate` (V0017; "removing" a method deactivates it) and `SP_Payments_ConfirmCash` (a cash payment collected in the branch) |
 | Checkout (RF-06) | **Built:** `SP_Idempotency_Begin/Complete/Fail/PurgeExpired`, **`SP_Orders_CreateOrder`** (built) |

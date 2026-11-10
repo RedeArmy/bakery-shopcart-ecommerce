@@ -115,28 +115,41 @@ describe('the coupons screen', () => {
     expect(screen.getByText('Desactivado')).toBeDefined();
   });
 
-  it('hides the deactivated ones until they are asked for, and keeps the choice in the address', async () => {
+  it('shows all the coupons by default and filters by the current ones or the deactivated ones', async () => {
     const user = userEvent.setup();
     const { calls } = await open([coupon()]);
     await screen.findByText('VERANO10');
-    expect(lastQuery(calls).get('includeInactive')).toBe('false');
+    expect(lastQuery(calls).get('status')).toBe('All');
+    expect(screen.getByRole('button', { name: 'Todos' }).getAttribute('aria-pressed')).toBe('true');
 
-    await user.click(screen.getByLabelText('Mostrar también los desactivados'));
-
+    await user.click(screen.getByRole('button', { name: 'Vigentes' }));
     await waitFor(() => {
-      expect(lastQuery(calls).get('includeInactive')).toBe('true');
+      expect(lastQuery(calls).get('status')).toBe('Active');
+    });
+    expect(screen.getByRole('button', { name: 'Vigentes' }).getAttribute('aria-pressed')).toBe(
+      'true',
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Desactivados' }));
+    await waitFor(() => {
+      expect(lastQuery(calls).get('status')).toBe('Inactive');
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Todos' }));
+    await waitFor(() => {
+      expect(lastQuery(calls).get('status')).toBe('All');
     });
   });
 
   it('reads the filter and the page from the address', async () => {
-    const { calls } = await open([coupon()], {}, '/admin/coupons?inactive=true&page=2');
+    const { calls } = await open([coupon()], {}, '/admin/coupons?status=inactive&page=2');
 
     await screen.findByText('VERANO10');
-    expect(lastQuery(calls).get('includeInactive')).toBe('true');
+    expect(lastQuery(calls).get('status')).toBe('Inactive');
     expect(lastQuery(calls).get('page')).toBe('2');
-    expect(
-      screen.getByLabelText<HTMLInputElement>('Mostrar también los desactivados').checked,
-    ).toBe(true);
+    expect(screen.getByRole('button', { name: 'Desactivados' }).getAttribute('aria-pressed')).toBe(
+      'true',
+    );
   });
 
   it('pages on the server', async () => {
@@ -182,11 +195,113 @@ describe('the coupons screen', () => {
     expect(await screen.findByText('VERANO10')).toBeDefined();
   });
 
-  it('offers no actions on a coupon that is deactivated', async () => {
+  it('offers to activate or delete a coupon that is deactivated, and not to edit or deactivate it', async () => {
     await open([coupon({ status: 'Inactive', isActive: false })]);
 
     const card = (await screen.findByText('VERANO10')).closest('li') as HTMLElement;
-    expect(within(card).queryByRole('button')).toBeNull();
+    expect(within(card).getByRole('button', { name: 'Activar' })).toBeDefined();
+    expect(within(card).getByRole('button', { name: 'Eliminar' })).toBeDefined();
+    expect(within(card).queryByRole('button', { name: 'Editar' })).toBeNull();
+    expect(within(card).queryByRole('button', { name: 'Desactivar' })).toBeNull();
+  });
+
+  it('never offers to delete or activate a coupon that is active', async () => {
+    await open([coupon()]);
+
+    const card = (await screen.findByText('VERANO10')).closest('li') as HTMLElement;
+    expect(within(card).queryByRole('button', { name: 'Eliminar' })).toBeNull();
+    expect(within(card).queryByRole('button', { name: 'Activar' })).toBeNull();
+  });
+});
+
+describe('activating and deleting a deactivated coupon', () => {
+  const off = () => coupon({ status: 'Inactive', isActive: false });
+  const card = async () => (await screen.findByText('VERANO10')).closest('li') as HTMLElement;
+
+  it('activates it with one click and an idempotency key, and reads the list again', async () => {
+    const user = userEvent.setup();
+    let listed = 0;
+    const { calls } = await open([], {
+      'GET /api/v1/admin/coupons': () => {
+        listed += 1;
+        return json(page([listed === 1 ? off() : coupon()]));
+      },
+      'POST /api/v1/admin/coupons/5/reactivate': json({ idCoupon: 5, isActive: true }),
+    });
+    const item = await card();
+
+    await user.click(within(item).getByRole('button', { name: 'Activar' }));
+
+    await waitFor(() => {
+      expect(sent(calls, 'POST', '/api/v1/admin/coupons/5/reactivate')).toHaveLength(1);
+    });
+    expect(
+      sent(calls, 'POST', '/api/v1/admin/coupons/5/reactivate')[0]?.headers.get('Idempotency-Key'),
+    ).toBeTruthy();
+    // Ya activo: aparece vigente, con sus acciones de siempre
+    expect(await screen.findByText('Vigente')).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Desactivar' })).toBeDefined();
+  });
+
+  it('shows the reason when the server refuses to activate it', async () => {
+    const user = userEvent.setup();
+    await open([off()], { 'POST /api/v1/admin/coupons/5/reactivate': apiError(404, 'NOT_FOUND') });
+    const item = await card();
+
+    await user.click(within(item).getByRole('button', { name: 'Activar' }));
+
+    expect(await within(item).findByRole('alert')).toBeDefined();
+  });
+
+  it('asks before deleting it for good, then deletes it and reads the list again', async () => {
+    const user = userEvent.setup();
+    let listed = 0;
+    const { calls } = await open([], {
+      'GET /api/v1/admin/coupons': () => {
+        listed += 1;
+        return json(page(listed === 1 ? [off()] : []));
+      },
+      'DELETE /api/v1/admin/coupons/5/permanent': json({ idCoupon: 5, deleted: true }),
+    });
+    const item = await card();
+
+    await user.click(within(item).getByRole('button', { name: 'Eliminar' }));
+    expect(within(item).getByText('¿Eliminar este cupón por completo?')).toBeDefined();
+    expect(sent(calls, 'DELETE', '/api/v1/admin/coupons/5/permanent')).toHaveLength(0);
+    await user.click(within(item).getByRole('button', { name: 'Sí, eliminarlo' }));
+
+    await waitFor(() => {
+      expect(sent(calls, 'DELETE', '/api/v1/admin/coupons/5/permanent')).toHaveLength(1);
+    });
+    expect(await screen.findByText('No hay cupones')).toBeDefined();
+  });
+
+  it('keeps the coupon when the administrator changes their mind about deleting it', async () => {
+    const user = userEvent.setup();
+    const { calls } = await open([off()]);
+    const item = await card();
+
+    await user.click(within(item).getByRole('button', { name: 'Eliminar' }));
+    await user.click(within(item).getByRole('button', { name: 'No, conservarlo' }));
+
+    expect(within(item).queryByText('¿Eliminar este cupón por completo?')).toBeNull();
+    expect(within(item).getByRole('button', { name: 'Eliminar' })).toBeDefined();
+    expect(sent(calls, 'DELETE', '/api/v1/admin/coupons/5/permanent')).toHaveLength(0);
+  });
+
+  it('shows the reason when an order used the coupon and the server keeps it', async () => {
+    const user = userEvent.setup();
+    await open([off()], {
+      'DELETE /api/v1/admin/coupons/5/permanent': apiError(422, 'UNPROCESSABLE'),
+    });
+    const item = await card();
+    await user.click(within(item).getByRole('button', { name: 'Eliminar' }));
+
+    await user.click(within(item).getByRole('button', { name: 'Sí, eliminarlo' }));
+
+    expect(await within(item).findByRole('alert')).toBeDefined();
+    // El cupón sigue ahí, con la confirmación abierta para cerrarla
+    expect(within(item).getByText('VERANO10')).toBeDefined();
   });
 });
 

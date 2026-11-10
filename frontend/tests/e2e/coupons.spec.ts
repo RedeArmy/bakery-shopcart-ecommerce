@@ -45,14 +45,32 @@ test('the administrator sees the coupons, creates one, edits it and deactivates 
   await expect(edit).toBeHidden();
   await expect(card.getByText('20 % de descuento')).toBeVisible();
 
-  // Se desactiva con confirmación y deja de verse en la lista; con el filtro reaparece como desactivado
+  // Se desactiva con confirmación: en «Todos» sigue en la lista, marcado como desactivado, con «Activar» y «Eliminar»
   await card.getByRole('button', { name: 'Desactivar' }).click();
   await card.getByRole('button', { name: 'Sí, desactivarlo' }).click();
+  await expect(card.getByText('Desactivado')).toBeVisible();
+  await expect(card.getByRole('button', { name: 'Editar' })).toHaveCount(0);
+
+  // Se vuelve a activar de un clic y recupera sus acciones
+  await card.getByRole('button', { name: 'Activar' }).click();
+  await expect(card.getByText('Vigente')).toBeVisible();
+  await expect(card.getByRole('button', { name: 'Eliminar' })).toHaveCount(0);
+
+  // Desactivado otra vez, aparece en «Desactivados» y no en «Vigentes»
+  await card.getByRole('button', { name: 'Desactivar' }).click();
+  await card.getByRole('button', { name: 'Sí, desactivarlo' }).click();
+  await main.getByRole('button', { name: 'Vigentes' }).click();
+  await expect(page).toHaveURL(/status=active/);
+  await expect(main.getByRole('listitem').filter({ hasText: code })).toHaveCount(0);
+  await main.getByRole('button', { name: 'Desactivados' }).click();
+  await expect(page).toHaveURL(/status=inactive/);
+  await expect(card).toBeVisible();
+
+  // Ningún pedido lo usó: se elimina por completo, con confirmación, y ya no está en ninguna lista
+  await card.getByRole('button', { name: 'Eliminar' }).click();
+  await card.getByRole('button', { name: 'Sí, eliminarlo' }).click();
   await expect(card).toHaveCount(0);
-  // La casilla la gobierna la dirección: se hace clic y se espera a que quede marcada, no se exige el cambio en el mismo instante
-  await main.getByLabel('Mostrar también los desactivados').click();
-  await expect(main.getByLabel('Mostrar también los desactivados')).toBeChecked();
-  await expect(
-    main.getByRole('listitem').filter({ hasText: code }).getByText('Desactivado'),
-  ).toBeVisible();
+  await main.getByRole('button', { name: 'Todos' }).click();
+  await expect(main.getByRole('listitem').first()).toBeVisible();
+  await expect(main.getByRole('listitem').filter({ hasText: code })).toHaveCount(0);
 });

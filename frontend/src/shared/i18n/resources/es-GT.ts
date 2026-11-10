@@ -388,7 +388,17 @@ export const esGT = {
     save: 'Guardar cambios',
     edit: 'Editar',
     remove: 'Desactivar',
-    showInactive: 'Mostrar también los desactivados',
+    filter: 'Qué cupones ver',
+    filters: { all: 'Todos', active: 'Vigentes', inactive: 'Desactivados' },
+    activate: 'Activar',
+    delete: 'Eliminar',
+    deletion: {
+      removeTitle: '¿Eliminar este cupón por completo?',
+      removeText:
+        'Se borra y no se puede deshacer. Solo se puede si ningún pedido lo usó; si uno lo usó, el cupón se conserva desactivado y se explica por qué.',
+      removeConfirm: 'Sí, eliminarlo',
+      removeKeep: 'No, conservarlo',
+    },
     allCategories: 'Todas las categorías',
     fields: {
       code: 'Código',
