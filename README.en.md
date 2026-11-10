@@ -6,7 +6,7 @@ A production-grade e-commerce platform for a bakery, built for the **Tech Challe
 
 Mandatory stack: **SQL Server 2019+ (stored procedures only) · Node 26 + TypeScript `strict` + Express · React 18 + TypeScript**. Delivery dates: **Phase 1 (database and backend) Monday 2 November 2026, 23:59** and **Phase 2 (frontend and complete project) Monday 9 November 2026, 23:59**.
 
-**Status:** Phase 1 is complete and can be verified in minutes with a Postman collection (section 8). The frontend belongs to Phase 2 and is not built yet (section 14).
+**Status:** both phases are complete. Phase 1 can be verified in minutes with a Postman collection (section 8) and Phase 2, the frontend, covers the shop and the administration by role (section 14).
 
 ## 1. The scenario
 
@@ -25,7 +25,7 @@ The business has six concrete concerns and each one has a mechanism:
 
 ## 2. Requirement coverage
 
-The nine modules of the brief are built in the database and the backend. What each one still lacks is only its screen, which belongs to Phase 2.
+The nine modules of the brief are built end to end: the database, the backend and their screen in the frontend. The column of the table says what the database and the API cover; the screens by role are in section 14.
 
 | Requirement | Phase 1 (database and API) | Where it is solved |
 |---|---|---|
@@ -36,7 +36,7 @@ The nine modules of the brief are built in the database and the backend. What ea
 | RF-05 Coupons | Complete | [Procedure catalogue](docs/database/stored-procedure-catalogue.md) |
 | RF-06 Checkout and payment | Complete (simulated payment) | [Payments](docs/payments/overview.md) |
 | RF-07 Orders and returns | Complete | [State machines](docs/architecture/04-state-machines.md) |
-| RF-08 Dashboard and reports | Complete (the charts belong to Phase 2) | [ADR-0009](docs/adr/0009-definition-of-completed-order-for-reports.md) |
+| RF-08 Dashboard and reports | Complete, with its charts in the frontend | [ADR-0009](docs/adr/0009-definition-of-completed-order-for-reports.md) |
 | RF-09 Audit log | Complete | [Data model](docs/database/er-diagram.md) |
 
 The 21 acceptance criteria of the brief are in the [criteria map](docs/quality/acceptance-criteria-map.md): for each one it says what makes it hold and which test proves it. The tests are 676 for the database (tSQLt), 16 concurrency scenarios with real connections, 24 HTTP flows against SQL Server and more than 550 unit tests.
@@ -183,7 +183,7 @@ It creates `.env` with generated local secrets if it does not exist, builds the 
 |---|---|
 | `http://localhost:8080/health/ready` | 200: the database answers and the schema is up to date |
 | `http://localhost:8080/api/v1/categories` | 200: a public list, empty until the catalogue is created |
-| `http://localhost:8080/` | The shop placeholder (the interface arrives in Phase 2) |
+| `http://localhost:8080/` | The shop, with the demo catalogue |
 
 `/api/v1` alone does not exist and answers 404 `ROUTE_NOT_FOUND`: the API has only concrete routes.
 
@@ -248,7 +248,7 @@ To start from scratch, database included, use `docker compose down --volumes`, d
 | `npm run sql:lint` / `sql:test` / `sql:coverage` | SQL lint, tSQLt tests and procedure coverage |
 | `npm run sql:test:up` / `sql:test:down` | Starts and stops the throwaway SQL Server of the tests |
 | `npm run sql:concurrency` / `sql:bench` | Concurrency scenarios and performance benchmark |
-| `npm run api:generate` / `sonar` | TypeScript client from OpenAPI (Phase 2) and optional quality analysis; not implemented yet |
+| `npm run api:generate` / `api:check` | Generates the TypeScript client of the frontend from OpenAPI and checks that it is not out of date |
 
 ## 10. Test credentials
 
@@ -295,6 +295,8 @@ Full index in [docs/README.md](docs/README.md). API contract in [docs/api/openap
 
 **Phase 1, database and backend: complete.** 19 migrations, 97 procedures, the 88-operation API, authentication with token rotation, the simulated payment, the background jobs (expiry of reservations and payments, data purge, reconciliation of amounts and stock) and the tests described in section 8. The history of changes and the decisions are in [STATUS](docs/progress/STATUS.md) and [ROADMAP](docs/progress/ROADMAP.md).
 
-**Demo data.** When the environment starts there are the four test accounts and a small shop: 60 products in 6 categories (97 variants and 2,230 units, three out of stock on purpose), the coupons `WELCOME10`, `CAKES25`, `SOLDOUT` and `EXPIRED`, two fictitious bank accounts and two branches for picking orders up. They are created through the real procedures and running the step again duplicates nothing ([details and how to see each coupon message](docs/operations/demo-data.md)). The Postman collection still creates its own data.
+**Demo data.** When the environment starts there are the four test accounts and a small shop: 60 products in 6 categories (98 variants and 6,070 units, three out of stock on purpose; the bags of 6 and the dozens of the sweet bread share one stock in units), the coupons `WELCOME10`, `CAKES25`, `SOLDOUT` and `EXPIRED`, two fictitious bank accounts and two branches for picking orders up. They are created through the real procedures and running the step again duplicates nothing ([details and how to see each coupon message](docs/operations/demo-data.md)). The Postman collection still creates its own data.
 
-**Phase 2, frontend: pending.** Protected routes and menus by role, forms with validation, tables with server-side paging and filters, dashboard charts, loading, empty and error states, transparent token renewal and a responsive interface, with end-to-end tests.
+**Phase 2, frontend: complete.** The shop: catalogue with server-side search and filters, product with its variants and packagings, cart with coupon, checkout with stock reservation, deposit payment with proof and my orders. The administration, by role: the **operator** reviews deposits and cash payments, handles orders and returns and moves the inventory by category; the **administrator** also sees the dashboard with its charts, maintains the catalogue, the coupons, the branches, the payment methods and the users, marks the refunds and reads the audit log. Protected routes and menus by role, forms with validation in Spanish, tables with server-side paging and filters (kept in the address), loading, empty and error states in every view, transparent token renewal and a responsive interface. The tests are unit tests (Vitest) and end-to-end tests (Playwright, `npm run test:e2e` with `E2E_ADMIN_PASSWORD`). The design is in [the frontend design](docs/architecture/06-frontend-lld.md).
+
+**Known improvements.** What was not done or was done halfway: editing a product does not send the row version because the API does not expose it yet (two administrators editing the same product at the same time would overwrite each other); a deactivated product has no operation to reactivate it; the list of refunds comes whole (up to 100) and is not paged; the units per pack of a packaging cannot be edited once created (a different size is a new packaging); guests accumulate without a retention rule; and the optional extras of the brief (cache, export and real time) are not done.
