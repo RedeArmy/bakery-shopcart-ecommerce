@@ -12,7 +12,7 @@ export interface CouponInput {
 }
 
 /** Qué cupones se listan: todos, solo los vigentes ahora o solo los desactivados. */
-export type CouponStatusFilter = 'All' | 'Active' | 'Inactive';
+export type CouponStatusFilter = 'All' | 'Active' | 'Inactive' | 'Expired';
 
 /** Puerto de datos de los cupones: la vigencia, los límites y el descuento los decide la base de datos. */
 export interface CouponsRepository {

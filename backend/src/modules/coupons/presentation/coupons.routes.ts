@@ -33,7 +33,7 @@ const listQuery = pageQuery.extend({
     .transform((value) => value === 'true')
     .default(false),
   // El estado manda sobre includeInactive: todos, solo los vigentes ahora o solo los desactivados
-  status: z.enum(['All', 'Active', 'Inactive']).optional(),
+  status: z.enum(['All', 'Active', 'Inactive', 'Expired']).optional(),
 });
 
 const toInput = (body: z.infer<typeof couponFields>) => ({

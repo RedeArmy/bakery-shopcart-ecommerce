@@ -503,7 +503,8 @@ describe('administration routes', () => {
     expect(calls.at(-1)?.args.slice(0, 2)).toEqual([true, 'Inactive']);
     expect((await get('?includeInactive=true')).status).toBe(200);
     expect(calls.at(-1)?.args.slice(0, 2)).toEqual([true, null]);
-    expect((await get('?status=Expired')).status).toBe(400);
+    expect((await get('?status=Bogus')).status).toBe(400);
+    expect((await get('?status=Expired')).status).toBe(200);
   });
 
   it('reactivates a coupon and deletes one for good, only for an administrator', async () => {

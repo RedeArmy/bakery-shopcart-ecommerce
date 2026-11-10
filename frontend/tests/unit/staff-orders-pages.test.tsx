@@ -307,6 +307,35 @@ describe('the staff order detail', () => {
     expect(screen.queryByRole('button', { name: 'Cancelar pedido' })).toBeNull();
   });
 
+  it('takes the order to the cash screen, already searched, while the cash is still to be collected', async () => {
+    await signInAs('Operator');
+    open(detail(), [payment({ statusName: 'Pending' })]);
+    renderApp('/admin/orders/7');
+
+    const link = await screen.findByRole('link', { name: 'Gestionar pedido' });
+    expect(link.getAttribute('href')).toBe('/admin/payments/cash?q=7');
+  });
+
+  it('takes the order to the deposits screen while the voucher waits for its approval', async () => {
+    await signInAs('Operator');
+    open(detail(), [
+      payment({ methodKind: 'Deposit', methodCode: 'DEP', statusName: 'UnderReview' }),
+    ]);
+    renderApp('/admin/orders/7');
+
+    const link = await screen.findByRole('link', { name: 'Gestionar pedido' });
+    expect(link.getAttribute('href')).toBe('/admin/payments/deposits?q=7');
+  });
+
+  it('offers nothing to manage once the payment is settled', async () => {
+    await signInAs('Operator');
+    open(detail());
+    renderApp('/admin/orders/7');
+
+    await screen.findByText('Efectivo en sucursal');
+    expect(screen.queryByRole('link', { name: 'Gestionar pedido' })).toBeNull();
+  });
+
   it('registers a partial return of what is still pending and shows the refund', async () => {
     await signInAs('Operator');
     const user = userEvent.setup();

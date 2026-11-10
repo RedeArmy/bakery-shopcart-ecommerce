@@ -389,7 +389,7 @@ export const esGT = {
     edit: 'Editar',
     remove: 'Desactivar',
     filter: 'Qué cupones ver',
-    filters: { all: 'Todos', active: 'Vigentes', inactive: 'Desactivados' },
+    filters: { all: 'Todos', active: 'Vigentes', expired: 'Vencidos', inactive: 'Desactivados' },
     activate: 'Activar',
     delete: 'Eliminar',
     deletion: {
@@ -1004,6 +1004,7 @@ export const esGT = {
   },
   staffOrders: {
     title: 'Gestión de pedidos',
+    manage: 'Gestionar pedido',
     intro:
       'Los pedidos de todos los clientes. Búsquelos por número de pedido o por correo, y desde cada uno dé el siguiente paso, cancélelo o registre una devolución.',
     search: 'Buscar pedido',

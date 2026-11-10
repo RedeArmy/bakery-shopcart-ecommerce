@@ -11,8 +11,8 @@ export const PAGE_SIZE = 20;
 
 export const COUPON_TYPES = ['Percentage', 'FixedAmount'] as const;
 
-/** Qué cupones se ven: todos, solo los vigentes ahora o solo los desactivados. */
-export const FILTERS = ['all', 'active', 'inactive'] as const;
+/** Qué cupones se ven: todos, solo los vigentes ahora los vencidos o solo los desactivados. */
+export const FILTERS = ['all', 'active', 'expired', 'inactive'] as const;
 export type CouponFilter = (typeof FILTERS)[number];
 
 export const DEFAULT_FILTER: CouponFilter = 'all';
@@ -41,7 +41,12 @@ export function couponsParams(query: CouponsQuery): URLSearchParams {
 }
 
 /** El estado que se pide al API para cada filtro. */
-export const API_STATUS = { all: 'All', active: 'Active', inactive: 'Inactive' } as const;
+export const API_STATUS = {
+  all: 'All',
+  active: 'Active',
+  expired: 'Expired',
+  inactive: 'Inactive',
+} as const;
 
 // Los mensajes son claves de i18n; las reglas repiten las del servidor (SP_Coupons_Create): el servidor sigue decidiendo.
 const limit = z

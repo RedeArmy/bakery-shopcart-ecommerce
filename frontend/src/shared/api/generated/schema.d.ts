@@ -4607,8 +4607,8 @@ export interface operations {
         parameters: {
             query?: {
                 includeInactive?: boolean;
-                /** @description Which coupons to list. All lists every coupon, Active only the ones that can be applied now (active, started, not expired and not exhausted) and Inactive only the deactivated ones. When it is not sent, includeInactive decides. */
-                status?: "All" | "Active" | "Inactive";
+                /** @description Which coupons to list. All lists every coupon, Active only the ones that can be applied now (active, started, not expired and not exhausted) Inactive only the deactivated ones and Expired the active ones whose end date has passed. When it is not sent, includeInactive decides. */
+                status?: "All" | "Active" | "Inactive" | "Expired";
                 page?: components["parameters"]["Page"];
                 size?: components["parameters"]["Size"];
             };
