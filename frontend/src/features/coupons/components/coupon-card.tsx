@@ -19,10 +19,102 @@ const TONES = {
   Inactive: 'neutral',
 } as const;
 
+/** Lo que dice un cupón: desde cuándo hasta cuándo rige, su compra mínima, a qué categoría aplica y cuántas veces se usó. */
+function CouponDetails({
+  coupon,
+  categoryName,
+}: Readonly<{ coupon: Coupon; categoryName: string | undefined }>) {
+  const { t } = useTranslation();
+  const used = coupon.usageCount ?? 0;
+  const hasMinimum = coupon.minimumAmount !== undefined && Number(coupon.minimumAmount) > 0;
+  const uses =
+    coupon.totalUsageLimit == null
+      ? t('coupons.used', { count: used })
+      : t('coupons.usedOf', { count: used, limit: coupon.totalUsageLimit });
+  const perCustomer =
+    coupon.perCustomerUsageLimit == null
+      ? null
+      : ` · ${t('coupons.perCustomer', { count: coupon.perCustomerUsageLimit })}`;
+
+  return (
+    <ul className="space-y-1 text-sm text-stone-700">
+      {coupon.startsAt && coupon.endsAt ? (
+        <li>
+          {t('coupons.validity', {
+            from: formatDateOnly(dayOf(coupon.startsAt)),
+            to: formatDateOnly(dayOf(coupon.endsAt, true)),
+          })}
+        </li>
+      ) : null}
+      {hasMinimum && coupon.minimumAmount ? (
+        <li>{t('coupons.minimum', { value: formatMoney(coupon.minimumAmount) })}</li>
+      ) : null}
+      <li>
+        {categoryName
+          ? t('coupons.onlyCategory', { name: categoryName })
+          : t('coupons.anyCategory')}
+      </li>
+      <li>
+        {uses}
+        {perCustomer}
+      </li>
+    </ul>
+  );
+}
+
+/**
+ * Lo que se puede hacer con un cupón desactivado: volver a activarlo de un clic o, solo entonces, borrarlo por completo, con
+ * confirmación. El servidor lo borra únicamente si ningún pedido lo usó; si no, lo conserva y su motivo se muestra.
+ */
+function DeactivatedActions({ coupon }: Readonly<{ coupon: Coupon }>) {
+  const { t } = useTranslation();
+  const reactivate = useReactivateCoupon(coupon.idCoupon);
+  const deleteCoupon = useDeleteCoupon(coupon.idCoupon);
+  const [deleting, setDeleting] = useState(false);
+
+  return (
+    <>
+      {deleting ? (
+        <RemoveConfirmation
+          prefix="coupons.deletion"
+          deactivation={deleteCoupon}
+          onClose={() => {
+            setDeleting(false);
+          }}
+        />
+      ) : (
+        <div className="flex flex-wrap gap-3">
+          <Button
+            loading={reactivate.isPending}
+            onClick={() => {
+              reactivate.mutate();
+            }}
+          >
+            {t('coupons.activate')}
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setDeleting(true);
+            }}
+          >
+            {t('coupons.delete')}
+          </Button>
+        </div>
+      )}
+      {reactivate.isError ? (
+        <p role="alert" className="text-sm text-red-900">
+          {errorMessage(reactivate.error)}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
 /**
  * Un cupón en la administración: su código, cuánto descuenta y a qué, desde cuándo hasta cuándo rige, cuántas veces se usó y en qué
  * estado está (vigente, aún no empieza, vencido, agotado o desactivado). Mientras no esté desactivado se edita o se desactiva, con
- * confirmación: los pedidos que lo usaron lo conservan.
+ * confirmación: los pedidos que lo usaron lo conservan. Uno desactivado se vuelve a activar o se borra.
  */
 export function CouponCard({
   coupon,
@@ -30,10 +122,7 @@ export function CouponCard({
 }: Readonly<{ coupon: Coupon; categoryName: string | undefined }>) {
   const { t } = useTranslation();
   const deactivate = useDeactivateCoupon(coupon.idCoupon);
-  const reactivate = useReactivateCoupon(coupon.idCoupon);
-  const deleteCoupon = useDeleteCoupon(coupon.idCoupon);
   const { mode, edit, remove, close } = useCardMode();
-  const [deleting, setDeleting] = useState(false);
 
   if (mode === 'edit') {
     return (
@@ -57,32 +146,7 @@ export function CouponCard({
         </div>
         <Badge tone={TONES[coupon.status]}>{t(`coupons.status.${coupon.status}`)}</Badge>
       </div>
-      <ul className="space-y-1 text-sm text-stone-700">
-        {coupon.startsAt && coupon.endsAt ? (
-          <li>
-            {t('coupons.validity', {
-              from: formatDateOnly(dayOf(coupon.startsAt)),
-              to: formatDateOnly(dayOf(coupon.endsAt, true)),
-            })}
-          </li>
-        ) : null}
-        {coupon.minimumAmount && Number(coupon.minimumAmount) > 0 ? (
-          <li>{t('coupons.minimum', { value: formatMoney(coupon.minimumAmount) })}</li>
-        ) : null}
-        <li>
-          {categoryName
-            ? t('coupons.onlyCategory', { name: categoryName })
-            : t('coupons.anyCategory')}
-        </li>
-        <li>
-          {coupon.totalUsageLimit == null
-            ? t('coupons.used', { count: coupon.usageCount ?? 0 })
-            : t('coupons.usedOf', { count: coupon.usageCount ?? 0, limit: coupon.totalUsageLimit })}
-          {coupon.perCustomerUsageLimit == null
-            ? null
-            : ` · ${t('coupons.perCustomer', { count: coupon.perCustomerUsageLimit })}`}
-        </li>
-      </ul>
+      <CouponDetails coupon={coupon} categoryName={categoryName} />
 
       {coupon.isActive && mode === 'view' ? (
         <div className="flex flex-wrap gap-3">
@@ -94,50 +158,12 @@ export function CouponCard({
           </Button>
         </div>
       ) : null}
-
       {mode === 'remove' ? (
         <RemoveConfirmation prefix="coupons" deactivation={deactivate} onClose={close} />
       ) : null}
 
       {/* Un cupón desactivado se puede volver a activar o, solo entonces, borrar por completo */}
-      {coupon.isActive ? null : (
-        <>
-          {deleting ? null : (
-            <div className="flex flex-wrap gap-3">
-              <Button
-                loading={reactivate.isPending}
-                onClick={() => {
-                  reactivate.mutate();
-                }}
-              >
-                {t('coupons.activate')}
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setDeleting(true);
-                }}
-              >
-                {t('coupons.delete')}
-              </Button>
-            </div>
-          )}
-          {reactivate.isError ? (
-            <p role="alert" className="text-sm text-red-900">
-              {errorMessage(reactivate.error)}
-            </p>
-          ) : null}
-          {deleting ? (
-            <RemoveConfirmation
-              prefix="coupons.deletion"
-              deactivation={deleteCoupon}
-              onClose={() => {
-                setDeleting(false);
-              }}
-            />
-          ) : null}
-        </>
-      )}
+      {coupon.isActive ? null : <DeactivatedActions coupon={coupon} />}
     </li>
   );
 }
