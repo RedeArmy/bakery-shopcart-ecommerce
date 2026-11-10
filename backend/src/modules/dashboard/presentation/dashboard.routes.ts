@@ -75,7 +75,8 @@ export function createDashboardRouter(
       kit.clock.now(),
     );
     const file = FILES[query.format];
-    const name = `reporte-ventas-${report.subtitle.replaceAll(/[^0-9-]+/g, '_').replaceAll(/^_+|_+$/g, '')}.${file.extension}`;
+    const { from, to } = report.period;
+    const name = `reporte-ventas-${from}_${to}.${file.extension}`;
     res
       .status(200)
       .set({

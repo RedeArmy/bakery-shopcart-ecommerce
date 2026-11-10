@@ -23,6 +23,8 @@ export interface ReportSection {
 export interface Report {
   title: string;
   subtitle: string;
+  /** El período que cubre, en días de Guatemala (yyyy-mm-dd). */
+  period: { from: string; to: string };
   generatedAt: Date;
   sections: readonly ReportSection[];
 }
@@ -73,6 +75,7 @@ export async function collectReport(
   return {
     title: 'Reporte de ventas',
     subtitle: `Del ${from} al ${to}`,
+    period: { from, to },
     generatedAt,
     sections: [
       {

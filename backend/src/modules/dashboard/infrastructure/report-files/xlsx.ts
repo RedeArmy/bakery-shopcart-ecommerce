@@ -24,13 +24,11 @@ const escape = (value: string): string =>
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;');
 
-const n = (value: number): string => String(value);
-
 /** A, B, … Z, AA: la letra de una columna (la primera es 0). */
 export function columnName(index: number): string {
   let name = '';
   for (let k = index + 1; k > 0; k = Math.floor((k - 1) / 26)) {
-    name = String.fromCharCode(65 + ((k - 1) % 26)) + name;
+    name = String.fromCodePoint(65 + ((k - 1) % 26)) + name;
   }
   return name;
 }
@@ -53,13 +51,13 @@ const STYLES = `${XML}<styleSheet xmlns="${NS}">
 </styleSheet>`;
 
 const stringCell = (ref: string, value: string, style: number): string =>
-  `<c r="${ref}" t="inlineStr" s="${n(style)}"><is><t xml:space="preserve">${escape(value)}</t></is></c>`;
+  `<c r="${ref}" t="inlineStr" s="${String(style)}"><is><t xml:space="preserve">${escape(value)}</t></is></c>`;
 
 /** Un valor de una columna de importes o de enteros va como número; si no se lee como tal, queda como texto. */
 function valueCell(ref: string, value: string, column: ReportColumn): string {
   const numeric = column.kind !== 'text' && value.trim() !== '' && Number.isFinite(Number(value));
   if (!numeric) return stringCell(ref, value, 0);
-  return `<c r="${ref}" s="${column.kind === 'money' ? '2' : '3'}"><v>${n(Number(value))}</v></c>`;
+  return `<c r="${ref}" s="${column.kind === 'money' ? '2' : '3'}"><v>${String(Number(value))}</v></c>`;
 }
 
 function columnWidths(section: ReportSection): string {
@@ -70,7 +68,7 @@ function columnWidths(section: ReportSection): string {
         ...section.rows.map((row) => (row[i] ?? '').length),
       );
       const width = Math.min(Math.max(longest + 4, 12), 50);
-      return `<col min="${n(i + 1)}" max="${n(i + 1)}" width="${n(width)}" customWidth="1"/>`;
+      return `<col min="${String(i + 1)}" max="${String(i + 1)}" width="${String(width)}" customWidth="1"/>`;
     })
     .join('');
 }
@@ -79,16 +77,17 @@ function sheetXml(section: ReportSection, report: Report): string {
   const header = section.columns.map((column, i) =>
     stringCell(`${columnName(i)}4`, column.title, 1),
   );
+  const heading = `${report.title} · ${section.name}`;
   const rows = [
-    `<row r="1">${stringCell('A1', `${report.title} · ${section.name}`, 4)}</row>`,
+    `<row r="1">${stringCell('A1', heading, 4)}</row>`,
     `<row r="2">${stringCell('A2', report.subtitle, 0)}</row>`,
     `<row r="4">${header.join('')}</row>`,
     ...section.rows.map((values, index) => {
       const r = index + 5;
       const cells = section.columns.map((column, i) =>
-        valueCell(`${columnName(i)}${n(r)}`, values[i] ?? '', column),
+        valueCell(`${columnName(i)}${String(r)}`, values[i] ?? '', column),
       );
-      return `<row r="${n(r)}">${cells.join('')}</row>`;
+      return `<row r="${String(r)}">${cells.join('')}</row>`;
     }),
   ];
   return `${XML}<worksheet xmlns="${NS}"><cols>${columnWidths(section)}</cols><sheetData>${rows.join('')}</sheetData></worksheet>`;
@@ -97,7 +96,7 @@ function sheetXml(section: ReportSection, report: Report): string {
 function contentTypes(sections: readonly ReportSection[]): string {
   const sheets = sections.map(
     (_, i) =>
-      `<Override PartName="/xl/worksheets/sheet${n(i + 1)}.xml" ContentType="${SHEET_TYPE}.worksheet+xml"/>`,
+      `<Override PartName="/xl/worksheets/sheet${String(i + 1)}.xml" ContentType="${SHEET_TYPE}.worksheet+xml"/>`,
   );
   return `${XML}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="${SHEET_TYPE}.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="${SHEET_TYPE}.styles+xml"/>${sheets.join('')}</Types>`;
 }
@@ -105,7 +104,7 @@ function contentTypes(sections: readonly ReportSection[]): string {
 function workbook(sections: readonly ReportSection[]): string {
   const sheets = sections.map(
     (section, i) =>
-      `<sheet name="${escape(section.name.slice(0, 31))}" sheetId="${n(i + 1)}" r:id="rId${n(i + 1)}"/>`,
+      `<sheet name="${escape(section.name.slice(0, 31))}" sheetId="${String(i + 1)}" r:id="rId${String(i + 1)}"/>`,
   );
   return `${XML}<workbook xmlns="${NS}" xmlns:r="${REL}"><sheets>${sheets.join('')}</sheets></workbook>`;
 }
@@ -113,9 +112,9 @@ function workbook(sections: readonly ReportSection[]): string {
 function workbookRelationships(sections: readonly ReportSection[]): string {
   const sheets = sections.map(
     (_, i) =>
-      `<Relationship Id="rId${n(i + 1)}" Type="${REL}/worksheet" Target="worksheets/sheet${n(i + 1)}.xml"/>`,
+      `<Relationship Id="rId${String(i + 1)}" Type="${REL}/worksheet" Target="worksheets/sheet${String(i + 1)}.xml"/>`,
   );
-  const styles = `<Relationship Id="rId${n(sections.length + 1)}" Type="${REL}/styles" Target="styles.xml"/>`;
+  const styles = `<Relationship Id="rId${String(sections.length + 1)}" Type="${REL}/styles" Target="styles.xml"/>`;
   return `${XML}<Relationships xmlns="${PKG}">${sheets.join('')}${styles}</Relationships>`;
 }
 
@@ -133,7 +132,7 @@ export const xlsxWriter: ReportWriter = {
       { name: 'xl/_rels/workbook.xml.rels', content: workbookRelationships(sections) },
       { name: 'xl/styles.xml', content: STYLES },
       ...sections.map((section, i) => ({
-        name: `xl/worksheets/sheet${n(i + 1)}.xml`,
+        name: `xl/worksheets/sheet${String(i + 1)}.xml`,
         content: sheetXml(section, report),
       })),
     ];

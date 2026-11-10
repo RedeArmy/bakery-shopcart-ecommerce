@@ -16,6 +16,7 @@ const AT = new Date('2030-06-15T14:30:00Z');
 const report = (rows: number = 3): Report => ({
   title: 'Reporte de ventas',
   subtitle: 'Del 2030-06-01 al 2030-06-30',
+  period: { from: '2030-06-01', to: '2030-06-30' },
   generatedAt: AT,
   sections: [
     {
@@ -62,7 +63,7 @@ function unzip(buffer: Buffer): Map<string, string> {
     expect(buffer.readUInt32LE(local)).toBe(0x04034b50);
     const start = local + 30 + buffer.readUInt16LE(local + 26);
     const raw = inflateRawSync(buffer.subarray(start, start + packedSize));
-    expect(raw.length).toBe(rawSize);
+    expect(raw).toHaveLength(rawSize);
     files.set(name, raw.toString('utf8'));
     cursor += 46 + nameLength;
   }

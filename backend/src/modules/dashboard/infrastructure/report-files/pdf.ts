@@ -57,12 +57,21 @@ function fit(text: string, width: number, size: number): string {
   return `${cut}...`;
 }
 
+/** «1234567» como «1,234,567»: de tres en tres desde la derecha. */
+function groupThousands(digits: string): string {
+  const groups: string[] = [];
+  for (let end = digits.length; end > 0; end -= 3) {
+    groups.unshift(digits.slice(Math.max(end - 3, 0), end));
+  }
+  return groups.join(',');
+}
+
 /** Un importe como se lee en una hoja: «Q 1,234.50». */
 function money(value: string): string {
   const amount = Number(value);
   if (value.trim() === '' || !Number.isFinite(amount)) return value;
   const [whole = '0', cents = '00'] = Math.abs(amount).toFixed(2).split('.');
-  const grouped = whole.replaceAll(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const grouped = groupThousands(whole);
   return `${amount < 0 ? '-' : ''}Q ${grouped}.${cents}`;
 }
 
@@ -198,9 +207,10 @@ function layoutReport(report: Report): Page[] {
 /** El texto de una línea como lo entiende PDF con la codificación WinAnsi (Latin-1): lo que no cabe en ella se cambia por «?». */
 function pdfString(text: string): string {
   const latin = Array.from(text)
-    .map((char) => (char.charCodeAt(0) > 255 ? '?' : char))
+    .map((char) => ((char.codePointAt(0) ?? 0) > 255 ? '?' : char))
     .join('');
-  return `(${latin.replaceAll('\\', '\\\\').replaceAll('(', '\\(').replaceAll(')', '\\)')})`;
+  const escaped = latin.replaceAll(/[\\()]/g, String.raw`\$&`);
+  return `(${escaped})`;
 }
 
 const num = (value: number): string => value.toFixed(2);
@@ -262,9 +272,8 @@ export const pdfWriter: ReportWriter = {
         ),
       );
     });
-    objects[1] = Buffer.from(
-      `<< /Type /Pages /Kids [${pageIds.map((id) => `${String(id)} 0 R`).join(' ')}] /Count ${String(pageIds.length)} >>`,
-    );
+    const kids = pageIds.map((id) => `${String(id)} 0 R`).join(' ');
+    objects[1] = Buffer.from(`<< /Type /Pages /Kids [${kids}] /Count ${String(pageIds.length)} >>`);
 
     const parts: Buffer[] = [Buffer.from('%PDF-1.4\n')];
     const offsets: number[] = [];
