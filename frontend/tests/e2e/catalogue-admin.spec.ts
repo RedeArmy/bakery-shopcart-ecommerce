@@ -1,5 +1,5 @@
 // cspell:disable
-import { expect, test } from './fixtures';
+import { expect, expectVisibleRetrying, test } from './fixtures';
 
 // El administrador usa la pestaña de personal que comparte toda la ejecución (fixtures.ts): no inicia sesión aquí. Navega con el
 // menú, sin recargar, para no renovar la sesión. No cambia precios ni productos de la semilla: otras pruebas leen sus valores.
@@ -41,10 +41,10 @@ test('the administrator maintains the categories and reads the products and thei
   // Los productos de una categoría, con los precios de sus variantes (solo se leen)
   await main.getByRole('button', { name: 'Productos' }).click();
   await expect(page).toHaveURL(/view=products/);
-  await main.getByLabel('Categoría').selectOption({ label: 'Pasteles' });
+  await main.getByRole('combobox', { name: 'Categoría' }).selectOption({ label: 'Pasteles' });
   await expect(page).toHaveURL(/category=\d+/);
   const product = main.getByRole('listitem').first();
-  await expect(product).toBeVisible();
+  await expectVisibleRetrying(page, product);
   await product.getByRole('button', { name: 'Precios' }).click();
   await expect(product.getByRole('button', { name: 'Cambiar precio' }).first()).toBeVisible();
 });
