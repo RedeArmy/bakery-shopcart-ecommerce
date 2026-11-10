@@ -253,7 +253,7 @@ export const pdfWriter: ReportWriter = {
       add(`<< /Type /Font /Subtype /Type1 /BaseFont /${name} /Encoding /WinAnsiEncoding >>`);
 
     // 1 catálogo, 2 páginas, 3 y 4 las fuentes; después, por hoja, su contenido y su descripción
-    add('<< /Type /Catalog /Pages 2 0 R >>');
+    add('<< /Type /Catalog /Pages 2 0 R >>'); // spelling-ignore: a name of the PDF format
     add(''); // el árbol de páginas se completa abajo, cuando se conocen los identificadores
     fontId('Helvetica');
     fontId('Helvetica-Bold');

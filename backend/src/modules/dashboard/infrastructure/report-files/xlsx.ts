@@ -35,6 +35,7 @@ export function columnName(index: number): string {
 }
 
 // Estilos: 0 normal, 1 encabezado, 2 importe con formato de moneda, 3 entero, 4 título
+// spelling-ignore-start: the XML of the format spells gray and color the American way
 const STYLES = `${XML}<styleSheet xmlns="${NS}">
 <numFmts count="1"><numFmt numFmtId="164" formatCode="&quot;Q&quot;#,##0.00"/></numFmts>
 <fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="14"/><name val="Calibri"/></font></fonts>
@@ -50,6 +51,7 @@ const STYLES = `${XML}<styleSheet xmlns="${NS}">
 </cellXfs>
 <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
 </styleSheet>`;
+// spelling-ignore-end
 
 const stringCell = (ref: string, value: string, style: number): string =>
   `<c r="${ref}" t="inlineStr" s="${String(style)}"><is><t xml:space="preserve">${escape(value)}</t></is></c>`;
