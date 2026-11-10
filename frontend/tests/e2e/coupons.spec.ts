@@ -41,13 +41,17 @@ test('the administrator sees the coupons, creates one, edits it and deactivates 
   await expect(edit.getByLabel('Código')).toHaveCount(0);
   await edit.getByLabel('Valor').fill('20');
   await edit.getByRole('button', { name: 'Guardar cambios' }).click();
+  // Primero se espera a que el formulario se cierre: si el servidor lo rechaza, queda abierto con su motivo y la prueba lo dice
+  await expect(edit).toBeHidden();
   await expect(card.getByText('20 % de descuento')).toBeVisible();
 
   // Se desactiva con confirmación y deja de verse en la lista; con el filtro reaparece como desactivado
   await card.getByRole('button', { name: 'Desactivar' }).click();
   await card.getByRole('button', { name: 'Sí, desactivarlo' }).click();
   await expect(card).toHaveCount(0);
-  await main.getByLabel('Mostrar también los desactivados').check();
+  // La casilla la gobierna la dirección: se hace clic y se espera a que quede marcada, no se exige el cambio en el mismo instante
+  await main.getByLabel('Mostrar también los desactivados').click();
+  await expect(main.getByLabel('Mostrar también los desactivados')).toBeChecked();
   await expect(
     main.getByRole('listitem').filter({ hasText: code }).getByText('Desactivado'),
   ).toBeVisible();
