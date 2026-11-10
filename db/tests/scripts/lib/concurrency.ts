@@ -2,7 +2,7 @@
 
 export type Outcome = 'reserved' | 'conflict' | 'deadlock' | 'other';
 
-// Números de error de SQL Server y del proyecto (db/CLAUDE.md)
+// Números de error de SQL Server y del proyecto (docs/database/naming-standard.md)
 const DEADLOCK_VICTIM = 1205;
 const CONFLICT = 50409;
 

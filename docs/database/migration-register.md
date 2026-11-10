@@ -25,7 +25,7 @@ Programmable objects (`R####`) are versioned by the header of each file and reco
 3. **Checksums are SHA-256 of the file after removing the byte order mark and normalising line endings to LF**, exactly as the runner computes them, so they are identical on Windows and Linux.
 4. **Every entry states its rollback strategy.** The database has no automatic down migrations; the strategy is the compensating change, the restore point or the statement that the change is additive and needs none.
 5. **Breaking changes follow expand and contract** ([versioning](versioning.md)): add the new structure, move the code, then remove the old structure in a later migration, each with its own entry.
-6. **Every entry names the tests that prove it.** A constraint, unique index or trigger without a tSQLt case is not complete (see `db/CLAUDE.md`).
+6. **Every entry names the tests that prove it.** A constraint, unique index or trigger without a tSQLt case is not complete (see `docs/database/versioning.md`).
 7. **Names follow the glossary and the naming standard**; comments in the SQL are Spanish and explain the reason.
 
 ## 3. Lifecycle and statuses
