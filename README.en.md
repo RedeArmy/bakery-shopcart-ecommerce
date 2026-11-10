@@ -182,14 +182,55 @@ It creates `.env` with generated local secrets if it does not exist, builds the 
 | Address | Expected answer |
 |---|---|
 | `http://localhost:8080/health/ready` | 200: the database answers and the schema is up to date |
-| `http://localhost:8080/api/v1/categories` | 200: a public list, empty until the catalogue is created |
+| `http://localhost:8080/api/v1/categories` | 200: the 6 categories of the demo catalogue |
 | `http://localhost:8080/` | The shop, with the demo catalogue |
 
 `/api/v1` alone does not exist and answers 404 `ROUTE_NOT_FOUND`: the API has only concrete routes.
 
-**5. Get the passwords.** Open the `.env` file in the root and copy `SEED_ADMIN_PASSWORD` and `SEED_CUSTOMER_PASSWORD`. They are generated at random on each machine and are not in the repository ([credentials](#10-test-credentials)).
+**5. Get the passwords.** Open the `.env` file in the root and copy `SEED_ADMIN_PASSWORD`, `SEED_OPERATOR_PASSWORD` and `SEED_CUSTOMER_PASSWORD`. They are generated at random on each machine and are not in the repository ([credentials](#10-test-credentials)).
 
-**6. Test with Postman.** The folder [docs/api/postman](docs/api/postman/README.md) has the collection in English, the same one in Spanish and an environment:
+**6. Sign in to the application.** Open `http://localhost:8080/` and press **Iniciar sesión** (sign in). Each account sees something different:
+
+| Account | What it sees |
+|---|---|
+| Not signed in (visitor) | The shop: catalogue, cart and checkout as a guest |
+| `customer1@shopcart.test` or `customer2@shopcart.test` | The shop with their orders, their profile and the payment of each order |
+| `operator@shopcart.test` | The staff panel at `/admin`: orders, cash collections, deposits and inventory |
+| `admin@shopcart.test` | All of the above plus users, catalogues, coupons, refunds, branches, payment methods and the audit log |
+
+**7. Check that the seed left the test data.** `npm run up` loads, through the same procedures the application uses, four accounts, the demo catalogue and the data needed to try the whole flow. Check it with the summary that the `db-migrate` step writes:
+
+```bash
+docker compose logs db-migrate --tail 6
+```
+
+It must end with these two lines (the numbers are the ones of the delivery):
+
+```text
+Demo accounts created: admin@shopcart.test, operator@shopcart.test, customer1@shopcart.test, customer2@shopcart.test.
+Demo catalogue created: 6 categories, 60 products, 98 variants (6070 units), 4 coupons, 2 bank accounts, 2 branches.
+```
+
+| Data | What there is | What to try |
+|---|---|---|
+| Users | 1 administrator, 1 operator and 2 customers | Access by role and buying as a customer |
+| Categories | Pasteles, Cupcakes, Galletas, Pan dulce, Postres fríos and Temporada | Catalogue filter and category maintenance |
+| Products | 60 products with 98 variants (sizes and flavours) and 6,070 units in stock | Search, cart, stock reservation and made-to-order products |
+| Coupons | `WELCOME10` (10 %, once per customer), `CAKES25` (Q25), `SOLDOUT` (used up) and `EXPIRED` (expired) | A valid coupon and the used-up and expired messages |
+| Branches | Sucursal Centro and Sucursal Zona 10 | Pickup and cash payment |
+| Bank accounts | 2 accounts of "Banco de Ejemplo" | Deposit payment with a proof |
+
+You can also see it without opening the browser:
+
+```bash
+curl http://localhost:8080/api/v1/categories
+curl "http://localhost:8080/api/v1/products?size=5"
+curl http://localhost:8080/api/v1/branches
+```
+
+**8. Walk through the whole flow.** As a customer: pick a product, add it to the cart, apply `WELCOME10`, pay by deposit and upload the proof. As an operator or administrator: open **Depósitos** (deposits), approve the proof and move the order along (preparation, dispatch, delivery). The administrator can also cancel a paid order and process its refund. The 18 browser journeys that check it run with `npx playwright install chromium` and then `npm run test:e2e`, with `E2E_ADMIN_PASSWORD` equal to `SEED_ADMIN_PASSWORD` in `.env`.
+
+**9. Test with Postman.** The folder [docs/api/postman](docs/api/postman/README.md) has the collection in English, the same one in Spanish and an environment:
 
 1. In Postman, import `ShopCart.postman_collection.json` and `ShopCart.local.postman_environment.json`.
 2. Choose the environment **ShopCart · local** and paste the two passwords into the **Current value** column of `adminPassword` and `customerPassword`.
@@ -197,13 +238,13 @@ It creates `.env` with generated local secrets if it does not exist, builds the 
 
 Each run creates its own data, so it can be repeated; wait one minute between runs because sign-in allows five attempts per minute.
 
-**7. Or from a terminal**, without Postman (about 50 seconds; for the Spanish collection change the file to `ShopCart.postman_collection.es.json`):
+**10. Or from a terminal**, without Postman (about 50 seconds; for the Spanish collection change the file to `ShopCart.postman_collection.es.json`):
 
 ```bash
 npx newman run docs/api/postman/ShopCart.postman_collection.json -e docs/api/postman/ShopCart.local.postman_environment.json --env-var "adminPassword=<SEED_ADMIN_PASSWORD>" --env-var "customerPassword=<SEED_CUSTOMER_PASSWORD>"
 ```
 
-**8. Stop.**
+**11. Stop.**
 
 ```bash
 npm run down
