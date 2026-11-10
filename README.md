@@ -182,14 +182,55 @@ Crea `.env` con secretos locales generados si no existe, construye las imágenes
 | Dirección | Respuesta esperada |
 |---|---|
 | `http://localhost:8080/health/ready` | 200: la base de datos responde y el esquema está al día |
-| `http://localhost:8080/api/v1/categories` | 200: lista pública, vacía hasta que se cree el catálogo |
+| `http://localhost:8080/api/v1/categories` | 200: las 6 categorías del catálogo de demostración |
 | `http://localhost:8080/` | La tienda, con el catálogo de demostración |
 
 `/api/v1` por sí sola no existe y responde 404 `ROUTE_NOT_FOUND`: la API tiene solo rutas concretas.
 
-**5. Obtener las contraseñas.** Abra el archivo `.env` de la raíz y copie `SEED_ADMIN_PASSWORD` y `SEED_CUSTOMER_PASSWORD`. Se generan al azar en cada equipo y no están en el repositorio ([credenciales](#10-credenciales-de-prueba)).
+**5. Obtener las contraseñas.** Abra el archivo `.env` de la raíz y copie `SEED_ADMIN_PASSWORD`, `SEED_OPERATOR_PASSWORD` y `SEED_CUSTOMER_PASSWORD`. Se generan al azar en cada equipo y no están en el repositorio ([credenciales](#10-credenciales-de-prueba)).
 
-**6. Probar con Postman.** La carpeta [docs/api/postman](docs/api/postman/README.md) trae la colección en español, la misma en inglés y un entorno:
+**6. Entrar a la aplicación.** Abra `http://localhost:8080/` y pulse **Iniciar sesión**. Con cada cuenta se ve algo distinto:
+
+| Cuenta | Qué se ve |
+|---|---|
+| Sin iniciar sesión (visitante) | La tienda: catálogo, carrito y compra como invitado |
+| `customer1@shopcart.test` o `customer2@shopcart.test` | La tienda con sus pedidos, su perfil y el pago de cada pedido |
+| `operator@shopcart.test` | El panel del personal en `/admin`: pedidos, cobros en efectivo, depósitos e inventario |
+| `admin@shopcart.test` | Todo lo anterior más usuarios, catálogos, cupones, reembolsos, sucursales, métodos de pago y bitácora |
+
+**7. Comprobar que la semilla dejó los datos de prueba.** `npm run up` carga, por los mismos procedimientos que usa la aplicación, cuatro cuentas, el catálogo de demostración y los datos para probar el flujo completo. Compruébelo con el resumen que escribe el paso `db-migrate`:
+
+```bash
+docker compose logs db-migrate --tail 6
+```
+
+Debe terminar con estas dos líneas (los números son los de la entrega):
+
+```text
+Demo accounts created: admin@shopcart.test, operator@shopcart.test, customer1@shopcart.test, customer2@shopcart.test.
+Demo catalogue created: 6 categories, 60 products, 98 variants (6070 units), 4 coupons, 2 bank accounts, 2 branches.
+```
+
+| Dato | Qué hay | Para probar |
+|---|---|---|
+| Usuarios | 1 administrador, 1 operador y 2 clientes | Acceso por rol y compra como cliente |
+| Categorías | Pasteles, Cupcakes, Galletas, Pan dulce, Postres fríos y Temporada | Filtro del catálogo y mantenimiento de categorías |
+| Productos | 60 productos con 98 variantes (tamaños y sabores) y 6 070 unidades en existencia | Búsqueda, carrito, reserva de existencias y productos por encargo |
+| Cupones | `WELCOME10` (10 %, una vez por cliente), `CAKES25` (Q25), `SOLDOUT` (agotado) y `EXPIRED` (vencido) | Cupón válido y los mensajes de agotado y vencido |
+| Sucursales | Sucursal Centro y Sucursal Zona 10 | Recoger en sucursal y cobro en efectivo |
+| Cuentas bancarias | 2 cuentas de «Banco de Ejemplo» | Pago por depósito con comprobante |
+
+También puede verlo sin abrir el navegador:
+
+```bash
+curl http://localhost:8080/api/v1/categories
+curl "http://localhost:8080/api/v1/products?size=5"
+curl http://localhost:8080/api/v1/branches
+```
+
+**8. Recorrer el flujo completo.** Como cliente: elija un producto, agréguelo al carrito, aplique `WELCOME10`, pague por depósito y suba el comprobante. Como operador o administrador: abra **Depósitos**, apruebe el comprobante y avance el pedido de estado (preparación, despacho, entrega). El administrador puede además cancelar un pedido pagado y procesar su reembolso. Los 18 recorridos de navegador que lo comprueban se ejecutan con `npx playwright install chromium` y después `npm run test:e2e`, con `E2E_ADMIN_PASSWORD` igual a `SEED_ADMIN_PASSWORD` del `.env`.
+
+**9. Probar con Postman.** La carpeta [docs/api/postman](docs/api/postman/README.md) trae la colección en español, la misma en inglés y un entorno:
 
 1. En Postman, importe `ShopCart.postman_collection.es.json` y `ShopCart.local.postman_environment.json`.
 2. Elija el entorno **ShopCart · local** y pegue las dos contraseñas en la columna **Current value** de `adminPassword` y `customerPassword`.
@@ -197,13 +238,13 @@ Crea `.env` con secretos locales generados si no existe, construye las imágenes
 
 Cada ejecución crea sus propios datos, así que se puede repetir; espere un minuto entre ejecuciones porque el inicio de sesión admite cinco intentos por minuto.
 
-**7. O desde una terminal**, sin Postman (unos 50 segundos; para la colección en español cambie el archivo por `ShopCart.postman_collection.es.json`):
+**10. O desde una terminal**, sin Postman (unos 50 segundos; para la colección en español cambie el archivo por `ShopCart.postman_collection.es.json`):
 
 ```bash
 npx newman run docs/api/postman/ShopCart.postman_collection.json -e docs/api/postman/ShopCart.local.postman_environment.json --env-var "adminPassword=<SEED_ADMIN_PASSWORD>" --env-var "customerPassword=<SEED_CUSTOMER_PASSWORD>"
 ```
 
-**8. Detener.**
+**11. Detener.**
 
 ```bash
 npm run down

@@ -57,6 +57,8 @@
     "/^.*<!--\\s*spelling-ignore\\s*-->.*$/gm"
   ],
   "words": [
+    "Ejemplo",
+    "Depósitos",
     "accounttype",
     "depositedamount",
     "endsat",
