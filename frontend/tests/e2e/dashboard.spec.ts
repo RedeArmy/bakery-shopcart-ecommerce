@@ -1,4 +1,5 @@
 // cspell:disable
+import { readFileSync } from 'node:fs';
 import { expect, test } from './fixtures';
 
 // El administrador usa la pestaña de personal que comparte toda la ejecución (fixtures.ts): no inicia sesión aquí. Navega con el
@@ -35,6 +36,22 @@ test('the administrator opens the dashboard from the menu, reads the reports and
   await page.getByLabel('Agrupar por').selectOption('month');
   await expect(page).toHaveURL(/granularity=month/);
   await expect(page.getByRole('region', { name: 'Ventas por período' })).toBeVisible();
+
+  // El reporte del período se descarga como Excel y como PDF: archivos de verdad, con su nombre y su contenido
+  for (const [button, extension, magic] of [
+    ['Exportar a Excel', 'xlsx', 'PK'],
+    ['Exportar a PDF', 'pdf', '%PDF'],
+  ] as const) {
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: button }).click(),
+    ]);
+    const name = download.suggestedFilename();
+    expect(name.startsWith('reporte-ventas-')).toBe(true);
+    expect(name.endsWith(`.${extension}`)).toBe(true);
+    const bytes = readFileSync(await download.path());
+    expect(bytes.subarray(0, magic.length).toString()).toBe(magic);
+  }
 
   // Un período al revés se explica sin preguntar al servidor
   await page.getByLabel('Desde').fill('2030-06-10');

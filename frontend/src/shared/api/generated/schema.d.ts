@@ -1382,6 +1382,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/dashboard/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The sales report as an Excel or PDF file
+         * @description The same four reports as the dashboard (summary, sales per period, sales by category and best sellers) for the range, as a file to download: an Excel workbook with one sheet per report, or a PDF document. It reads through the same cache as the dashboard, so exporting does not calculate again what the screen already calculated.
+         */
+        get: operations["adminDashboardExport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/dashboard/abandoned-carts": {
         parameters: {
             query?: never;
@@ -5098,6 +5118,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TopProduct"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminDashboardExport: {
+        parameters: {
+            query: {
+                format: "xlsx" | "pdf";
+                /** @description Guatemala day, inclusive. Default: 29 days before "to" */
+                from?: string;
+                /** @description Guatemala day, inclusive. Default: today in Guatemala */
+                to?: string;
+                granularity?: "day" | "week" | "month";
+                /** @description How many best sellers the file lists */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file, as an attachment */
+            200: {
+                headers: {
+                    /** @description attachment; filename="reporte-ventas-<from>_<to>.<format>" */
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                    "application/pdf": string;
                 };
             };
             400: components["responses"]["BadRequest"];
