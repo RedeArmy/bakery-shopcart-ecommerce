@@ -3,11 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { useSession } from '../../../shared/auth';
 import { Button } from '../../../shared/ui/button';
-import { SelectField } from '../../../shared/ui/fields';
 import { PagedResults } from '../../../shared/ui/paged-results';
 import { ErrorState } from '../../../shared/ui/states';
 import { useCategories } from '../../catalogue/hooks/use-catalogue-queries';
-import { categoryChoices, choiceLabel } from '../../catalogue/model/categories';
+import { CategoryFilter } from '../../catalogue/components/category-filter';
 import { CreateProductDialog } from '../components/create-product-dialog';
 import { ProductRow } from '../components/product-row';
 import { useCategoryProducts } from '../hooks/use-inventory';
@@ -53,23 +52,15 @@ export function InventoryPage() {
       {categories.isError ? (
         <ErrorState error={categories.error} onRetry={() => void categories.refetch()} />
       ) : null}
-      <div className="w-full sm:w-80">
-        <SelectField
-          label={t('inventory.category')}
-          value={query.category === null ? '' : String(query.category)}
-          onChange={(event) => {
-            const id = Number(event.target.value);
-            go({ category: id > 0 ? id : null, list: 1, product: null, variant: null, page: 1 });
-          }}
-        >
-          <option value="">{t('inventory.chooseCategory')}</option>
-          {categoryChoices(categories.data ?? []).map((choice) => (
-            <option key={choice.id} value={choice.id}>
-              {choiceLabel(choice)}
-            </option>
-          ))}
-        </SelectField>
-      </div>
+      <CategoryFilter
+        label={t('inventory.category')}
+        placeholder={t('inventory.chooseCategory')}
+        value={query.category}
+        categories={categories.data ?? []}
+        onChange={(category) => {
+          go({ category, list: 1, product: null, variant: null, page: 1 });
+        }}
+      />
 
       {query.category === null ? (
         <p className="text-stone-600">{t('inventory.chooseCategoryFirst')}</p>

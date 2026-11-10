@@ -13,6 +13,9 @@ const WARM_UP_PATHS = [
   '/api/v1/categories',
   '/api/v1/products?sort=newest&page=1&size=4',
   '/api/v1/products?q=pastel&sort=name&page=1&size=12',
+  // La lista de una categoría ordenada por nombre y la ficha de un producto: las usa la administración del inventario y del catálogo
+  '/api/v1/products?category=1&sort=name&page=1&size=12',
+  '/api/v1/products/1',
   '/api/v1/branches',
 ];
 

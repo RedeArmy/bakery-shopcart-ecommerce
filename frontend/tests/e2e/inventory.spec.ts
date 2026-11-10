@@ -1,5 +1,5 @@
 // cspell:disable
-import { expect, test } from './fixtures';
+import { expect, expectVisibleRetrying, test } from './fixtures';
 
 // El administrador usa la pestaña de personal que comparte toda la ejecución (fixtures.ts): no inicia sesión aquí. Navega con el
 // menú, sin recargar, para no renovar la sesión.
@@ -16,9 +16,10 @@ test('the administrator creates a product sold by the dozen and by the bag of 6 
   await expect(categories.locator('option')).not.toHaveCount(1, { timeout: 30_000 });
   await categories.selectOption({ index: (await categories.locator('option').count()) - 1 });
   await expect(page).toHaveURL(/category=\d+/);
-  await expect(
+  await expectVisibleRetrying(
+    page,
     main.getByRole('listitem').first().or(main.getByText('Esta categoría aún no tiene productos')),
-  ).toBeVisible();
+  );
 
   // Se crea un producto completo en la ventana; el nombre empieza por «AAA» para salir primero en la lista alfabética
   const stamp = Date.now();
@@ -52,7 +53,8 @@ test('the administrator creates a product sold by the dozen and by the bag of 6 
 
   // El producto nuevo queda abierto: una sola existencia de 54 unidades y los paquetes de cada empaque
   await expect(dialog).toBeHidden();
-  await expect(main.getByRole('heading', { name })).toBeVisible();
+  // La primera lectura de la categoría y de la ficha puede tardar más si la base de datos está fría
+  await expectVisibleRetrying(page, main.getByRole('heading', { name }));
   await expect(main.getByText('Existencia compartida por sus empaques: 54 unidades')).toBeVisible();
   await expect(main.getByText(/9 paquetes de 6 unidades en existencia/)).toBeVisible();
   await expect(main.getByText(/4 paquetes de 12 unidades en existencia/)).toBeVisible();

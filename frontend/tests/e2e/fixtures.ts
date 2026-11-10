@@ -1,6 +1,6 @@
 // cspell:disable
 import { expect, test as base } from '@playwright/test';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 // El borde deja pasar 10 llamadas por minuto a /auth (ráfaga de 5) y cada ingreso, registro, sesión de invitado o recarga con
 // sesión cuenta. Por eso el personal inicia sesión UNA vez por ejecución y todas las pruebas de administración comparten esa
@@ -39,5 +39,22 @@ export const test = base.extend<{ staff: Page }, { staffSession: Page | null }>(
     await use(staffSession as Page);
   },
 });
+
+/**
+ * Espera a que algo se vea y, si la pantalla muestra un error con «Reintentar», lo pulsa y sigue esperando, como haría una persona.
+ * El servidor limita por minuto las lecturas públicas desde una misma dirección y la suite las hace todas desde una: una lista que
+ * la primera vez llega con error no es un defecto de la pantalla, que ya ofrece reintentar.
+ */
+export async function expectVisibleRetrying(
+  page: Page,
+  target: Locator,
+  timeoutMs = 60_000,
+): Promise<void> {
+  await expect(async () => {
+    const retry = page.getByRole('main').getByRole('button', { name: 'Reintentar' });
+    if (await retry.isVisible()) await retry.click();
+    await expect(target).toBeVisible({ timeout: 5_000 });
+  }).toPass({ timeout: timeoutMs });
+}
 
 export { expect };

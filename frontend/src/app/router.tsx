@@ -117,6 +117,15 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            // El catálogo lo mantiene solo el administrador (RF-02)
+            path: 'admin/catalogue',
+            lazy: async () => ({
+              Component: (
+                await import('../features/catalogue-admin/pages/catalogue-maintenance-page')
+              ).CatalogueMaintenancePage,
+            }),
+          },
+          {
             // La bitácora la consulta solo el administrador (RF-09)
             path: 'admin/audit',
             lazy: async () => ({
