@@ -491,6 +491,54 @@ describe('administration routes', () => {
     expect((await request(app).get('/admin/coupons').set(as('2:Operator'))).status).toBe(403);
   });
 
+  it('lists the coupons by state, and keeps the old flag when no state is asked for', async () => {
+    const { repository, calls } = fake({ list: { items: [], page: 1, size: 20, total: 0 } });
+    const app = appWith(createCouponsRouter(kit, repository));
+    const get = (query: string) =>
+      request(app).get(`/admin/coupons${query}`).set(as('1:Administrator'));
+
+    expect((await get('?status=Active')).status).toBe(200);
+    expect(calls.at(-1)).toEqual({ method: 'list', args: [false, 'Active', 1, 20] });
+    expect((await get('?status=Inactive&includeInactive=true')).status).toBe(200);
+    expect(calls.at(-1)?.args.slice(0, 2)).toEqual([true, 'Inactive']);
+    expect((await get('?includeInactive=true')).status).toBe(200);
+    expect(calls.at(-1)?.args.slice(0, 2)).toEqual([true, null]);
+    expect((await get('?status=Expired')).status).toBe(400);
+  });
+
+  it('reactivates a coupon and deletes one for good, only for an administrator', async () => {
+    const { repository, calls } = fake({ reactivate: undefined, delete: undefined });
+    const app = appWith(createCouponsRouter(kit, repository));
+
+    const reactivated = await request(app)
+      .post('/admin/coupons/5/reactivate')
+      .set(as('1:Administrator'));
+    expect(reactivated.status).toBe(200);
+    expect(reactivated.body).toEqual({ idCoupon: 5, isActive: true });
+    expect(calls.at(-1)).toEqual({ method: 'reactivate', args: [1, 5] });
+
+    const deleted = await request(app)
+      .delete('/admin/coupons/5/permanent')
+      .set(as('1:Administrator'));
+    expect(deleted.status).toBe(200);
+    expect(deleted.body).toEqual({ idCoupon: 5, deleted: true });
+    expect(calls.at(-1)).toEqual({ method: 'delete', args: [1, 5] });
+
+    // El borrado definitivo no se confunde con la desactivación de siempre
+    await request(app).delete('/admin/coupons/5').set(as('1:Administrator'));
+    expect(calls.at(-1)?.method).toBe('deactivate');
+
+    expect(
+      (await request(app).post('/admin/coupons/5/reactivate').set(as('2:Operator'))).status,
+    ).toBe(403);
+    expect(
+      (await request(app).delete('/admin/coupons/5/permanent').set(as('2:Operator'))).status,
+    ).toBe(403);
+    expect(
+      (await request(app).delete('/admin/coupons/abc/permanent').set(as('1:Administrator'))).status,
+    ).toBe(400);
+  });
+
   it('lets an operator read the ledger and move stock, and keeps a customer out', async () => {
     const { repository, calls } = fake({
       ledger: { items: [], page: 1, size: 20, total: 0 },

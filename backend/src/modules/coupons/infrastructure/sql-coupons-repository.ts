@@ -2,7 +2,11 @@ import sql from 'mssql';
 import type { ProcedureExecutor } from '../../../platform/db/execute-procedure.js';
 import { toPage } from '../../../platform/http/serialise.js';
 import type { Page, Row } from '../../../platform/http/serialise.js';
-import type { CouponInput, CouponsRepository } from '../application/coupons-repository.js';
+import type {
+  CouponInput,
+  CouponStatusFilter,
+  CouponsRepository,
+} from '../application/coupons-repository.js';
 
 const fields = (input: CouponInput) => [
   { name: 'Type', type: sql.NVarChar(12), value: input.type },
@@ -18,9 +22,15 @@ const fields = (input: CouponInput) => [
 /** Adaptador SQL de los cupones: la vigencia, los límites y el descuento los decide la base de datos. */
 export function createSqlCouponsRepository(execute: ProcedureExecutor): CouponsRepository {
   return {
-    async list(includeInactive: boolean, page: number, size: number): Promise<Page<Row>> {
+    async list(
+      includeInactive: boolean,
+      status: CouponStatusFilter | null,
+      page: number,
+      size: number,
+    ): Promise<Page<Row>> {
       const result = await execute<Row>('dbo.SP_Coupons_List', [
         { name: 'IncludeInactive', type: sql.Bit, value: includeInactive },
+        { name: 'Status', type: sql.VarChar(10), value: status },
         { name: 'PageNumber', type: sql.Int, value: page },
         { name: 'PageSize', type: sql.Int, value: size },
       ]);
@@ -50,6 +60,20 @@ export function createSqlCouponsRepository(execute: ProcedureExecutor): CouponsR
 
     async deactivate(actor: number, id: number): Promise<void> {
       await execute('dbo.SP_Coupons_Deactivate', [
+        { name: 'IDActor', type: sql.Int, value: actor },
+        { name: 'IDCoupon', type: sql.Int, value: id },
+      ]);
+    },
+
+    async reactivate(actor: number, id: number): Promise<void> {
+      await execute('dbo.SP_Coupons_Reactivate', [
+        { name: 'IDActor', type: sql.Int, value: actor },
+        { name: 'IDCoupon', type: sql.Int, value: id },
+      ]);
+    },
+
+    async delete(actor: number, id: number): Promise<void> {
+      await execute('dbo.SP_Coupons_Delete', [
         { name: 'IDActor', type: sql.Int, value: actor },
         { name: 'IDCoupon', type: sql.Int, value: id },
       ]);

@@ -90,8 +90,8 @@ export const packagingSchema = z.object({
     .refine((value) => /^\d{1,4}$/.test(value) && Number(value) >= 1 && Number(value) <= 1000, {
       error: `${V}.units`,
     }),
+  /** La variante que guarda la existencia de la que toma el empaque nuevo */
+  stock: z.string().min(1, { error: `${V}.stock` }),
 });
 
 export type PackagingValues = z.infer<typeof packagingSchema>;
-
-export const EMPTY_PACKAGING: PackagingValues = { name: '', sku: '', price: '', unitsPerPack: '' };

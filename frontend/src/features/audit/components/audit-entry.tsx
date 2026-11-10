@@ -1,7 +1,9 @@
+import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { components } from '../../../shared/api/generated/schema';
 import { formatDateTime } from '../../../shared/lib/date';
 import { Badge } from '../../../shared/ui/badge';
+import { ChevronDownIcon } from '../../../shared/ui/icons';
 import { describeChange, isAuditModule } from '../model/audit';
 
 type AuditEntryData = components['schemas']['AuditEntry'];
@@ -71,30 +73,52 @@ function Changes({ entry }: Readonly<{ entry: AuditEntryData }>) {
 }
 
 /**
- * Un registro de la bitácora: qué se hizo (la acción), sobre qué (el módulo y la entidad con su identificador), quién y cuándo, y lo
- * que cambió. El módulo y la acción salen en español cuando se conocen; si la base de datos agrega uno nuevo se muestra tal cual.
+ * Un registro de la bitácora, como un desplegable: cerrado muestra qué se hizo (la acción), sobre qué (el módulo y la entidad con su
+ * identificador), quién y cuándo; al pulsarlo se abre lo que cambió, campo por campo. El módulo y la acción salen en español cuando
+ * se conocen; si la base de datos agrega uno nuevo se muestra tal cual.
  */
 export function AuditEntry({ entry }: Readonly<{ entry: AuditEntryData }>) {
   const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const detailsId = useId();
   const module = isAuditModule(entry.module) ? t(`audit.modules.${entry.module}`) : entry.module;
   const action = t(`audit.actions.${entry.action}`, { defaultValue: entry.action });
 
   return (
-    <li className="space-y-3 rounded-card border border-stone-200 bg-white p-4">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <Badge tone={entry.action === 'Deactivate' ? 'danger' : 'neutral'}>{action}</Badge>
-        <p className="text-stone-900">{module}</p>
-        <p className="font-mono text-sm text-stone-600">
-          {entry.entityName} {entry.entityKey}
-        </p>
-      </div>
-      <p className="text-sm text-stone-600">
-        {entry.userName === undefined || entry.userName === null
-          ? t('audit.bySystem')
-          : t('audit.by', { name: entry.userName })}
-        {entry.createdAt === undefined ? null : ` · ${formatDateTime(entry.createdAt)}`}
-      </p>
-      <Changes entry={entry} />
+    <li className="rounded-card border border-stone-200 bg-white">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={detailsId}
+        onClick={() => {
+          setOpen((current) => !current);
+        }}
+        className="flex min-h-11 w-full items-center justify-between gap-4 rounded-card p-4 text-left hover:bg-stone-50"
+      >
+        <span className="min-w-0 space-y-1">
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <Badge tone={entry.action === 'Deactivate' ? 'danger' : 'neutral'}>{action}</Badge>
+            <span className="text-stone-900">{module}</span>
+            <span className="font-mono text-sm text-stone-600">
+              {entry.entityName} {entry.entityKey}
+            </span>
+          </span>
+          <span className="block text-sm text-stone-600">
+            {entry.userName === undefined || entry.userName === null
+              ? t('audit.bySystem')
+              : t('audit.by', { name: entry.userName })}
+            {entry.createdAt === undefined ? null : ` · ${formatDateTime(entry.createdAt)}`}
+          </span>
+        </span>
+        <ChevronDownIcon
+          className={`shrink-0 stroke-current transition ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+      {open ? (
+        <div id={detailsId} className="border-t border-stone-200 p-4">
+          <Changes entry={entry} />
+        </div>
+      ) : null}
     </li>
   );
 }

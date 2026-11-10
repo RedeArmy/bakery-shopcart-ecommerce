@@ -1,5 +1,5 @@
 /** Cuántas cuentas se ven por página; el API admite hasta 100. */
-export const PAGE_SIZE = 20;
+export const PAGE_SIZE = 15;
 
 /** Los tres roles con el identificador que usa el API para filtrar (semilla S0001). */
 export const ROLES = [

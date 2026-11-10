@@ -45,9 +45,10 @@ export function ProductInventory({
     );
   }
 
+  const groups = groupByStock(product.data.variants);
   return (
     <div className="space-y-6">
-      {groupByStock(product.data.variants).map((group) => {
+      {groups.map((group) => {
         const variant = group.variants.find((item) => item.idVariant === idVariant);
         return (
           <section key={group.holder} className="space-y-4">
@@ -61,9 +62,6 @@ export function ProductInventory({
               canManage={canManage}
               onSelect={onVariant}
             />
-            {canManage ? (
-              <AddPackaging idProduct={idProduct} stockVariantId={group.holder} />
-            ) : null}
             {variant ? (
               <section
                 className="space-y-4"
@@ -94,6 +92,8 @@ export function ProductInventory({
           </section>
         );
       })}
+      {/* Un solo botón por producto, abajo a la izquierda, sin importar cuántos grupos de existencia tenga */}
+      {canManage ? <AddPackaging idProduct={idProduct} groups={groups} /> : null}
     </div>
   );
 }

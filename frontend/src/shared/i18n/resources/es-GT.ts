@@ -388,7 +388,17 @@ export const esGT = {
     save: 'Guardar cambios',
     edit: 'Editar',
     remove: 'Desactivar',
-    showInactive: 'Mostrar también los desactivados',
+    filter: 'Qué cupones ver',
+    filters: { all: 'Todos', active: 'Vigentes', inactive: 'Desactivados' },
+    activate: 'Activar',
+    delete: 'Eliminar',
+    deletion: {
+      removeTitle: '¿Eliminar este cupón por completo?',
+      removeText:
+        'Se borra y no se puede deshacer. Solo se puede si ningún pedido lo usó; si uno lo usó, el cupón se conserva desactivado y se explica por qué.',
+      removeConfirm: 'Sí, eliminarlo',
+      removeKeep: 'No, conservarlo',
+    },
     allCategories: 'Todas las categorías',
     fields: {
       code: 'Código',
@@ -426,7 +436,7 @@ export const esGT = {
     onlyCategory: 'Solo para la categoría {{name}}',
     used_one: 'Se usó {{count}} vez',
     used_other: 'Se usó {{count}} veces',
-    usedOf: 'Se usó {{count}} de {{limit}} veces',
+    usedOf: 'Usos: {{count}} de {{limit}}',
     perCustomer_one: 'una vez por cliente',
     perCustomer_other: '{{count}} veces por cliente',
     removeTitle: '¿Desactivar este cupón?',
@@ -488,13 +498,17 @@ export const esGT = {
       title: 'Agregar empaque',
       help: 'Un empaque nuevo de esta misma existencia, por ejemplo una bolsa de 6 donde ya se vende la docena. No trae stock propio: toma las unidades que ya hay y sus paquetes aparecen solos.',
       submit: 'Agregar empaque',
+      chooseStock: 'Elija una existencia',
       fields: {
+        stock: 'Toma las unidades de',
         name: 'Nombre del empaque',
         sku: 'Código (SKU)',
         price: 'Precio',
         unitsPerPack: 'Unidades por paquete',
       },
       hints: {
+        stock:
+          'Este producto tiene varias existencias independientes: elija de cuál toma las unidades el empaque nuevo.',
         name: 'Por ejemplo: Bolsa de 6 o Docena.',
         unitsPerPack: 'Cuántas unidades trae cada paquete, de 1 a 1000.',
       },
@@ -504,6 +518,7 @@ export const esGT = {
       removeConfirm: 'Sí, dejar de venderlo',
       removeKeep: 'No, seguir vendiéndolo',
       validation: {
+        stock: 'Elija de qué existencia toma las unidades.',
         name: 'Escriba cómo se llama el empaque.',
         nameTooLong: 'El nombre es demasiado largo (60 caracteres como máximo).',
         sku: 'Escriba el código del empaque.',

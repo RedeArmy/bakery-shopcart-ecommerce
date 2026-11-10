@@ -32,6 +32,8 @@ const listQuery = pageQuery.extend({
     .enum(['true', 'false'])
     .transform((value) => value === 'true')
     .default(false),
+  // El estado manda sobre includeInactive: todos, solo los vigentes ahora o solo los desactivados
+  status: z.enum(['All', 'Active', 'Inactive']).optional(),
 });
 
 const toInput = (body: z.infer<typeof couponFields>) => ({
@@ -55,7 +57,9 @@ export function createCouponsRouter(kit: RouteKit, repository: CouponsRepository
 
   router.get('/admin/coupons', ...administrator, async (req, res) => {
     const query = listQuery.parse(req.query);
-    res.json(await repository.list(query.includeInactive, query.page, query.size));
+    res.json(
+      await repository.list(query.includeInactive, query.status ?? null, query.page, query.size),
+    );
   });
 
   router.post(
@@ -88,6 +92,29 @@ export function createCouponsRouter(kit: RouteKit, repository: CouponsRepository
       const { id } = idParam.parse(req.params);
       await repository.deactivate(requireUser(req).idUser, id);
       res.json({ idCoupon: id, isActive: false });
+    },
+  );
+
+  router.post(
+    '/admin/coupons/:id/reactivate',
+    ...administrator,
+    kit.idempotent({ required: true }),
+    async (req, res) => {
+      const { id } = idParam.parse(req.params);
+      await repository.reactivate(requireUser(req).idUser, id);
+      res.json({ idCoupon: id, isActive: true });
+    },
+  );
+
+  // Borrar por completo: solo un cupón desactivado que ningún pedido usó; la base de datos lo exige y explica por qué no
+  router.delete(
+    '/admin/coupons/:id/permanent',
+    ...administrator,
+    kit.idempotent({ required: false }),
+    async (req, res) => {
+      const { id } = idParam.parse(req.params);
+      await repository.delete(requireUser(req).idUser, id);
+      res.json({ idCoupon: id, deleted: true });
     },
   );
 

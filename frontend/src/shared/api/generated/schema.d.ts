@@ -1154,6 +1154,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/coupons/{id}/reactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reactivate a deactivated coupon
+         * @description Idempotent: reactivating an active coupon changes nothing. Its dates and uses are not touched, so a coupon whose validity has passed stays expired until it is edited.
+         */
+        post: operations["adminReactivateCoupon"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/coupons/{id}/permanent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a deactivated coupon for good
+         * @description The only operation that deletes a row of the business. It is refused with 422 when the coupon is still active and when an order used it or cites it (it stays deactivated, because the order keeps its history). Carts that still held the coupon lose it. The audit log keeps the coupon as it was, with the action Deactivate and the new value Deleted.
+         */
+        delete: operations["adminDeleteCoupon"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/users": {
         parameters: {
             query?: never;
@@ -4567,6 +4607,8 @@ export interface operations {
         parameters: {
             query?: {
                 includeInactive?: boolean;
+                /** @description Which coupons to list. All lists every coupon, Active only the ones that can be applied now (active, started, not expired and not exhausted) and Inactive only the deactivated ones. When it is not sent, includeInactive decides. */
+                status?: "All" | "Active" | "Inactive";
                 page?: components["parameters"]["Page"];
                 size?: components["parameters"]["Size"];
             };
@@ -4697,6 +4739,71 @@ export interface operations {
             401: components["responses"]["Unauthorised"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminReactivateCoupon: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key per logical operation (8 to 64 letters, digits, hyphens or underscores). Repeating it replays the stored response. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idCoupon?: components["schemas"]["Id"];
+                        isActive?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    adminDeleteCoupon: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional here (PUT and DELETE are idempotent by semantics); honoured when present. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKeyOptional"];
+            };
+            path: {
+                id: components["schemas"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        idCoupon?: components["schemas"]["Id"];
+                        deleted?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorised"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
             429: components["responses"]["TooManyRequests"];
         };
     };

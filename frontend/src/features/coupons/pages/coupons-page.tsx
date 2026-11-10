@@ -2,18 +2,19 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '../../../shared/ui/button';
-import { CheckboxField } from '../../../shared/ui/fields';
 import { PagedResults } from '../../../shared/ui/paged-results';
+import { StatusFilter } from '../../payment-review/components/status-filter';
 import { useCategories } from '../../catalogue/hooks/use-catalogue-queries';
 import { CouponCard } from '../components/coupon-card';
 import { CouponForm } from '../components/coupon-form';
 import { useCoupons } from '../hooks/use-coupons';
 import { categoryChoices } from '../../catalogue/model/categories';
-import { PAGE_SIZE, couponsParams, parseCouponsQuery } from '../model/coupons';
+import { FILTERS, PAGE_SIZE, couponsParams, parseCouponsQuery } from '../model/coupons';
 
 /**
  * Los cupones (RF-07), solo para el administrador: se ven con su estado (vigente, aún no empieza, vencido, agotado o desactivado),
- * se crean, se editan y se desactivan; no se borran. Por omisión no se muestran los desactivados. El filtro y la página viven en la
+ * se crean, se editan y se desactivan. Por omisión se ven todos y se puede elegir ver solo los vigentes o solo los desactivados; un
+ * desactivado se puede volver a activar o, si ningún pedido lo usó, borrar por completo. El filtro y la página viven en la
  * dirección, así un enlace lleva a la misma lista.
  */
 export function CouponsPage() {
@@ -51,11 +52,13 @@ export function CouponsPage() {
           }}
         />
       ) : null}
-      <CheckboxField
-        label={t('coupons.showInactive')}
-        checked={query.inactive}
-        onChange={(event) => {
-          setParams(couponsParams({ inactive: event.target.checked, page: 1 }));
+      <StatusFilter
+        label={t('coupons.filter')}
+        options={FILTERS}
+        value={query.filter}
+        labelOf={(option) => t(`coupons.filters.${option}`)}
+        onChange={(filter) => {
+          setParams(couponsParams({ filter, page: 1 }));
         }}
       />
       <PagedResults

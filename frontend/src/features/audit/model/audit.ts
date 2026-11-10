@@ -1,7 +1,7 @@
 import { isDateOnly } from '../../../shared/lib/date';
 
 /** Cuántos registros se ven por página; el API admite hasta 100. */
-export const PAGE_SIZE = 20;
+export const PAGE_SIZE = 15;
 
 /** Los módulos que dejan registro en la bitácora, tal como los escribe la base de datos. */
 export const AUDIT_MODULES = [

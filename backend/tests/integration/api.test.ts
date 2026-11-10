@@ -730,6 +730,70 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
 
   // --- Administración ----------------------------------------------------------------------
 
+  it('lists the coupons by state, reactivates one and deletes a deactivated one for good, but never an active one', async () => {
+    const code = `IT${runId}K`.toUpperCase();
+    const created = await post(administrator, '/admin/coupons', {
+      code,
+      type: 'FixedAmount',
+      value: '5.00',
+      startsAt: '2020-01-01T00:00:00Z',
+      endsAt: '2099-12-31T00:00:00Z',
+    });
+    expect(created.status).toBe(201);
+    const idCoupon = num(created.body, 'idCoupon');
+    const codes = async (status: string): Promise<unknown[]> => {
+      const listed = await get(administrator, `/admin/coupons?status=${status}&size=100`);
+      expect(listed.status).toBe(200);
+      return list(listed.body, 'items').map((row) => row['code']);
+    };
+
+    // Vigente: aparece entre los vigentes y entre todos, no entre los desactivados
+    expect(await codes('Active')).toContain(code);
+    expect(await codes('All')).toContain(code);
+    expect(await codes('Inactive')).not.toContain(code);
+
+    // Un cupón activo no se borra
+    const active = await as(
+      administrator,
+      api().delete(`/api/v1/admin/coupons/${idCoupon}/permanent`),
+    );
+    expect(active.status).toBe(422);
+
+    // Desactivado: cambia de lista
+    const off = await as(administrator, api().delete(`/api/v1/admin/coupons/${idCoupon}`));
+    expect(off.status).toBe(200);
+    expect(await codes('Inactive')).toContain(code);
+    expect(await codes('Active')).not.toContain(code);
+
+    // Reactivado: vuelve a ser vigente. Solo un administrador puede.
+    expect((await post(operator, `/admin/coupons/${idCoupon}/reactivate`)).status).toBe(403);
+    const on = await post(administrator, `/admin/coupons/${idCoupon}/reactivate`);
+    expect(on.status).toBe(200);
+    expect(on.body).toEqual({ idCoupon, isActive: true });
+    expect(await codes('Active')).toContain(code);
+
+    // Desactivado otra vez, sí se borra por completo: ya no está en ninguna lista y no se puede borrar dos veces
+    await as(administrator, api().delete(`/api/v1/admin/coupons/${idCoupon}`));
+    expect(
+      (await as(operator, api().delete(`/api/v1/admin/coupons/${idCoupon}/permanent`))).status,
+    ).toBe(403);
+    const gone = await as(
+      administrator,
+      api().delete(`/api/v1/admin/coupons/${idCoupon}/permanent`),
+    );
+    expect(gone.status).toBe(200);
+    expect(gone.body).toEqual({ idCoupon, deleted: true });
+    expect(await codes('All')).not.toContain(code);
+    const again = await as(
+      administrator,
+      api().delete(`/api/v1/admin/coupons/${idCoupon}/permanent`),
+    );
+    expect(again.status).toBe(404);
+
+    // Un estado que no existe se rechaza
+    expect((await get(administrator, '/admin/coupons?status=Expired')).status).toBe(400);
+  });
+
   it('lets the administrator manage coupons, accounts and read the audit log and the system version', async () => {
     const coupon = await post(administrator, '/admin/coupons', {
       code: `IT${runId}`,

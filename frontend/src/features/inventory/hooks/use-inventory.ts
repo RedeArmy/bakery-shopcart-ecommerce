@@ -220,7 +220,7 @@ function useRefreshCatalogue() {
  * que trae, que toma las unidades de la variante que guarda la existencia. Lleva su llave de idempotencia, que solo se renueva
  * cuando se logró.
  */
-export function useAddPackaging(idProduct: number, stockVariantId: number) {
+export function useAddPackaging(idProduct: number) {
   const key = useIdempotencyKey();
   const refresh = useRefreshCatalogue();
   return useMutation({
@@ -233,7 +233,7 @@ export function useAddPackaging(idProduct: number, stockVariantId: number) {
             sku: values.sku,
             price: toMoneyText(values.price) ?? values.price,
             unitsPerPack: Number(values.unitsPerPack),
-            stockVariantId,
+            stockVariantId: Number(values.stock),
             attributes: [{ name: PACKAGING_ATTRIBUTE, value: values.name }],
           },
         }),

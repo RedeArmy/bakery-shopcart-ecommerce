@@ -31,7 +31,7 @@ export function ReportSection<T>({
   return (
     <section
       aria-labelledby={`${id}-title`}
-      className="space-y-4 rounded-card border border-stone-200 bg-white p-5"
+      className="min-w-0 space-y-4 rounded-card border border-stone-200 bg-white p-5"
     >
       <h2 id={`${id}-title`} className="text-2xl text-stone-900">
         {title}
