@@ -224,6 +224,113 @@ describe('adding a packaging', () => {
   });
 });
 
+describe('one button to add a packaging for the whole product', () => {
+  const small = (extra = {}) => ({
+    idVariant: 31,
+    sku: 'PAS-CH',
+    price: '90.00',
+    unitsPerPack: 1,
+    idStockHolder: 31,
+    onHandStock: 4,
+    onHandPacks: 4,
+    looseUnits: 0,
+    available: 4,
+    isActive: true,
+    attributes: [{ name: 'Tamaño', value: 'Chico' }],
+    ...extra,
+  });
+  const large = (extra = {}) =>
+    small({
+      idVariant: 32,
+      sku: 'PAS-GR',
+      price: '180.00',
+      idStockHolder: 32,
+      onHandStock: 9,
+      onHandPacks: 9,
+      available: 9,
+      attributes: [{ name: 'Tamaño', value: 'Grande' }],
+      ...extra,
+    });
+
+  it('shows the button once, below every stock of the product, even with two stocks', async () => {
+    await open('Administrator', [small(), large()]);
+
+    await screen.findByText('Chico');
+    const buttons = screen.getAllByRole('button', { name: 'Agregar empaque' });
+    expect(buttons).toHaveLength(1);
+    // Va después de la última variante de la página, no dentro de un grupo
+    const lastRow = screen.getByText(/PAS-GR/).closest('li') as HTMLElement;
+    expect(
+      lastRow.compareDocumentPosition(buttons[0] as HTMLElement) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(buttons[0]?.closest('div')?.className).toContain('justify-start');
+  });
+
+  it('asks which stock the new packaging draws from when the product has several', async () => {
+    const user = userEvent.setup();
+    const { calls } = await open('Administrator', [small(), large()]);
+    await screen.findByText('Chico');
+
+    await user.click(screen.getByRole('button', { name: 'Agregar empaque' }));
+    const form = screen.getByRole('form', { name: 'Agregar empaque' });
+    const stock = within(form).getByLabelText('Toma las unidades de');
+    expect(within(stock).getByRole('option', { name: /Chico · 4 unidades/ })).toBeDefined();
+    expect(within(stock).getByRole('option', { name: /Grande · 9 unidades/ })).toBeDefined();
+
+    // Sin elegir no se envía nada
+    await user.type(within(form).getByLabelText('Nombre del empaque'), 'Mini');
+    await user.type(within(form).getByLabelText('Código (SKU)'), 'PAS-MI');
+    await user.type(within(form).getByLabelText('Precio'), '40');
+    await user.type(within(form).getByLabelText('Unidades por paquete'), '1');
+    await user.click(within(form).getByRole('button', { name: 'Agregar empaque' }));
+    expect(
+      await within(form).findByText('Elija de qué existencia toma las unidades.'),
+    ).toBeDefined();
+    expect(sent(calls, 'POST', '/api/v1/admin/variants')).toHaveLength(0);
+
+    await user.selectOptions(stock, 'Grande · 9 unidades en existencia');
+    await user.click(within(form).getByRole('button', { name: 'Agregar empaque' }));
+
+    await waitFor(() => {
+      expect(sent(calls, 'POST', '/api/v1/admin/variants')).toHaveLength(1);
+    });
+    expect(sent(calls, 'POST', '/api/v1/admin/variants')[0]?.body).toMatchObject({
+      productId: 7,
+      sku: 'PAS-MI',
+      stockVariantId: 32,
+    });
+  });
+
+  it('does not ask when the product has one stock: the packaging draws from it', async () => {
+    const user = userEvent.setup();
+    const { calls } = await open('Administrator', [dozen(600)]);
+    await screen.findByText(/50 paquetes de 12 unidades en existencia/);
+
+    await user.click(screen.getByRole('button', { name: 'Agregar empaque' }));
+    const form = screen.getByRole('form', { name: 'Agregar empaque' });
+    expect(within(form).queryByLabelText('Toma las unidades de')).toBeNull();
+    await user.type(within(form).getByLabelText('Nombre del empaque'), 'Bolsa de 6');
+    await user.type(within(form).getByLabelText('Código (SKU)'), 'PAN-CHA-06');
+    await user.type(within(form).getByLabelText('Precio'), '19');
+    await user.type(within(form).getByLabelText('Unidades por paquete'), '6');
+    await user.click(within(form).getByRole('button', { name: 'Agregar empaque' }));
+
+    await waitFor(() => {
+      expect(sent(calls, 'POST', '/api/v1/admin/variants')).toHaveLength(1);
+    });
+    expect(sent(calls, 'POST', '/api/v1/admin/variants')[0]?.body).toMatchObject({
+      stockVariantId: 21,
+    });
+  });
+
+  it('does not offer it to the operator', async () => {
+    await open('Operator', [small(), large()]);
+
+    await screen.findByText('Chico');
+    expect(screen.queryByRole('button', { name: 'Agregar empaque' })).toBeNull();
+  });
+});
+
 describe('selling one packaging fewer', () => {
   it('asks before it stops selling and keeps the stock where it is', async () => {
     const user = userEvent.setup();

@@ -488,13 +488,17 @@ export const esGT = {
       title: 'Agregar empaque',
       help: 'Un empaque nuevo de esta misma existencia, por ejemplo una bolsa de 6 donde ya se vende la docena. No trae stock propio: toma las unidades que ya hay y sus paquetes aparecen solos.',
       submit: 'Agregar empaque',
+      chooseStock: 'Elija una existencia',
       fields: {
+        stock: 'Toma las unidades de',
         name: 'Nombre del empaque',
         sku: 'Código (SKU)',
         price: 'Precio',
         unitsPerPack: 'Unidades por paquete',
       },
       hints: {
+        stock:
+          'Este producto tiene varias existencias independientes: elija de cuál toma las unidades el empaque nuevo.',
         name: 'Por ejemplo: Bolsa de 6 o Docena.',
         unitsPerPack: 'Cuántas unidades trae cada paquete, de 1 a 1000.',
       },
@@ -504,6 +508,7 @@ export const esGT = {
       removeConfirm: 'Sí, dejar de venderlo',
       removeKeep: 'No, seguir vendiéndolo',
       validation: {
+        stock: 'Elija de qué existencia toma las unidades.',
         name: 'Escriba cómo se llama el empaque.',
         nameTooLong: 'El nombre es demasiado largo (60 caracteres como máximo).',
         sku: 'Escriba el código del empaque.',

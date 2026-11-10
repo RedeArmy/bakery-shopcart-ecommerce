@@ -93,7 +93,7 @@ describe('the stock that packagings share', () => {
 });
 
 describe('the form of a new packaging', () => {
-  const valid = { name: 'Bolsa de 6', sku: 'CHA-06', price: '19', unitsPerPack: '6' };
+  const valid = { name: 'Bolsa de 6', sku: 'CHA-06', price: '19', unitsPerPack: '6', stock: '21' };
   const problems = (values: Record<string, string>): string[] => {
     const result = packagingSchema.safeParse(values);
     return result.success ? [] : result.error.issues.map((issue) => issue.path.join('.'));
@@ -108,6 +108,7 @@ describe('the form of a new packaging', () => {
     expect(problems({ ...valid, sku: '' })).toContain('sku');
     expect(problems({ ...valid, price: '0' })).toContain('price');
     expect(problems({ ...valid, unitsPerPack: '' })).toContain('unitsPerPack');
+    expect(problems({ ...valid, stock: '' })).toContain('stock');
   });
 
   it('keeps the units whole and between 1 and 1000', () => {
