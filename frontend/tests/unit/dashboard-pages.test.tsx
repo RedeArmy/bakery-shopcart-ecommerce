@@ -201,6 +201,115 @@ describe('the administrator dashboard', () => {
     expect(calls.some((call) => call.path.startsWith('/api/v1/admin/dashboard/'))).toBe(false);
   });
 
+  describe('exporting the report', () => {
+    const EXPORT = 'GET /api/v1/admin/dashboard/export';
+    const file = (name: string, type: string) => () =>
+      new Response(new Blob(['file-bytes']), {
+        status: 200,
+        headers: { 'Content-Type': type, 'Content-Disposition': `attachment; filename="${name}"` },
+      });
+
+    // jsdom no sabe crear enlaces a un archivo ni «navegar» a una descarga: se espía lo que la pantalla le entrega al navegador
+    const saved: string[] = [];
+    beforeEach(() => {
+      saved.length = 0;
+      vi.stubGlobal(
+        'URL',
+        Object.assign(URL, {
+          createObjectURL: () => 'blob:report',
+          revokeObjectURL: () => undefined,
+        }),
+      );
+      vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+        this: HTMLAnchorElement,
+      ) {
+        saved.push(this.download);
+      });
+    });
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('downloads the Excel workbook of the period on screen, with the name the server proposes', async () => {
+      await signInAs('Administrator');
+      const { calls } = adminApi({
+        [EXPORT]: file(
+          'reporte-ventas-2030-05-01_2030-05-31.xlsx',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ),
+      });
+      const user = userEvent.setup();
+      renderApp('/admin?from=2030-05-01&to=2030-05-31&granularity=week');
+
+      await user.click(await screen.findByRole('button', { name: 'Exportar a Excel' }));
+
+      await waitFor(() => {
+        expect(saved).toEqual(['reporte-ventas-2030-05-01_2030-05-31.xlsx']);
+      });
+      const query = new URLSearchParams(lastCall(calls, '/api/v1/admin/dashboard/export')?.search);
+      expect(query.get('format')).toBe('xlsx');
+      expect(query.get('from')).toBe('2030-05-01');
+      expect(query.get('to')).toBe('2030-05-31');
+      expect(query.get('granularity')).toBe('week');
+    });
+
+    it('downloads the PDF, and uses its own name when the server does not propose one', async () => {
+      await signInAs('Administrator');
+      const { calls } = adminApi({
+        [EXPORT]: () => new Response(new Blob(['pdf']), { status: 200 }),
+      });
+      const user = userEvent.setup();
+      renderApp('/admin');
+
+      await user.click(await screen.findByRole('button', { name: 'Exportar a PDF' }));
+
+      await waitFor(() => {
+        expect(saved).toEqual(['reporte-ventas.pdf']);
+      });
+      expect(
+        new URLSearchParams(lastCall(calls, '/api/v1/admin/dashboard/export')?.search).get(
+          'format',
+        ),
+      ).toBe('pdf');
+    });
+
+    it('says why the file could not be downloaded', async () => {
+      await signInAs('Administrator');
+      adminApi({ [EXPORT]: apiError(429, 'RATE_LIMITED') });
+      const user = userEvent.setup();
+      renderApp('/admin');
+
+      await user.click(await screen.findByRole('button', { name: 'Exportar a PDF' }));
+
+      const alert = await screen.findByRole('alert', { name: '' });
+      expect(alert.textContent).toContain('No se pudo descargar el reporte.');
+      expect(saved).toEqual([]);
+    });
+
+    it('turns the buttons off when the period is reversed', async () => {
+      await signInAs('Administrator');
+      adminApi();
+      renderApp('/admin?from=2030-06-10&to=2030-06-01');
+
+      const excel = await screen.findByRole<HTMLButtonElement>('button', {
+        name: 'Exportar a Excel',
+      });
+      expect(excel.disabled).toBe(true);
+      expect(
+        screen.getByRole<HTMLButtonElement>('button', { name: 'Exportar a PDF' }).disabled,
+      ).toBe(true);
+    });
+
+    it('is not offered to an operator', async () => {
+      await signInAs('Operator');
+      installFakeApi({});
+      renderApp('/admin');
+
+      await screen.findByRole('heading', { level: 1 });
+      expect(screen.queryByRole('button', { name: 'Exportar a Excel' })).toBeNull();
+    });
+  });
+
   it('says so when there were no sales, no categories and no best sellers', async () => {
     await signInAs('Administrator');
     adminApi({

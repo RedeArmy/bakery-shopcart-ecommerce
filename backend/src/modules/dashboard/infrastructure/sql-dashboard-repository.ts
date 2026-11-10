@@ -51,5 +51,12 @@ export function createSqlDashboardRepository(execute: ProcedureExecutor): Dashbo
       ]);
       return toPage(result.rows, page, size);
     },
+
+    async dataVersion() {
+      const result = await execute<{ Version: string }>('dbo.SP_Dashboard_DataVersion', []);
+      const row = result.rows[0];
+      if (row === undefined) throw new TypeError('SP_Dashboard_DataVersion returned no row');
+      return row.Version;
+    },
   };
 }

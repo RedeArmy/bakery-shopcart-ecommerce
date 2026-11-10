@@ -948,6 +948,57 @@ describe.skipIf(!configured)('API against a real SQL Server', () => {
     ).toBe(400);
   });
 
+  it('exports the dashboard report as Excel and PDF and keeps its cache in step with the data', async () => {
+    const todayLocal = new Date(Date.now() - 6 * 3600 * 1000).toISOString().slice(0, 10);
+    const range = `from=${todayLocal}&to=${todayLocal}`;
+    const bytes = (token: string, query: string): Test =>
+      get(token, `/admin/dashboard/export?${query}`)
+        .buffer(true)
+        .parse((res, done) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (chunk: Buffer) => chunks.push(chunk));
+          res.on('end', () => {
+            done(null, Buffer.concat(chunks));
+          });
+        });
+
+    expect((await get(customerA.token, '/admin/dashboard/export?format=pdf')).status).toBe(403);
+    expect((await get(operator, '/admin/dashboard/export?format=pdf')).status).toBe(403);
+    expect((await get(administrator, '/admin/dashboard/export')).status).toBe(400);
+
+    const xlsx = await bytes(administrator, `format=xlsx&${range}`);
+    expect(xlsx.status).toBe(200);
+    expect(xlsx.headers['content-type']).toContain('spreadsheetml.sheet');
+    expect(xlsx.headers['content-disposition']).toContain(`reporte-ventas-${todayLocal}`);
+    // Un libro de Excel es un ZIP: empieza con «PK» y trae las hojas del reporte
+    const book = xlsx.body as Buffer;
+    expect(book.subarray(0, 2).toString()).toBe('PK');
+    expect(book.includes(Buffer.from('xl/worksheets/sheet4.xml'))).toBe(true);
+
+    const pdf = await bytes(administrator, `format=pdf&${range}&limit=5`);
+    expect(pdf.status).toBe(200);
+    expect(pdf.headers['content-type']).toContain('application/pdf');
+    expect((pdf.body as Buffer).subarray(0, 8).toString()).toBe('%PDF-1.4');
+
+    // El caché sigue a los datos: renombrar una categoría cambia la marca de versión y el reporte se recalcula
+    const tree = await api().get('/api/v1/categories');
+    const cakes = (tree.body as Json[]).find((row) => row['name'] === `IT Cakes ${runId}`);
+    const idCategory = num(cakes, 'idCategory');
+    const names = async (): Promise<string> =>
+      JSON.stringify(
+        (await get(administrator, `/admin/dashboard/sales-by-category?${range}`)).body,
+      );
+    expect(await names()).toContain(`IT Cakes ${runId}`);
+    expect(await names()).toBe(await names());
+
+    const rename = (name: string): Test =>
+      as(administrator, api().put(`/api/v1/admin/categories/${idCategory}`).send({ name }));
+    expect((await rename(`IT Cakes ${runId} renamed`)).status).toBe(200);
+    expect(await names()).toContain(`IT Cakes ${runId} renamed`);
+    expect((await rename(`IT Cakes ${runId}`)).status).toBe(200);
+    expect(await names()).not.toContain('renamed');
+  });
+
   it('lets a guest check out with a deposit and recover the order, while coupons, made-to-order products and personalisation need an account', async () => {
     // Un producto por encargo (pide dos días) y uno del mismo día (el de los demás flujos)
     const category = await post(administrator, '/admin/categories', { name: `IT Custom ${runId}` });

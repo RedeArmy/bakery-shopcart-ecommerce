@@ -2,6 +2,7 @@ import { Readable } from 'node:stream';
 import express from 'express';
 import type { RequestHandler, Router } from 'express';
 import request from 'supertest';
+import type { Response } from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { createAuditRouter } from '../../src/modules/audit/index.js';
 import { createBranchesRouter } from '../../src/modules/branches/index.js';
@@ -622,7 +623,21 @@ describe('administration routes', () => {
   });
 });
 
+// Deja la respuesta como bytes, sea cual sea su tipo, para comparar un archivo
+const binary = (res: Response, callback: (error: Error | null, body: Buffer) => void): void => {
+  const chunks: Buffer[] = [];
+  res.on('data', (chunk: Buffer) => chunks.push(chunk));
+  res.on('end', () => {
+    callback(null, Buffer.concat(chunks));
+  });
+};
+
 describe('dashboard routes', () => {
+  // Cada formato responde con una marca reconocible: lo que se prueba aquí es la ruta, no el archivo
+  const writers = {
+    xlsx: { write: () => Buffer.from('XLSX-BYTES') },
+    pdf: { write: () => Buffer.from('PDF-BYTES') },
+  };
   const answers = {
     summary: { orders: 2, net: '255.90' },
     salesByPeriod: [{ periodStart: '2030-06-01', orders: 2 }],
@@ -633,7 +648,7 @@ describe('dashboard routes', () => {
 
   it('lets only an administrator see the dashboard', async () => {
     const { repository } = fake(answers);
-    const app = appWith(createDashboardRouter(kit, repository));
+    const app = appWith(createDashboardRouter(kit, repository, writers));
     for (const path of [
       'summary',
       'sales',
@@ -656,7 +671,7 @@ describe('dashboard routes', () => {
 
   it('passes the range and the granularity to the database and leaves empty dates to it', async () => {
     const { repository, calls } = fake(answers);
-    const app = appWith(createDashboardRouter(kit, repository));
+    const app = appWith(createDashboardRouter(kit, repository, writers));
     await request(app).get('/admin/dashboard/sales').set(as('1:Administrator'));
     expect(calls.at(-1)).toEqual({
       method: 'salesByPeriod',
@@ -682,7 +697,7 @@ describe('dashboard routes', () => {
 
   it('asks for ten best sellers by default and accepts up to fifty', async () => {
     const { repository, calls } = fake(answers);
-    const app = appWith(createDashboardRouter(kit, repository));
+    const app = appWith(createDashboardRouter(kit, repository, writers));
     await request(app).get('/admin/dashboard/top-products').set(as('1:Administrator'));
     expect(calls.at(-1)).toEqual({ method: 'topProducts', args: [{ from: null, to: null }, 10] });
     await request(app).get('/admin/dashboard/top-products?limit=50').set(as('1:Administrator'));
@@ -699,7 +714,7 @@ describe('dashboard routes', () => {
 
   it('rejects a malformed date or granularity before reaching the database', async () => {
     const { repository, calls } = fake(answers);
-    const app = appWith(createDashboardRouter(kit, repository));
+    const app = appWith(createDashboardRouter(kit, repository, writers));
     for (const query of ['from=yesterday', 'to=2030-13-45', 'from=2030-6-1']) {
       const response = await request(app)
         .get(`/admin/dashboard/summary?${query}`)
@@ -714,9 +729,63 @@ describe('dashboard routes', () => {
     expect(calls).toHaveLength(0);
   });
 
+  it('exports the report of the dashboard as a file, for an administrator only', async () => {
+    const { repository, calls } = fake({
+      ...answers,
+      summary: { fromDate: '2030-06-01', toDate: '2030-06-30', orders: 2 },
+    });
+    const app = appWith(createDashboardRouter(kit, repository, writers));
+    const path = '/admin/dashboard/export?format=xlsx&from=2030-06-01&to=2030-06-30';
+    expect((await request(app).get(path)).status).toBe(401);
+    expect((await request(app).get(path).set(as('2:Operator'))).status).toBe(403);
+
+    const xlsx = await request(app).get(path).set(as('1:Administrator')).buffer(true).parse(binary);
+    expect(xlsx.status).toBe(200);
+    expect(xlsx.headers['content-type']).toContain('spreadsheetml.sheet');
+    expect(xlsx.headers['content-disposition']).toBe(
+      'attachment; filename="reporte-ventas-2030-06-01_2030-06-30.xlsx"',
+    );
+    expect(xlsx.headers['cache-control']).toBe('no-store');
+    expect((xlsx.body as Buffer).toString()).toBe('XLSX-BYTES');
+    expect(calls.map((call) => call.method).sort()).toEqual([
+      'salesByCategory',
+      'salesByPeriod',
+      'summary',
+      'topProducts',
+    ]);
+    expect(calls.find((call) => call.method === 'topProducts')?.args).toEqual([
+      { from: '2030-06-01', to: '2030-06-30' },
+      10,
+    ]);
+
+    const pdf = await request(app)
+      .get('/admin/dashboard/export?format=pdf&granularity=week&limit=5')
+      .set(as('1:Administrator'))
+      .buffer(true)
+      .parse(binary);
+    expect(pdf.headers['content-type']).toContain('application/pdf');
+    expect(pdf.headers['content-disposition']).toContain('.pdf"');
+    expect((pdf.body as Buffer).toString()).toBe('PDF-BYTES');
+    expect(
+      calls.find((call) => call.method === 'salesByPeriod' && call.args[1] === 'week'),
+    ).toBeDefined();
+  });
+
+  it('refuses an export without a known format or with a malformed range', async () => {
+    const { repository, calls } = fake(answers);
+    const app = appWith(createDashboardRouter(kit, repository, writers));
+    for (const query of ['', '?format=csv', '?format=pdf&from=yesterday', '?format=pdf&limit=51']) {
+      const response = await request(app)
+        .get(`/admin/dashboard/export${query}`)
+        .set(as('1:Administrator'));
+      expect(response.status).toBe(400);
+    }
+    expect(calls).toHaveLength(0);
+  });
+
   it('pages the abandoned carts', async () => {
     const { repository, calls } = fake(answers);
-    const app = appWith(createDashboardRouter(kit, repository));
+    const app = appWith(createDashboardRouter(kit, repository, writers));
     await request(app)
       .get('/admin/dashboard/abandoned-carts?page=2&size=5')
       .set(as('1:Administrator'));

@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { CategorySalesList } from '../components/category-sales';
 import { DashboardHeader } from '../components/dashboard-header';
+import { ExportButtons } from '../components/export-buttons';
 import { PeriodFilter } from '../components/period-filter';
 import { RecentOrders } from '../components/recent-orders';
 import { ReportSection } from '../components/report-section';
@@ -40,6 +41,7 @@ export function AdminDashboard() {
           setParams(dashboardParams(next));
         }}
       />
+      <ExportButtons query={query} disabled={isReversed(query)} />
       {isReversed(query) ? null : (
         <>
           <ReportSection

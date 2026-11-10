@@ -506,3 +506,65 @@ BEGIN
     EXEC dbo.SP_Dashboard_AbandonedCarts @PageSize = 101;
 END;
 GO
+
+-- Versión de los datos (caché de los reportes) -------------------------------------------------
+
+CREATE PROCEDURE Test_Dashboard.Version
+    @Version NVARCHAR(100) OUTPUT
+AS
+BEGIN
+    CREATE TABLE #V (Version NVARCHAR(100));
+    INSERT INTO #V EXEC dbo.SP_Dashboard_DataVersion;
+    SELECT @Version = Version FROM #V;
+END;
+GO
+
+CREATE PROCEDURE Test_Dashboard.[test the data version does not change while nothing changes]
+AS
+BEGIN
+    DECLARE @First NVARCHAR(100), @Second NVARCHAR(100);
+    EXEC Test_Dashboard.Version @Version = @First OUTPUT;
+    EXEC Test_Dashboard.Version @Version = @Second OUTPUT;
+    EXEC tSQLt.AssertEqualsString @Expected = @First, @Actual = @Second;
+END;
+GO
+
+CREATE PROCEDURE Test_Dashboard.[test the data version changes when an order is placed and when it moves on]
+AS
+BEGIN
+    DECLARE @Before NVARCHAR(100), @Placed NVARCHAR(100), @Paid NVARCHAR(100), @Order INT, @Payment INT;
+    EXEC Test_Dashboard.Version @Version = @Before OUTPUT;
+
+    EXEC Test_Lifecycle.Place @Email = N'ana@shopcart.test', @SKU = N'A-CAKE', @Quantity = 1, @Key = N'key-v1', @Method = 2, @IDOrder = @Order OUTPUT, @IDPayment = @Payment OUTPUT;
+    EXEC Test_Dashboard.Version @Version = @Placed OUTPUT;
+    IF @Placed = @Before EXEC tSQLt.Fail 'Placing an order must change the data version.';
+
+    DECLARE @Other INT;
+    EXEC Test_Dashboard.Sale @Email = N'luis@shopcart.test', @SKU = N'B-COOKIE', @Quantity = 1, @Key = N'key-v2', @PaidAt = '2030-06-01T15:00:00', @To = 2, @IDOrder = @Other OUTPUT;
+    EXEC Test_Dashboard.Version @Version = @Paid OUTPUT;
+    IF @Paid = @Placed EXEC tSQLt.Fail 'Paying an order must change the data version.';
+END;
+GO
+
+CREATE PROCEDURE Test_Dashboard.[test the data version changes when a return is registered]
+AS
+BEGIN
+    DECLARE @Order INT, @Before NVARCHAR(100), @After NVARCHAR(100);
+    EXEC Test_Dashboard.Sale @Email = N'ana@shopcart.test', @SKU = N'A-CAKE', @Quantity = 2, @Key = N'key-v3', @PaidAt = '2030-06-01T15:00:00', @To = 5, @IDOrder = @Order OUTPUT;
+    EXEC Test_Dashboard.Version @Version = @Before OUTPUT;
+    EXEC Test_Dashboard.ReturnUnits @IDOrder = @Order, @SKU = N'A-CAKE', @Quantity = 1;
+    EXEC Test_Dashboard.Version @Version = @After OUTPUT;
+    IF @After = @Before EXEC tSQLt.Fail 'Registering a return must change the data version.';
+END;
+GO
+
+CREATE PROCEDURE Test_Dashboard.[test the data version changes when a category is renamed]
+AS
+BEGIN
+    DECLARE @Before NVARCHAR(100), @After NVARCHAR(100);
+    EXEC Test_Dashboard.Version @Version = @Before OUTPUT;
+    UPDATE TOP (1) dbo.Categories SET Name = Name + N' renamed';
+    EXEC Test_Dashboard.Version @Version = @After OUTPUT;
+    IF @After = @Before EXEC tSQLt.Fail 'Renaming a category must change the data version.';
+END;
+GO

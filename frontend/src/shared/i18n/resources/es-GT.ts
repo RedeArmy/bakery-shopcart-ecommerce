@@ -935,6 +935,12 @@ export const esGT = {
     greeting: 'Hola {{name}}',
     adminIntro: 'Las ventas de la tienda y lo que está pendiente de atender.',
     operatorIntro: 'Lo que hay que atender ahora: pedidos, pagos y entregas.',
+    export: {
+      title: 'Exportar el período',
+      xlsx: 'Exportar a Excel',
+      pdf: 'Exportar a PDF',
+      failed: 'No se pudo descargar el reporte.',
+    },
     period: {
       title: 'Período',
       preset_one: 'Último día',
