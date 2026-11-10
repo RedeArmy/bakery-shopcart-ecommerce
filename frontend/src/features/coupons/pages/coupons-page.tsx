@@ -8,7 +8,8 @@ import { useCategories } from '../../catalogue/hooks/use-catalogue-queries';
 import { CouponCard } from '../components/coupon-card';
 import { CouponForm } from '../components/coupon-form';
 import { useCoupons } from '../hooks/use-coupons';
-import { PAGE_SIZE, couponsParams, flattenCategories, parseCouponsQuery } from '../model/coupons';
+import { categoryChoices } from '../../catalogue/model/categories';
+import { PAGE_SIZE, couponsParams, parseCouponsQuery } from '../model/coupons';
 
 /**
  * Los cupones (RF-07), solo para el administrador: se ven con su estado (vigente, aún no empieza, vencido, agotado o desactivado),
@@ -21,7 +22,7 @@ export function CouponsPage() {
   const [adding, setAdding] = useState(false);
   const query = parseCouponsQuery(params);
   const result = useCoupons(query);
-  const categories = flattenCategories(useCategories().data ?? []);
+  const categories = categoryChoices(useCategories().data ?? []);
 
   return (
     <div className="space-y-6">

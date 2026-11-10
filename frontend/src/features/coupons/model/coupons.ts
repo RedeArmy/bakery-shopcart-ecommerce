@@ -74,8 +74,13 @@ export const couponSchema = z
     }
   });
 
-/** Y el código, que solo se pide al crear: letras, números, guion y guion bajo. */
+/** El código solo se pide al crear: de 3 a 30 letras, números, guiones o guiones bajos. */
 export const CODE_PATTERN = /^[A-Za-z0-9_-]{3,30}$/;
+
+export const newCouponSchema = couponSchema.refine((values) => CODE_PATTERN.test(values.code), {
+  path: ['code'],
+  error: 'coupons.validation.code',
+});
 
 export type CouponValues = z.infer<typeof couponSchema>;
 

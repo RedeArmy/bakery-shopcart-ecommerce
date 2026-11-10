@@ -6,12 +6,12 @@ import { Button } from '../../../shared/ui/button';
 import { SelectField, TextField } from '../../../shared/ui/fields';
 import { fieldError } from '../../auth/components/auth-layout';
 import { useCategories } from '../../catalogue/hooks/use-catalogue-queries';
+import { categoryChoices, choiceLabel } from '../../catalogue/model/categories';
 import { useCreateCoupon, useUpdateCoupon } from '../hooks/use-coupons';
 import {
   COUPON_TYPES,
   EMPTY_COUPON,
   couponSchema,
-  flattenCategories,
   newCouponSchema,
   valuesOf,
 } from '../model/coupons';
@@ -30,7 +30,7 @@ export function CouponForm({
   const { t } = useTranslation();
   const create = useCreateCoupon();
   const update = useUpdateCoupon(coupon?.idCoupon ?? 0);
-  const categories = useCategories();
+  const categories = useCategories({ fresh: true });
   const {
     register,
     handleSubmit,
@@ -109,9 +109,9 @@ export function CouponForm({
           optionalLabel={t('common.optional')}
         >
           <option value="">{t('coupons.allCategories')}</option>
-          {flattenCategories(categories.data ?? []).map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
+          {categoryChoices(categories.data ?? []).map((choice) => (
+            <option key={choice.id} value={choice.id}>
+              {choiceLabel(choice)}
             </option>
           ))}
         </SelectField>
