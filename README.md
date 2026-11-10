@@ -39,7 +39,7 @@ Los nueve módulos del enunciado están construidos de punta a punta: la base de
 | RF-08 Tablero y reportes | Completo, con sus gráficas en el frontend | [ADR-0009](docs/adr/0009-definition-of-completed-order-for-reports.md) |
 | RF-09 Bitácora | Completo | [Modelo de datos](docs/database/er-diagram.md) |
 
-Los 21 criterios de aceptación del enunciado están en el [mapa de criterios](docs/quality/acceptance-criteria-map.md): para cada uno dice qué lo hace cumplir y qué prueba lo demuestra. Las pruebas son 693 de base de datos (tSQLt), 16 escenarios de concurrencia con conexiones reales, 25 flujos HTTP contra SQL Server y más de 550 pruebas unitarias.
+Los 21 criterios de aceptación del enunciado están en el [mapa de criterios](docs/quality/acceptance-criteria-map.md): para cada uno dice qué lo hace cumplir y qué prueba lo demuestra. Las pruebas son 697 de base de datos (tSQLt), 16 escenarios de concurrencia con conexiones reales, 26 flujos HTTP contra SQL Server y más de 550 pruebas unitarias.
 
 ## 3. Arquitectura
 
@@ -66,7 +66,7 @@ flowchart LR
 
 Ejemplo, `PUT /api/v1/cart/items/{id}`: `cart.routes.ts` valida la cantidad (1 a 99) y toma el usuario del token, llama a `CartRepository.setItem` y `sql-cart-repository.ts` ejecuta `SP_Cart_SetItemQuantity`, que es quien comprueba la existencia. Todo se une en un solo lugar, `backend/src/composition-root.ts`. La lógica que necesita ser atómica vive en los procedimientos almacenados ([ADR-0002](docs/adr/0002-critical-rules-in-stored-procedures-and-checks.md)); el backend orquesta y nunca calcula importes.
 
-El contrato está en [docs/api/openapi/openapi.yaml](docs/api/openapi/openapi.yaml) y tiene **90 operaciones**:
+El contrato está en [docs/api/openapi/openapi.yaml](docs/api/openapi/openapi.yaml) y tiene **91 operaciones**:
 
 | Módulo | Operaciones | Módulo | Operaciones |
 |---|---|---|---|
@@ -117,7 +117,7 @@ El enunciado deja algunas decisiones a propósito. Estas son las posturas tomada
 
 ## 6. Modelo de datos y ciclo de vida
 
-El diagrama completo y el orden de migraciones están en [docs/database/er-diagram.md](docs/database/er-diagram.md). La base tiene 41 tablas, 99 procedimientos almacenados, 22 funciones de tabla, 6 vistas y 11 triggers. Resumen de las relaciones principales:
+El diagrama completo y el orden de migraciones están en [docs/database/er-diagram.md](docs/database/er-diagram.md). La base tiene 41 tablas, 100 procedimientos almacenados, 22 funciones de tabla, 6 vistas y 11 triggers. Resumen de las relaciones principales:
 
 ```mermaid
 erDiagram
@@ -263,17 +263,17 @@ Para empezar de cero, incluida la base de datos, use `docker compose down --volu
 
 ## 8. Cómo verificar la entrega
 
-**Con la colección de Postman.** Las 38 peticiones son las mínimas que prueban la entrega, y la primera carpeta que importa es la de **autenticación**: registra un cliente, inicia sesión, lee el perfil, rechaza un token ausente y una contraseña incorrecta, y comprueba la rotación del refresh token. Las demás recorren el catálogo, el carrito, los cupones, el checkout con su idempotencia, la propiedad de los datos, el ciclo de vida del pedido y la bitácora. La tabla de qué prueba cada carpeta está en el [README de Postman](docs/api/postman/README.md) y el mapa de cada criterio de la prueba en el [mapa de criterios de aceptación](docs/quality/acceptance-criteria-map.md). Para explorar las 90 operaciones, importe `docs/api/openapi/openapi.yaml` en Postman: genera una petición por operación.
+**Con la colección de Postman.** Las 38 peticiones son las mínimas que prueban la entrega, y la primera carpeta que importa es la de **autenticación**: registra un cliente, inicia sesión, lee el perfil, rechaza un token ausente y una contraseña incorrecta, y comprueba la rotación del refresh token. Las demás recorren el catálogo, el carrito, los cupones, el checkout con su idempotencia, la propiedad de los datos, el ciclo de vida del pedido y la bitácora. La tabla de qué prueba cada carpeta está en el [README de Postman](docs/api/postman/README.md) y el mapa de cada criterio de la prueba en el [mapa de criterios de aceptación](docs/quality/acceptance-criteria-map.md). Para explorar las 91 operaciones, importe `docs/api/openapi/openapi.yaml` en Postman: genera una petición por operación.
 
 **Con las pruebas automáticas.** Las pruebas de base de datos y de concurrencia corren contra un SQL Server desechable:
 
 | Qué se prueba | Comando |
 |---|---|
 | Unitarias del backend, del runner y de los scripts | `npm test` |
-| 693 pruebas de base de datos (tSQLt) | `npm run sql:test:up` y después `npm run sql:test` |
+| 697 pruebas de base de datos (tSQLt) | `npm run sql:test:up` y después `npm run sql:test` |
 | 16 escenarios de concurrencia con conexiones reales | `npm run sql:concurrency` |
-| Flujos HTTP contra SQL Server (25) | `npm run test:integration -w backend`, con el servidor de pruebas migrado ([comandos](docs/quality/sql-testing-tsqlt.md#concurrency-http-and-performance-suites)) |
-| Cobertura de procedimientos por pruebas (99 de 99) | `npm run sql:coverage` |
+| Flujos HTTP contra SQL Server (26) | `npm run test:integration -w backend`, con el servidor de pruebas migrado ([comandos](docs/quality/sql-testing-tsqlt.md#concurrency-http-and-performance-suites)) |
+| Cobertura de procedimientos por pruebas (100 de 100) | `npm run sql:coverage` |
 | Tiempos de listados y reportes con 50 000 pedidos | `npm run sql:bench` |
 
 ## 9. Comandos
@@ -334,7 +334,7 @@ La regla de cuándo se ofrece el depósito según la fecha de entrega está en [
 
 ## 14. Estado de la entrega
 
-**Fase 1, base de datos y backend: completa.** 19 migraciones, 99 procedimientos, la API de 90 operaciones, la autenticación con rotación de tokens, el pago simulado, los trabajos de fondo (vencimiento de reservas y pagos, purga de datos, conciliación de importes y existencias) y las pruebas descritas en la sección 8. El historial de cambios y las decisiones están en [STATUS](docs/progress/STATUS.md) y [ROADMAP](docs/progress/ROADMAP.md).
+**Fase 1, base de datos y backend: completa.** 19 migraciones, 100 procedimientos, la API de 91 operaciones, la autenticación con rotación de tokens, el pago simulado, los trabajos de fondo (vencimiento de reservas y pagos, purga de datos, conciliación de importes y existencias) y las pruebas descritas en la sección 8. El historial de cambios y las decisiones están en [STATUS](docs/progress/STATUS.md) y [ROADMAP](docs/progress/ROADMAP.md).
 
 **Datos de demostración.** Al levantar el entorno existen las cuatro cuentas de prueba y una tienda pequeña: 60 productos en 6 categorías (98 variantes y 6 070 unidades, tres agotadas a propósito; las bolsas de 6 y las docenas del pan dulce comparten una existencia en unidades), los cupones `WELCOME10`, `CAKES25`, `SOLDOUT` y `EXPIRED`, dos cuentas bancarias ficticias y dos sucursales para recoger pedidos. Se crean por los procedimientos reales y repetir el paso no duplica nada ([detalle y cómo ver cada mensaje de cupón](docs/operations/demo-data.md)). La colección de Postman sigue creando sus propios datos.
 
