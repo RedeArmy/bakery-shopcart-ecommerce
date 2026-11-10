@@ -57,6 +57,12 @@
     "/^.*<!--\\s*spelling-ignore\\s*-->.*$/gm"
   ],
   "words": [
+    "openpyxl",
+    "pypdf",
+    "openxmlformats",
+    "officedocument",
+    "spreadsheetml",
+    "reporte",
     "Galletas",
     "Iniciar",
     "Postres",

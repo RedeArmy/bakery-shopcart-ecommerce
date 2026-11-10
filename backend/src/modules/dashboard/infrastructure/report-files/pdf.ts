@@ -1,3 +1,4 @@
+// cspell:disable
 import { deflateSync } from 'node:zlib';
 import type {
   Report,

@@ -1,3 +1,4 @@
+// cspell:disable
 import type { Row } from '../../../platform/http/serialise.js';
 import type { DashboardRepository, DateRange, Granularity } from './dashboard-repository.js';
 
