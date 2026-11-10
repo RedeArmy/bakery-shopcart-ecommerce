@@ -37,7 +37,7 @@ const account = (extra = {}) => ({
   ...extra,
 });
 
-const page = (items: unknown[], total = items.length) => ({ items, page: 1, size: 20, total });
+const page = (items: unknown[], total = items.length) => ({ items, page: 1, size: 15, total });
 
 const lastQuery = (calls: Call[]): URLSearchParams =>
   new URLSearchParams(calls.filter((call) => call.path === '/api/v1/admin/users').at(-1)?.search);
@@ -105,7 +105,7 @@ describe('the users screen', () => {
     expect(query.get('search')).toBe('beto');
     expect(query.get('role')).toBe('1');
     expect(query.get('active')).toBe('true');
-    expect(query.get('size')).toBe('20');
+    expect(query.get('size')).toBe('15');
     expect(screen.getByLabelText<HTMLSelectElement>('Rol').value).toBe('1');
     expect(screen.getByLabelText<HTMLSelectElement>('Estado').value).toBe('true');
   });

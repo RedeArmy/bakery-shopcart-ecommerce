@@ -37,7 +37,7 @@ const entry = (extra = {}) => ({
   ...extra,
 });
 
-const page = (items: unknown[], total = items.length) => ({ items, page: 1, size: 20, total });
+const page = (items: unknown[], total = items.length) => ({ items, page: 1, size: 15, total });
 
 const lastQuery = (calls: Call[]): URLSearchParams =>
   new URLSearchParams(
@@ -47,6 +47,7 @@ const lastQuery = (calls: Call[]): URLSearchParams =>
 describe('the audit log', () => {
   it('lists the records with what was done, on what, by whom, when and what changed', async () => {
     await signInAs('Administrator');
+    const user = userEvent.setup();
     installFakeApi({
       'GET /api/v1/admin/audit-log': json(
         page([
@@ -73,6 +74,9 @@ describe('the audit log', () => {
     expect(within(first).getByText('Usuarios')).toBeDefined();
     expect(within(first).getByText('User 7')).toBeDefined();
     expect(within(first).getByText(/Por Ana Pérez/)).toBeDefined();
+    // Cerrado muestra solo el resumen; los detalles salen al pulsar el registro
+    expect(within(first).queryByText('IsActive')).toBeNull();
+    await user.click(within(first).getByRole('button'));
     // Campo por campo: el nombre, el valor anterior y el nuevo
     expect(within(first).getByText('IsActive')).toBeDefined();
     expect(within(first).getByText('true')).toBeDefined();
@@ -82,6 +86,7 @@ describe('the audit log', () => {
     const second = items[1] as HTMLElement;
     expect(within(second).getByText('Creación')).toBeDefined();
     expect(within(second).getByText('Cupones')).toBeDefined();
+    await user.click(within(second).getByRole('button'));
     expect(within(second).getByText('VERANO')).toBeDefined();
     expect(within(second).getAllByText('—').length).toBeGreaterThan(0);
     expect(within(second).getByText(/Lo hizo el sistema/)).toBeDefined();
@@ -90,6 +95,7 @@ describe('the audit log', () => {
 
   it('shows the saved texts as they are when they are not JSON', async () => {
     await signInAs('Administrator');
+    const user = userEvent.setup();
     installFakeApi({
       'GET /api/v1/admin/audit-log': json(
         page([entry({ previousValue: 'Pending', newValue: 'Paid' })]),
@@ -97,9 +103,52 @@ describe('the audit log', () => {
     });
     renderApp('/admin/audit');
 
+    await user.click(await screen.findByRole('button', { name: /Cambio de estado/ }));
     expect(await screen.findByText('Pending')).toBeDefined();
     expect(screen.getByText('Paid')).toBeDefined();
     expect(screen.queryByRole('table')).toBeNull();
+  });
+
+  it('shows each record closed, opens it on click and closes it again', async () => {
+    await signInAs('Administrator');
+    const user = userEvent.setup();
+    installFakeApi({
+      'GET /api/v1/admin/audit-log': json(
+        page([entry(), entry({ idAuditLog: '40', entityKey: '9' })]),
+      ),
+    });
+    renderApp('/admin/audit');
+
+    const [first, second] = await screen.findAllByRole('button', { name: /Cambio de estado/ });
+    expect(first?.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByText('IsActive')).toBeNull();
+
+    await user.click(first as HTMLElement);
+    expect(first?.getAttribute('aria-expanded')).toBe('true');
+    expect(first?.getAttribute('aria-controls')).toBeTruthy();
+    expect(screen.getAllByText('IsActive')).toHaveLength(1);
+    // Cada registro se abre por su cuenta
+    expect(second?.getAttribute('aria-expanded')).toBe('false');
+
+    await user.click(second as HTMLElement);
+    expect(screen.getAllByText('IsActive')).toHaveLength(2);
+
+    await user.click(first as HTMLElement);
+    expect(first?.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.getAllByText('IsActive')).toHaveLength(1);
+  });
+
+  it('opens a record with the keyboard', async () => {
+    await signInAs('Administrator');
+    const user = userEvent.setup();
+    installFakeApi({ 'GET /api/v1/admin/audit-log': json(page([entry()])) });
+    renderApp('/admin/audit');
+
+    const button = await screen.findByRole('button', { name: /Cambio de estado/ });
+    button.focus();
+    await user.keyboard('{Enter}');
+
+    expect(await screen.findByText('IsActive')).toBeDefined();
   });
 
   it('filters by module and starts again from the first page', async () => {
@@ -109,7 +158,7 @@ describe('the audit log', () => {
       'GET /api/v1/admin/audit-log': json(page([entry()], 45)),
     });
     renderApp('/admin/audit?page=2');
-    await screen.findByText('IsActive');
+    await screen.findByText('Cambio de estado');
     expect(lastQuery(calls).get('page')).toBe('2');
 
     await user.selectOptions(screen.getByLabelText('Módulo'), 'Cupones');
@@ -125,7 +174,7 @@ describe('the audit log', () => {
     const user = userEvent.setup();
     const { calls } = installFakeApi({ 'GET /api/v1/admin/audit-log': json(page([entry()])) });
     renderApp('/admin/audit');
-    await screen.findByText('IsActive');
+    await screen.findByText('Cambio de estado');
 
     await user.type(screen.getByLabelText('Identificador'), 'PED-2030-000007');
     await user.click(screen.getByRole('button', { name: 'Buscar' }));
@@ -139,7 +188,7 @@ describe('the audit log', () => {
     await signInAs('Administrator');
     const { calls } = installFakeApi({ 'GET /api/v1/admin/audit-log': json(page([entry()])) });
     renderApp('/admin/audit');
-    await screen.findByText('IsActive');
+    await screen.findByText('Cambio de estado');
 
     fireEvent.change(screen.getByLabelText('Desde'), { target: { value: '2030-06-01' } });
     fireEvent.change(screen.getByLabelText('Hasta'), { target: { value: '2030-06-30' } });
@@ -171,7 +220,7 @@ describe('the audit log', () => {
     });
     renderApp('/admin/audit');
     expect(await screen.findByText('Página 1 de 3')).toBeDefined();
-    expect(lastQuery(calls).get('size')).toBe('20');
+    expect(lastQuery(calls).get('size')).toBe('15');
 
     await user.click(screen.getByRole('button', { name: 'Siguiente' }));
 
@@ -205,7 +254,7 @@ describe('the audit log', () => {
     failing = false;
     await user.click(screen.getByRole('button', { name: 'Reintentar' }));
 
-    expect(await screen.findByText('IsActive')).toBeDefined();
+    expect(await screen.findByText('Cambio de estado')).toBeDefined();
   });
 
   it.each(['Operator', 'Customer'] as const)('keeps the log away from the %s', async (role) => {
