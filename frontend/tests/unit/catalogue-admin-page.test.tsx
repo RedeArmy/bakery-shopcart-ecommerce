@@ -518,7 +518,7 @@ describe('who can open the maintenance', () => {
     installFakeApi({ 'GET /api/v1/admin/categories': json([]) });
     const administrator = renderApp('/admin/catalogue');
     const header = (await screen.findAllByRole('banner'))[0] as HTMLElement;
-    expect(within(header).getByRole('link', { name: 'Catálogo' })).toBeDefined();
+    expect(within(header).getByRole('link', { name: 'Productos' })).toBeDefined();
     administrator.unmount();
     cleanup();
     await resetSession();
@@ -527,6 +527,6 @@ describe('who can open the maintenance', () => {
     installFakeApi({});
     renderApp('/admin');
     const operatorHeader = (await screen.findAllByRole('banner'))[0] as HTMLElement;
-    expect(within(operatorHeader).queryByRole('link', { name: 'Catálogo' })).toBeNull();
+    expect(within(operatorHeader).queryByRole('link', { name: 'Productos' })).toBeNull();
   });
 });

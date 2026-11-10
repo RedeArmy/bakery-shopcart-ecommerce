@@ -30,7 +30,7 @@ export const esGT = {
     users: 'Usuarios',
     coupons: 'Cupones',
     refunds: 'Reembolsos',
-    catalogueAdmin: 'Catálogo',
+    catalogueAdmin: 'Productos',
     inventory: 'Inventario',
     dashboard: 'Panel',
     staffOrders: 'Gestión de pedidos',
