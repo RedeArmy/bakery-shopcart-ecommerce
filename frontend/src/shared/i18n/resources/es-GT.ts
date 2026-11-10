@@ -426,7 +426,7 @@ export const esGT = {
     onlyCategory: 'Solo para la categoría {{name}}',
     used_one: 'Se usó {{count}} vez',
     used_other: 'Se usó {{count}} veces',
-    usedOf: 'Se usó {{count}} de {{limit}} veces',
+    usedOf: 'Usos: {{count}} de {{limit}}',
     perCustomer_one: 'una vez por cliente',
     perCustomer_other: '{{count}} veces por cliente',
     removeTitle: '¿Desactivar este cupón?',

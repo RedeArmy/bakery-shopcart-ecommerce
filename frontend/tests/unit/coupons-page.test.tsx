@@ -90,7 +90,7 @@ describe('the coupons screen', () => {
     expect(within(first).getByText(/Rige del/)).toBeDefined();
     expect(within(first).getByText(/Compra mínima de/)).toBeDefined();
     expect(await within(first).findByText('Solo para la categoría Pasteles')).toBeDefined();
-    expect(within(first).getByText(/Se usó 3 de 50 veces/)).toBeDefined();
+    expect(within(first).getByText(/Usos: 3 de 50/)).toBeDefined();
     expect(within(first).getByText(/una vez por cliente/)).toBeDefined();
 
     const second = screen.getByText('FIJO25').closest('li') as HTMLElement;
