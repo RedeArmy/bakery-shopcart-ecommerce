@@ -21,10 +21,15 @@ import {
 } from '../model/maintenance';
 import type { MaintenanceQuery } from '../model/maintenance';
 
-/** Las categorías, todas (también las desactivadas), en el orden en que se leen, con su alta, su edición y su baja. */
-function CategoriesView() {
+/**
+ * Las categorías, todas (también las desactivadas), en el orden en que se leen, con su edición y su baja. El botón de alta está
+ * en la barra de arriba, junto a los de las vistas; aquí solo se muestra el formulario cuando se pidió.
+ */
+function CategoriesView({
+  adding,
+  onFormClosed,
+}: Readonly<{ adding: boolean; onFormClosed: () => void }>) {
   const { t } = useTranslation();
-  const [adding, setAdding] = useState(false);
   const { data, isPending, isError, error, refetch } = useAdminCategories();
 
   let list: ReactNode;
@@ -61,26 +66,8 @@ function CategoriesView() {
   return (
     <section className="space-y-4" aria-label={t('catalogueAdmin.views.categories')}>
       {adding ? (
-        <CategoryForm
-          categories={data ?? []}
-          onDone={() => {
-            setAdding(false);
-          }}
-          onCancel={() => {
-            setAdding(false);
-          }}
-        />
-      ) : (
-        <div>
-          <Button
-            onClick={() => {
-              setAdding(true);
-            }}
-          >
-            {t('catalogueAdmin.addCategory')}
-          </Button>
-        </div>
-      )}
+        <CategoryForm categories={data ?? []} onDone={onFormClosed} onCancel={onFormClosed} />
+      ) : null}
       {list}
     </section>
   );
@@ -138,10 +125,13 @@ function ProductsView({
 export function CatalogueMaintenancePage() {
   const { t } = useTranslation();
   const [params, setParams] = useSearchParams();
+  const [adding, setAdding] = useState(false);
   const query = parseMaintenanceQuery(params);
   const go = (next: Partial<MaintenanceQuery>): void => {
     setParams(maintenanceParams({ ...query, ...next }));
   };
+  // El alta de una categoría solo se ofrece en la vista de categorías y mientras su formulario no está abierto
+  const canAdd = query.view === 'categories' && !adding;
 
   return (
     <div className="space-y-6">
@@ -149,16 +139,38 @@ export function CatalogueMaintenancePage() {
         <h1 className="text-4xl text-stone-900">{t('catalogueAdmin.title')}</h1>
         <p className="mt-1 max-w-2xl text-stone-600">{t('catalogueAdmin.intro')}</p>
       </header>
-      <StatusFilter
-        label={t('catalogueAdmin.viewLabel')}
-        options={VIEWS}
-        value={query.view}
-        labelOf={(view) => t(`catalogueAdmin.views.${view}`)}
-        onChange={(view) => {
-          go({ view, category: null, page: 1 });
-        }}
-      />
-      {query.view === 'categories' ? <CategoriesView /> : <ProductsView query={query} go={go} />}
+      {/* Una sola barra: a la izquierda el alta de una categoría y a su derecha los botones de las dos vistas */}
+      <div className="flex flex-wrap items-center gap-3">
+        {canAdd ? (
+          <Button
+            onClick={() => {
+              setAdding(true);
+            }}
+          >
+            {t('catalogueAdmin.addCategory')}
+          </Button>
+        ) : null}
+        <StatusFilter
+          label={t('catalogueAdmin.viewLabel')}
+          options={VIEWS}
+          value={query.view}
+          labelOf={(view) => t(`catalogueAdmin.views.${view}`)}
+          onChange={(view) => {
+            setAdding(false);
+            go({ view, category: null, page: 1 });
+          }}
+        />
+      </div>
+      {query.view === 'categories' ? (
+        <CategoriesView
+          adding={adding}
+          onFormClosed={() => {
+            setAdding(false);
+          }}
+        />
+      ) : (
+        <ProductsView query={query} go={go} />
+      )}
     </div>
   );
 }

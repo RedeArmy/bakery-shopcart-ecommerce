@@ -59,27 +59,40 @@ describe('the address of the audit log', () => {
 
 describe('what a record changed', () => {
   it('lists the fields whose value changed, with the value before and after', () => {
-    expect(describeChange('{"IsActive":true,"Name":"A"}', '{"IsActive":false,"Name":"A"}')).toEqual(
-      [{ field: 'IsActive', before: 'true', after: 'false' }],
-    );
+    expect(
+      describeChange('{"IsActive":true,"Name":"A"}', '{"IsActive":false,"Name":"A"}'),
+    ).toMatchObject([
+      { field: 'IsActive', before: 'true', after: 'false', rawBefore: true, rawAfter: false },
+    ]);
   });
 
   it('shows every field of a creation, which has no previous value', () => {
-    expect(describeChange(null, '{"Name":"Cakes","IsActive":true}')).toEqual([
-      { field: 'Name', before: null, after: 'Cakes' },
-      { field: 'IsActive', before: null, after: 'true' },
+    expect(describeChange(null, '{"Name":"Cakes","IsActive":true}')).toMatchObject([
+      { field: 'Name', before: null, after: 'Cakes', rawBefore: null },
+      { field: 'IsActive', before: null, after: 'true', rawBefore: null },
     ]);
   });
 
   it('shows a field that disappeared', () => {
-    expect(describeChange('{"Code":"X1"}', '{}')).toEqual([
-      { field: 'Code', before: 'X1', after: null },
+    expect(describeChange('{"Code":"X1"}', '{}')).toMatchObject([
+      { field: 'Code', before: 'X1', after: null, rawAfter: null },
     ]);
   });
 
   it('writes nested values as JSON and keeps the texts as they are', () => {
-    expect(describeChange('{"Tags":["a"]}', '{"Tags":["a","b"]}')).toEqual([
-      { field: 'Tags', before: '["a"]', after: '["a","b"]' },
+    expect(describeChange('{"Tags":["a"]}', '{"Tags":["a","b"]}')).toMatchObject([
+      { field: 'Tags', before: '["a"]', after: '["a","b"]', rawAfter: ['a', 'b'] },
+    ]);
+  });
+
+  it('carries the other fields of the record, in lower case, for the values that depend on them', () => {
+    const [change] = describeChange(null, '{"Type":"Percentage","Value":"10.00"}') ?? [];
+    expect(change?.context).toEqual({ type: 'Percentage', value: '10.00' });
+  });
+
+  it('shows a loose array, like the lines of a return, as the field lines', () => {
+    expect(describeChange(null, '[{"idOrderLine":4,"quantity":2}]')).toMatchObject([
+      { field: 'lines', before: null, rawAfter: [{ idOrderLine: 4, quantity: 2 }] },
     ]);
   });
 
@@ -92,6 +105,6 @@ describe('what a record changed', () => {
   it('gives up on a text that is not a JSON object, so that the screen shows it as it was saved', () => {
     expect(describeChange('Pending', 'Paid')).toBeNull();
     expect(describeChange('{"A":1}', 'not json')).toBeNull();
-    expect(describeChange('[1,2]', '[1,3]')).toBeNull();
+    expect(describeChange('42', '43')).toBeNull();
   });
 });

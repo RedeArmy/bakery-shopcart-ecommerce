@@ -72,15 +72,15 @@ describe('the audit log', () => {
     const first = items[0] as HTMLElement;
     expect(within(first).getByText('Cambio de estado')).toBeDefined();
     expect(within(first).getByText('Usuarios')).toBeDefined();
-    expect(within(first).getByText('User 7')).toBeDefined();
+    expect(within(first).getByText('Usuario n.º 7')).toBeDefined();
     expect(within(first).getByText(/Por Ana Pérez/)).toBeDefined();
     // Cerrado muestra solo el resumen; los detalles salen al pulsar el registro
-    expect(within(first).queryByText('IsActive')).toBeNull();
+    expect(within(first).queryByText('Activo')).toBeNull();
     await user.click(within(first).getByRole('button'));
     // Campo por campo: el nombre, el valor anterior y el nuevo
-    expect(within(first).getByText('IsActive')).toBeDefined();
-    expect(within(first).getByText('true')).toBeDefined();
-    expect(within(first).getByText('false')).toBeDefined();
+    expect(within(first).getByText('Activo')).toBeDefined();
+    expect(within(first).getByText('Sí')).toBeDefined();
+    expect(within(first).getByText('No')).toBeDefined();
 
     // Una creación no trae valor anterior; el que la hizo no se conoce y se dice
     const second = items[1] as HTMLElement;
@@ -121,21 +121,21 @@ describe('the audit log', () => {
 
     const [first, second] = await screen.findAllByRole('button', { name: /Cambio de estado/ });
     expect(first?.getAttribute('aria-expanded')).toBe('false');
-    expect(screen.queryByText('IsActive')).toBeNull();
+    expect(screen.queryByText('Activo')).toBeNull();
 
     await user.click(first as HTMLElement);
     expect(first?.getAttribute('aria-expanded')).toBe('true');
     expect(first?.getAttribute('aria-controls')).toBeTruthy();
-    expect(screen.getAllByText('IsActive')).toHaveLength(1);
+    expect(screen.getAllByText('Activo')).toHaveLength(1);
     // Cada registro se abre por su cuenta
     expect(second?.getAttribute('aria-expanded')).toBe('false');
 
     await user.click(second as HTMLElement);
-    expect(screen.getAllByText('IsActive')).toHaveLength(2);
+    expect(screen.getAllByText('Activo')).toHaveLength(2);
 
     await user.click(first as HTMLElement);
     expect(first?.getAttribute('aria-expanded')).toBe('false');
-    expect(screen.getAllByText('IsActive')).toHaveLength(1);
+    expect(screen.getAllByText('Activo')).toHaveLength(1);
   });
 
   it('opens a record with the keyboard', async () => {
@@ -148,7 +148,7 @@ describe('the audit log', () => {
     button.focus();
     await user.keyboard('{Enter}');
 
-    expect(await screen.findByText('IsActive')).toBeDefined();
+    expect(await screen.findByText('Activo')).toBeDefined();
   });
 
   it('filters by module and starts again from the first page', async () => {

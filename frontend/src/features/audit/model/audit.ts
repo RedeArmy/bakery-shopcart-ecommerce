@@ -74,15 +74,25 @@ export interface FieldChange {
   before: string | null;
   /** El valor nuevo, o `null` si el registro no lo trae (una desactivación sin valor) */
   after: string | null;
+  /** Los mismos valores tal como vienen en el JSON (números, sí o no, arreglos), para darles formato según el campo */
+  rawBefore: unknown;
+  rawAfter: unknown;
+  /** Todos los campos del registro con el nombre en minúsculas, para los valores que dependen de otro campo (el tipo del cupón) */
+  context: Record<string, unknown>;
 }
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
+/**
+ * Un texto JSON como objeto. Un arreglo suelto (las líneas de una devolución) se trata como el campo `lines`, para que se muestre
+ * igual que los demás. Todo lo que no es un objeto ni un arreglo es un texto suelto y devuelve `null`.
+ */
 function parseObject(text: string | null | undefined): Record<string, unknown> | null {
   if (text === null || text === undefined || text === '') return null;
   try {
     const parsed: unknown = JSON.parse(text);
+    if (Array.isArray(parsed)) return { lines: parsed };
     return isObject(parsed) ? parsed : null;
   } catch {
     return null;
@@ -112,7 +122,18 @@ export function describeChange(
   if (before === null && after === null) return [];
 
   const fields = [...new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})])];
+  const merged = { ...before, ...after };
+  const context = Object.fromEntries(
+    Object.entries(merged).map(([field, value]) => [field.toLowerCase(), value]),
+  );
   return fields
-    .map((field) => ({ field, before: show(before?.[field]), after: show(after?.[field]) }))
+    .map((field) => ({
+      field,
+      before: show(before?.[field]),
+      after: show(after?.[field]),
+      rawBefore: before?.[field] ?? null,
+      rawAfter: after?.[field] ?? null,
+      context,
+    }))
     .filter((change) => change.before !== change.after);
 }

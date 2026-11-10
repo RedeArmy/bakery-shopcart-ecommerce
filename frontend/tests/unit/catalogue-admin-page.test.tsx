@@ -268,6 +268,15 @@ describe('the products', () => {
     expect(screen.getByRole('button', { name: 'Productos' }).getAttribute('aria-pressed')).toBe(
       'true',
     );
+    expect(screen.queryByRole('button', { name: 'Nueva categoría' })).toBeNull();
+  });
+
+  it('puts the new category button in the same row as the views, before them', async () => {
+    await open('/admin/catalogue');
+    const add = await screen.findByRole('button', { name: 'Nueva categoría' });
+    const products = screen.getByRole('button', { name: 'Productos' });
+    expect(add.parentElement?.contains(products)).toBe(true);
+    expect(add.compareDocumentPosition(products) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('shows the products of the chosen category by name, also the deactivated ones, with their price range', async () => {
@@ -518,7 +527,7 @@ describe('who can open the maintenance', () => {
     installFakeApi({ 'GET /api/v1/admin/categories': json([]) });
     const administrator = renderApp('/admin/catalogue');
     const header = (await screen.findAllByRole('banner'))[0] as HTMLElement;
-    expect(within(header).getByRole('link', { name: 'Productos' })).toBeDefined();
+    expect(within(header).getByRole('link', { name: 'Catálogos' })).toBeDefined();
     administrator.unmount();
     cleanup();
     await resetSession();
@@ -527,6 +536,6 @@ describe('who can open the maintenance', () => {
     installFakeApi({});
     renderApp('/admin');
     const operatorHeader = (await screen.findAllByRole('banner'))[0] as HTMLElement;
-    expect(within(operatorHeader).queryByRole('link', { name: 'Productos' })).toBeNull();
+    expect(within(operatorHeader).queryByRole('link', { name: 'Catálogos' })).toBeNull();
   });
 });

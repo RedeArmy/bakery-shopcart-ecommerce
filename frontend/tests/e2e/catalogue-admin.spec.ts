@@ -6,7 +6,7 @@ import { expect, expectVisibleRetrying, test } from './fixtures';
 test('the administrator maintains the categories and reads the products and their prices of one', async ({
   staff: page,
 }) => {
-  await page.getByRole('banner').getByRole('link', { name: 'Productos' }).click();
+  await page.getByRole('banner').getByRole('link', { name: 'Catálogos' }).click();
   await expect(
     page.getByRole('heading', { level: 1, name: 'Mantenimiento del catálogo' }),
   ).toBeVisible();
