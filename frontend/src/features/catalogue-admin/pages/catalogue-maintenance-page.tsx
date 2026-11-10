@@ -3,11 +3,10 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Button } from '../../../shared/ui/button';
-import { SelectField } from '../../../shared/ui/fields';
 import { PagedResults } from '../../../shared/ui/paged-results';
 import { EmptyState, ErrorState, LoadingSkeleton } from '../../../shared/ui/states';
 import { useCategories } from '../../catalogue/hooks/use-catalogue-queries';
-import { categoryChoices, choiceLabel } from '../../catalogue/model/categories';
+import { CategoryFilter } from '../../catalogue/components/category-filter';
 import { StatusFilter } from '../../payment-review/components/status-filter';
 import { CategoryCard } from '../components/category-card';
 import { CategoryForm } from '../components/category-form';
@@ -104,23 +103,15 @@ function ProductsView({
           {t('catalogueAdmin.createLink')}
         </Link>
       </p>
-      <div className="w-full sm:w-80">
-        <SelectField
-          label={t('catalogueAdmin.fields.categoryFilter')}
-          value={query.category === null ? '' : String(query.category)}
-          onChange={(event) => {
-            const id = Number(event.target.value);
-            go({ category: id > 0 ? id : null, page: 1 });
-          }}
-        >
-          <option value="">{t('catalogueAdmin.chooseCategory')}</option>
-          {categoryChoices(categories.data ?? []).map((choice) => (
-            <option key={choice.id} value={choice.id}>
-              {choiceLabel(choice)}
-            </option>
-          ))}
-        </SelectField>
-      </div>
+      <CategoryFilter
+        label={t('catalogueAdmin.fields.categoryFilter')}
+        placeholder={t('catalogueAdmin.chooseCategory')}
+        value={query.category}
+        categories={categories.data ?? []}
+        onChange={(category) => {
+          go({ category, page: 1 });
+        }}
+      />
       {query.category === null ? (
         <p className="text-stone-600">{t('catalogueAdmin.chooseCategoryFirst')}</p>
       ) : (
