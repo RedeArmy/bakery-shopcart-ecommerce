@@ -27,7 +27,7 @@ test('the administrator maintains the categories and reads the products and thei
   await form.getByRole('button', { name: 'Crear categoría' }).click();
   const card = main.getByRole('listitem').filter({ hasText: name });
   await expect(card).toBeVisible();
-  await expect(card.getByText('Activo')).toBeVisible();
+  await expect(card.getByText('Activo', { exact: true })).toBeVisible();
 
   // Se edita y se desactiva con confirmación: nunca se borra
   await card.getByRole('button', { name: 'Editar' }).click();

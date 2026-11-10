@@ -52,7 +52,8 @@ test('the administrator creates a product sold by the dozen and by the bag of 6 
 
   // El producto nuevo queda abierto: una sola existencia de 54 unidades y los paquetes de cada empaque
   await expect(dialog).toBeHidden();
-  await expect(main.getByRole('heading', { name })).toBeVisible();
+  // La primera lectura de la categoría y de la ficha puede tardar más si la base de datos está fría
+  await expect(main.getByRole('heading', { name })).toBeVisible({ timeout: 30_000 });
   await expect(main.getByText('Existencia compartida por sus empaques: 54 unidades')).toBeVisible();
   await expect(main.getByText(/9 paquetes de 6 unidades en existencia/)).toBeVisible();
   await expect(main.getByText(/4 paquetes de 12 unidades en existencia/)).toBeVisible();
