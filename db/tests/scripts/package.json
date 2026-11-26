@@ -9,7 +9,7 @@
     "test:coverage": "vitest run --coverage --coverage.reporter=lcov --coverage.reporter=text-summary"
   },
   "dependencies": {
-    "mssql": "^11.0.1"
+    "mssql": "^11.0.3"
   },
   "devDependencies": {
     "@types/mssql": "^9.1.7"
